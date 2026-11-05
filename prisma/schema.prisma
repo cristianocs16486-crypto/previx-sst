@@ -35,10 +35,13 @@ model Epi {
 }
 
 model Extintor {
-  id         String   @id @default(cuid())
-  numero     String
-  tipo       String
-  vencimento String
-  status     String   @default("OK")
-  createdAt  DateTime @default(now())
+  id            String   @id @default(cuid())
+  numero        String
+  tipo          String
+  capacidade    String
+  localizacao   String
+  ultimaRecarga DateTime
+  vencimento    DateTime
+  status        String   @default("OK")
+  createdAt     DateTime @default(now())
 }

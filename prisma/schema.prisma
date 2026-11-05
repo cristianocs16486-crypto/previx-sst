@@ -44,4 +44,28 @@ model Extintor {
   vencimento    DateTime
   status        String   @default("OK")
   createdAt     DateTime @default(now())
+}model Exame {
+  id        String   @id @default(cuid())
+  funcionario String
+  tipo      String
+  data      DateTime @default(now())
+  resultado String   @default("Apto")
+  createdAt DateTime @default(now())
+}
+
+model Inspecao {
+  id        String   @id @default(cuid())
+  local     String
+  tipo      String
+  data      DateTime @default(now())
+  status    String   @default("OK")
+  createdAt DateTime @default(now())
+}
+
+model Documento {
+  id        String   @id @default(cuid())
+  nome      String
+  empresa   String   @default("Sol Nascente")
+  vencimento DateTime
+  createdAt DateTime @default(now())
 }

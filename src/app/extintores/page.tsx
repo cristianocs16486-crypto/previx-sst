@@ -9,7 +9,8 @@ export default function Extintores() {
 
   async function carregar() {
     const r = await fetch("/api/extintores");
-    setLista(await r.json());
+    const data = await r.json();
+    setLista(Array.isArray(data) ? data : []);
   }
   useEffect(() => { carregar(); }, []);
 
@@ -31,20 +32,28 @@ export default function Extintores() {
   }
 
   return (
-    <div style={{ padding: 20, maxWidth: 800, margin: "0 auto" }}>
-      <h1>🧯 Extintores</h1>
-      <form onSubmit={salvar} style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        <input placeholder="Local" value={local} onChange={e => setLocal(e.target.value)} required />
-        <input placeholder="Tipo - ex: PQS 6kg" value={tipo} onChange={e => setTipo(e.target.value)} required />
-        <input type="date" value={validade} onChange={e => setValidade(e.target.value)} required />
-        <button type="submit">Salvar</button>
+    <div className="max-w-5xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">🧯 Extintores</h1>
+
+      <form onSubmit={salvar} className="bg-white rounded-xl shadow p-4 flex flex-wrap gap-3 mb-6">
+        <input className="flex-1 min-w-[160px] border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-orange-500" placeholder="Local - ex: Almoxarifado" value={local} onChange={e => setLocal(e.target.value)} required />
+        <input className="flex-1 min-w-[160px] border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-orange-500" placeholder="Tipo - ex: PQS 6kg" value={tipo} onChange={e => setTipo(e.target.value)} required />
+        <input type="date" className="border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-orange-500" value={validade} onChange={e => setValidade(e.target.value)} required />
+        <button className="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-6 py-2 rounded-lg">Salvar</button>
       </form>
-      {lista.map((x: any) => (
-        <div key={x.id} style={{ display: "flex", justifyContent: "space-between", border: "1px solid #ddd", padding: 10, marginBottom: 8 }}>
-          <span>{x.local} - {x.tipo} - {x.validade}</span>
-          <button onClick={() => excluir(x.id)} style={{ color: "red" }}>Excluir</button>
-        </div>
-      ))}
+
+      <div className="bg-white rounded-xl shadow overflow-hidden">
+        {lista.length === 0 && <p className="p-4 text-gray-500">Nenhum extintor cadastrado ainda.</p>}
+        {lista.map((x: any) => (
+          <div key={x.id} className="flex items-center justify-between px-4 py-3 border-b last:border-0">
+            <div>
+              <p className="font-semibold">{x.local} <span className="text-gray-500 font-normal">- {x.tipo}</span></p>
+              <p className="text-sm text-gray-500">Validade: {x.validade}</p>
+            </div>
+            <button onClick={() => excluir(x.id)} className="text-red-500 hover:text-red-700 text-sm font-medium">Excluir</button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -18,19 +18,23 @@ model Funcionario {
   salario   String?
   pin       String   @default("1234")
   createdAt DateTime @default(now())
+  epis      Epi[]
 }
 
 model Epi {
-  id            String   @id @default(cuid())
-  funcionarioId String
-  nomeEpi       String
-  ca            String
-  data          String
-  pinAssinatura String?
-  assinadoEm    DateTime?
+  id              String      @id @default(cuid())
+  funcionarioId   String
+  funcionario     Funcionario @relation(fields: [funcionarioId], references: [id])
+  nomeEpi         String
+  ca              String
+  data            String
+  pinAssinatura   String?
+  assinadoEm      DateTime?
   funcionarioNome String?
-  createdAt     DateTime @default(now())
-}model Extintor {
+  createdAt       DateTime    @default(now())
+}
+
+model Extintor {
   id         String   @id @default(cuid())
   numero     String
   tipo       String

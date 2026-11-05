@@ -1,0 +1,40 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Funcionario {
+  id        String   @id @default(cuid())
+  nome      String
+  funcao    String
+  cargo     String?
+  cpf       String   @unique
+  telefone  String?
+  whatsapp  String?
+  salario   String?
+  pin       String   @default("1234")
+  createdAt DateTime @default(now())
+}
+
+model Epi {
+  id            String   @id @default(cuid())
+  funcionarioId String
+  nomeEpi       String
+  ca            String
+  data          String
+  pinAssinatura String?
+  assinadoEm    DateTime?
+  funcionarioNome String?
+  createdAt     DateTime @default(now())
+}model Extintor {
+  id         String   @id @default(cuid())
+  numero     String
+  tipo       String
+  vencimento String
+  status     String   @default("OK")
+  createdAt  DateTime @default(now())
+}

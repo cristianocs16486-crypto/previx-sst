@@ -1,28 +1,37 @@
-﻿export const dynamic = 'force-dynamic'
-import { prisma } from '@/lib/prisma'
-import { NextResponse } from 'next/server'
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  try {
-    const data = await prisma.funcionario.findMany({ include: { epis: true }, orderBy: { nome: 'asc' } })
-    return NextResponse.json(data)
-  } catch (e:any) {
-    return NextResponse.json({error: e.message}, {status:500})
-  }
+  const funcionarios = await prisma.funcionario.findMany({
+    include: { epis: true },
+    orderBy: { createdAt: "desc" },
+  });
+  return NextResponse.json(funcionarios);
 }
+
 export async function POST(req: Request) {
-  try {
-    const body = await req.json()
-    console.log('Recebido:', body)
-    const data = await prisma.funcionario.create({ 
-      data: { 
-        nome: body.nome, 
-        funcao: body.funcao 
-      } 
-    })
-    return NextResponse.json(data)
-  } catch (e:any) {
-    console.error(e)
-    return NextResponse.json({error: e.message}, {status:500})
+  const body = await req.json();
+  console.log("Recebido:", body);
+
+  if (!body.nome || !body.funcao || !body.cpf) {
+    return NextResponse.json(
+      { error: "nome, funcao e cpf são obrigatórios" },
+      { status: 400 }
+    );
   }
+
+  const data = await prisma.funcionario.create({
+    data: {
+      nome: body.nome,
+      funcao: body.funcao,
+      cpf: body.cpf,
+      cargo: body.cargo ?? null,
+      telefone: body.telefone ?? null,
+      whatsapp: body.whatsapp ?? null,
+      salario: body.salario ?? null,
+      pin: body.pin ?? "1234",
+    },
+  });
+
+  return NextResponse.json(data);
 }

@@ -13,11 +13,3 @@ export async function POST(req: Request) {
   });
   return Response.json(novo);
 }
-
-export async function DELETE(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
-  if (!id) return Response.json({ error: "Sem id" }, { status: 400 });
-  await prisma.exame.delete({ where: { id } });
-  return Response.json({ ok: true });
-}

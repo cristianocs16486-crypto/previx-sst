@@ -1,71 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
 model Funcionario {
   id        String   @id @default(cuid())
   nome      String
-  funcao    String
+  cpf       String?
   cargo     String?
-  cpf       String   @unique
-  telefone  String?
-  whatsapp  String?
-  salario   String?
-  pin       String   @default("1234")
+  funcao    String?
+  pin       String?
+  setor     String?
+  empresa   String?
+  admissao  String?
   createdAt DateTime @default(now())
-  epis      Epi[]
 }
 
 model Epi {
-  id              String      @id @default(cuid())
-  funcionarioId   String
-  funcionario     Funcionario @relation(fields: [funcionarioId], references: [id])
-  nomeEpi         String
-  ca              String
-  data            String
-  pinAssinatura   String?
-  assinadoEm      DateTime?
-  funcionarioNome String?
-  createdAt       DateTime    @default(now())
+  id         String   @id @default(cuid())
+  nome       String
+  descricao  String?
+  quantidade Int      @default(0)
+  createdAt  DateTime @default(now())
 }
 
 model Extintor {
   id            String   @id @default(cuid())
-  numero        String
   tipo          String
-  capacidade    String
-  localizacao   String
-  ultimaRecarga DateTime
-  vencimento    DateTime
-  status        String   @default("OK")
+  numero        String?
+  capacidade    String?
+  local         String?
+  localizacao   String?
+  status        String?
+  ultimaRecarga String?
+  vencimento    String?
+  validade      String?
   createdAt     DateTime @default(now())
-}model Exame {
-  id        String   @id @default(cuid())
-  funcionario String
-  tipo      String
-  data      DateTime @default(now())
-  resultado String   @default("Apto")
-  createdAt DateTime @default(now())
 }
 
 model Inspecao {
   id        String   @id @default(cuid())
-  local     String
-  tipo      String
-  data      DateTime @default(now())
-  status    String   @default("OK")
+  titulo    String
+  local     String?
+  data      String?
+  status    String?
   createdAt DateTime @default(now())
 }
 
 model Documento {
   id        String   @id @default(cuid())
+  titulo    String
+  tipo      String?
+  arquivo   String?
+  createdAt DateTime @default(now())
+}
+
+model Exame {
+  id          String   @id @default(cuid())
+  funcionario String
+  tipo        String
+  data        String?
+  resultado   String?
+  createdAt   DateTime @default(now())
+}
+
+model Empresa {
+  id        String   @id @default(cuid())
   nome      String
-  empresa   String   @default("Sol Nascente")
-  vencimento DateTime
+  cnpj      String?
+  email     String   @unique
+  senha     String
   createdAt DateTime @default(now())
 }

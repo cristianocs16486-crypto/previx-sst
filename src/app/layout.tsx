@@ -21,6 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <a href="/inspecoes" style={{ color: "white", textDecoration: "none", padding: "8px 12px" }}>📋 Inspeções</a>
               <a href="/documentos" style={{ color: "white", textDecoration: "none", padding: "8px 12px" }}>📄 Documentos</a>
               <a href="/exames" style={{ color: "white", textDecoration: "none", padding: "8px 12px" }}>🩺 Exames</a>
+              <a href="/empresas" style={{ color: "white", textDecoration: "none", padding: "8px 12px" }}>🏢 Empresas</a>
             </nav>
             <button style={{ background: "#ef4444", color: "white", border: 0, padding: "9px 16px", borderRadius: 8, fontWeight: 800, cursor: "pointer" }}>Sair</button>
           </div>

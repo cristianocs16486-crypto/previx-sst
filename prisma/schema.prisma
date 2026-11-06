@@ -53,13 +53,14 @@ model Inspecao {
 
 model Documento {
   id         String   @id @default(cuid())
-  titulo     String
+  nome       String?
+  titulo     String?
+  empresa    String?
   tipo       String?
   arquivo    String?
   vencimento String?
   createdAt  DateTime @default(now())
-}
-model Exame {
+}model Exame {
   id          String   @id @default(cuid())
   funcionario String
   tipo        String

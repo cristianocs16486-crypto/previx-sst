@@ -32,25 +32,25 @@ export default function Extintores() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">🧯 Extintores</h1>
+    <div style={{ maxWidth: 1024, margin: "0 auto", padding: 24, fontFamily: "sans-serif", background: "#f3f4f6", minHeight: "100vh" }}>
+      <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 24, display: "flex", alignItems: "center", gap: 8 }}>🧯 Extintores</h1>
 
-      <form onSubmit={salvar} className="bg-white rounded-xl shadow p-4 flex flex-wrap gap-3 mb-6">
-        <input className="flex-1 min-w-[160px] border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-orange-500" placeholder="Local - ex: Almoxarifado" value={local} onChange={e => setLocal(e.target.value)} required />
-        <input className="flex-1 min-w-[160px] border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-orange-500" placeholder="Tipo - ex: PQS 6kg" value={tipo} onChange={e => setTipo(e.target.value)} required />
-        <input type="date" className="border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-orange-500" value={validade} onChange={e => setValidade(e.target.value)} required />
-        <button className="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-6 py-2 rounded-lg">Salvar</button>
+      <form onSubmit={salvar} style={{ background: "#fff", borderRadius: 16, boxShadow: "0 4px 12px rgba(0,0,0,0.08)", padding: 16, display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
+        <input style={{ flex: 1, minWidth: 160, border: "1px solid #d1d5db", borderRadius: 10, padding: "10px 12px", outline: "none" }} placeholder="Local - ex: Almoxarifado" value={local} onChange={e => setLocal(e.target.value)} required />
+        <input style={{ flex: 1, minWidth: 160, border: "1px solid #d1d5db", borderRadius: 10, padding: "10px 12px", outline: "none" }} placeholder="Tipo - ex: PQS 6kg" value={tipo} onChange={e => setTipo(e.target.value)} required />
+        <input type="date" style={{ border: "1px solid #d1d5db", borderRadius: 10, padding: "10px 12px", outline: "none" }} value={validade} onChange={e => setValidade(e.target.value)} required />
+        <button style={{ background: "#f97316", color: "#fff", fontWeight: 600, padding: "10px 24px", borderRadius: 10, border: "none", cursor: "pointer" }}>Salvar</button>
       </form>
 
-      <div className="bg-white rounded-xl shadow overflow-hidden">
-        {lista.length === 0 && <p className="p-4 text-gray-500">Nenhum extintor cadastrado ainda.</p>}
+      <div style={{ background: "#fff", borderRadius: 16, boxShadow: "0 4px 12px rgba(0,0,0,0.08)", overflow: "hidden" }}>
+        {lista.length === 0 && <p style={{ padding: 16, color: "#6b7280" }}>Nenhum extintor cadastrado ainda.</p>}
         {lista.map((x: any) => (
-          <div key={x.id} className="flex items-center justify-between px-4 py-3 border-b last:border-0">
+          <div key={x.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: "1px solid #f3f4f6" }}>
             <div>
-              <p className="font-semibold">{x.local} <span className="text-gray-500 font-normal">- {x.tipo}</span></p>
-              <p className="text-sm text-gray-500">Validade: {x.validade}</p>
+              <p style={{ fontWeight: 600, margin: 0 }}>{x.local} <span style={{ color: "#6b7280", fontWeight: 400 }}>- {x.tipo}</span></p>
+              <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>Validade: {x.validade}</p>
             </div>
-            <button onClick={() => excluir(x.id)} className="text-red-500 hover:text-red-700 text-sm font-medium">Excluir</button>
+            <button onClick={() => excluir(x.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontWeight: 600, fontSize: 14 }}>Excluir</button>
           </div>
         ))}
       </div>

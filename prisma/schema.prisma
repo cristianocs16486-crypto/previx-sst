@@ -52,13 +52,13 @@ model Inspecao {
 }
 
 model Documento {
-  id        String   @id @default(cuid())
-  titulo    String
-  tipo      String?
-  arquivo   String?
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  titulo     String
+  tipo       String?
+  arquivo    String?
+  vencimento String?
+  createdAt  DateTime @default(now())
 }
-
 model Exame {
   id          String   @id @default(cuid())
   funcionario String

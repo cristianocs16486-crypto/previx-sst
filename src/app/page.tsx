@@ -22,7 +22,6 @@ function gerarSenhaForte() {
   return 'Previx' + s
 }
 
-// SUPER ADMIN - SÓ TU SABE
 const ADMIN = { login: 'cristiano', senha: 'previx123', nome: 'Cristiano', tipo: 'admin', empresa: 'Todas' }
 
 export default function Home() {
@@ -52,18 +51,15 @@ export default function Home() {
     for (const u of urls) {
       try { const r = await fetch(`/api/${u}`); const j = await r.json(); res[u] = Array.isArray(j) ? j : j.data || [] } catch { res[u] = [] }
     }
-    // empresas salvas no navegador - ESSENCIAL pro login funcionar
     try {
       const localEmp = JSON.parse(localStorage.getItem('previx_empresas')||'[]')
       if (localEmp.length) res.empresas = localEmp
-      // se não tem Solnascente, cria ela pra não travar
       if (!localEmp.find((e:any)=>e.login==='solnascente')) {
         const sol = { id: 'sol1', nome: 'Solnascente LTDA', cnpj: '', responsavel: 'Ronaldo', telefone: '82994145622', email: 'Lojas.cs16486@gmail.com', login: 'solnascente', senha: '12345678', status: 'Ativa' }
         if (!res.empresas.find((e:any)=>e.login==='solnascente')) res.empresas.push(sol)
         localStorage.setItem('previx_empresas', JSON.stringify(res.empresas))
       }
     } catch {}
-    // dados de exemplo salvos no navegador
     try {
       const localDados = JSON.parse(localStorage.getItem('previx_dados')||'{}')
       if (localDados.funcionarios) res.funcionarios = localDados.funcionarios
@@ -80,7 +76,6 @@ export default function Home() {
     setErroLogin('')
     const login = loginForm.login.trim().toLowerCase()
     const senha = loginForm.senha.trim()
-    // 1. É o ADMIN?
     if (login === ADMIN.login && senha === ADMIN.senha) {
       const u = ADMIN
       setUsuario(u); localStorage.setItem('previx_session', JSON.stringify(u)); setAba('inicio'); return
@@ -89,7 +84,6 @@ export default function Home() {
       const u = ADMIN
       setUsuario(u); localStorage.setItem('previx_session', JSON.stringify(u)); setAba('inicio'); return
     }
-    // 2. É UMA EMPRESA?
     const emp = (dados.empresas||[]).find((e:any)=> (e.login||'').toLowerCase() === login && (e.senha||'') === senha)
     if (emp) {
       const u = { login: emp.login, senha: emp.senha, nome: emp.responsavel || emp.nome, tipo: 'empresa', empresa: emp.nome, empresaId: emp.id }
@@ -107,7 +101,6 @@ export default function Home() {
     if (aba === 'empresas') {
       setForm({ senha: gerarSenhaForte(), status: 'Ativa', plano: 'Mensal' })
     } else {
-      // se for empresa, já preenche o nome da empresa dela automaticamente
       if (usuario?.tipo === 'empresa') setForm({ empresa: usuario.empresa })
       else setForm({})
     }
@@ -128,7 +121,6 @@ export default function Home() {
       if (!formFinal.login && formFinal.nome) formFinal.login = formFinal.nome.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,12)
       if (!formFinal.senha) formFinal.senha = gerarSenhaForte()
     }
-    // empresa só cadastra pra ela mesma
     if (usuario?.tipo==='empresa') formFinal.empresa = usuario.empresa
 
     const lista = [...(dados[aba]||[])]
@@ -159,14 +151,11 @@ export default function Home() {
     const nd = {...dados, [aba]: novaLista}; setDados(nd); salvarNoNavegador(nd)
   }
 
-  // FILTRO POR EMPRESA - O PULO DO GATO
   function dadosFiltradosPorEmpresa(lista:any[]) {
     if (!usuario) return []
     if (usuario.tipo === 'admin') return lista
-    // empresa só vê o que tem o nome dela no campo empresa, ou se for dado sem empresa ainda, mostra só se for dela
-    // Pra não esconder tudo no começo, se o item não tem campo empresa, considera que é dela se ela acabou de criar
     return lista.filter((it:any)=>{
-      if (!it.empresa) return true // mostra os primeiros testes
+      if (!it.empresa) return true
       return it.empresa.toLowerCase().includes(usuario.empresa.toLowerCase().split(' ')[0].toLowerCase()) || it.empresa.toLowerCase() === usuario.empresa.toLowerCase() || it.nome === usuario.empresa
     })
   }
@@ -176,7 +165,6 @@ export default function Home() {
 
   if (carregando) return <div style={{padding:40, textAlign:'center'}}>Carregando PREVIX...</div>
 
-  // ===== TELA DE LOGIN =====
   if (!usuario) {
     return (
       <div style={{minHeight:'100vh', background:'#0f172a', display:'flex', alignItems:'center', justifyContent:'center', padding:16, fontFamily:'Arial, sans-serif'}}>
@@ -193,17 +181,12 @@ export default function Home() {
             {erroLogin && <div style={{background:'#fee2e2', color:'#b91c1c', padding:10, borderRadius:10, fontSize:13, fontWeight:700}}>{erroLogin}</div>}
             <button onClick={fazerLogin} style={{...btn, background:'#0f172a', color:'white', padding:14, fontSize:15, borderRadius:12}}>Entrar →</button>
           </div>
-          <div style={{background:'#f8fafc', borderRadius:12, padding:12, marginTop:20, fontSize:12, color:'#64748b', lineHeight:1.6}}>
-            <b style={{color:'#0f172a'}}>Teste agora:</b><br/>
-            👨‍💼 Admin: <b>cristiano</b> / <b>previx123</b><br/>
-            🏢 Empresa: <b>solnascente</b> / <b>12345678</b>
-          </div>
+          <p style={{textAlign:'center', fontSize:12, color:'#94a3b8', marginTop:20}}>Esqueceu sua senha? Fale com o suporte PREVIX.</p>
         </div>
       </div>
     )
   }
 
-  // ===== PAINEL LOGADO =====
   const isAdmin = usuario.tipo === 'admin'
   const menuBase = [
     {id:'inicio',label:'Início',icone:'🏠'},

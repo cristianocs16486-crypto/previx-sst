@@ -45,6 +45,8 @@ export default function Home() {
   const [loginForm, setLoginForm] = useState({ login: '', senha: '' })
   const [erroLogin, setErroLogin] = useState('')
   const [carregando, setCarregando] = useState(true)
+  const [subindoArquivo, setSubindoArquivo] = useState(false)
+  const [arquivoNome, setArquivoNome] = useState('')
 
   useEffect(() => {
     const sess = localStorage.getItem('previx_session')
@@ -71,13 +73,52 @@ export default function Home() {
     try {
       const localDados = JSON.parse(localStorage.getItem('previx_dados')||'{}')
       if (localDados.funcionarios) res.funcionarios = localDados.funcionarios
+      if (localDados.documentos) res.documentos = localDados.documentos
+      if (localDados.empresas) res.empresas = localDados.empresas
     } catch {}
     setDados(res)
   }
 
   function salvarNoNavegador(novosDados:any) {
-    localStorage.setItem('previx_empresas', JSON.stringify(novosDados.empresas||[]))
-    localStorage.setItem('previx_dados', JSON.stringify(novosDados))
+    try {
+      localStorage.setItem('previx_empresas', JSON.stringify(novosDados.empresas||[]))
+      localStorage.setItem('previx_dados', JSON.stringify(novosDados))
+    } catch(e) {
+      alert('⚠️ Arquivo muito grande! Tenta um PDF menor que 4MB.')
+    }
+  }
+
+  // UPLOAD DE ARQUIVO - O PULO DO GATO
+  function handleArquivo(e:any) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 4 * 1024 * 1024) { alert('⚠️ Arquivo muito grande! Máximo 4MB. Comprime o PDF e tenta de novo.'); return }
+    setSubindoArquivo(true)
+    setArquivoNome(file.name)
+    const reader = new FileReader()
+    reader.onload = () => {
+      setForm((prev:any)=>({...prev, arquivoNome: file.name, arquivoTipo: file.type || 'application/pdf', arquivoTamanho: file.size, arquivoData: reader.result, titulo: prev.titulo || file.name.replace('.pdf','').replace(/_/g,' ') }))
+      setSubindoArquivo(false)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  function baixarArquivo(item:any) {
+    if (!item.arquivoData) { alert('Esse documento não tem arquivo anexado.'); return }
+    const a = document.createElement('a')
+    a.href = item.arquivoData
+    a.download = item.arquivoNome || `${item.titulo || 'documento'}.pdf`
+    a.click()
+  }
+
+  function verArquivo(item:any) {
+    if (!item.arquivoData) { alert('Esse documento não tem arquivo anexado.'); return }
+    const w = window.open()
+    if (w) {
+      w.document.write(`<iframe src="${item.arquivoData}" style="width:100%;height:100vh;border:none"></iframe>`)
+    } else {
+      baixarArquivo(item)
+    }
   }
 
   function fazerLogin() {
@@ -106,6 +147,7 @@ export default function Home() {
 
   function abrirNovo() {
     setEditando(null)
+    setArquivoNome('')
     if (aba === 'empresas') {
       setForm({ senha: gerarSenhaForte(), status: 'Ativa', plano: 'Mensal' })
     } else {
@@ -114,7 +156,7 @@ export default function Home() {
     }
     setVerSenha(false); setModal(true)
   }
-  function abrirEditar(item:any) { setEditando(item); setForm(item); setVerSenha(false); setModal(true) }
+  function abrirEditar(item:any) { setEditando(item); setForm(item); setArquivoNome(item.arquivoNome||''); setVerSenha(false); setModal(true) }
 
   function copiar(texto:string, id:string) {
     navigator.clipboard.writeText(texto)
@@ -133,21 +175,19 @@ export default function Home() {
     const lista = [...(dados[aba]||[])]
     if (editando) {
       const id = editando.id || editando._id
-      try { await fetch(`/api/${aba}/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(formFinal) }) } catch {}
       const idx = lista.findIndex((x:any)=>(x.id||x._id)===id)
       if (idx>=0) lista[idx] = {...lista[idx], ...formFinal}
       const nd = {...dados, [aba]: lista}; setDados(nd); salvarNoNavegador(nd)
+      try { await fetch(`/api/${aba}/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({titulo: formFinal.titulo, tipo: formFinal.tipo, empresa: formFinal.empresa, vencimento: formFinal.vencimento}) }) } catch {}
     } else {
       const novo = { ...formFinal, id: Date.now().toString(), status: formFinal.status || 'Ativa' }
-      try {
-        const r = await fetch(`/api/${aba}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(novo) })
-        const j = await r.json().catch(()=>null)
-        if (j && (j.id || j._id || j.data)) lista.push(j.data || j); else lista.push(novo)
-      } catch { lista.push(novo) }
+      lista.push(novo)
       const nd = {...dados, [aba]: lista}; setDados(nd); salvarNoNavegador(nd)
+      try { await fetch(`/api/${aba}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({titulo: novo.titulo, tipo: novo.tipo, empresa: novo.empresa, vencimento: novo.vencimento}) }) } catch {}
       if (aba==='empresas') alert(`✅ Empresa criada!\n\nLogin: ${novo.login}\nSenha: ${novo.senha}`)
+      if (aba==='documentos' && novo.arquivoNome) alert(`✅ Documento salvo!\n\n📄 ${novo.arquivoNome}\nAgora aparece na lista pra baixar!`)
     }
-    setModal(false); setForm({}); setEditando(null)
+    setModal(false); setForm({}); setEditando(null); setArquivoNome('')
   }
 
   async function excluir(item:any) {
@@ -218,13 +258,14 @@ export default function Home() {
   const extF = dadosFiltradosPorEmpresa(dados.extintores||[])
   const inspF = dadosFiltradosPorEmpresa(dados.inspecoes||[])
   const docF = dadosFiltradosPorEmpresa(dados.documentos||[])
+  const docsComArquivo = docF.filter((d:any)=>d.arquivoData).length
 
   const cards = [
     { titulo:'Funcionários', valor:funcs.length, sub:'Cadastrados', icone:'👷', cor:'linear-gradient(135deg,#14b8a6,#06b6d4)', aba:'funcionarios' },
     { titulo:"EPI's", valor:episF.length, sub:'Entregues', icone:'🦺', cor:'linear-gradient(135deg,#22c55e,#84cc16)', aba:'epis' },
     { titulo:'Extintores', valor:extF.length, sub:'Cadastrados', icone:'🧯', cor:'linear-gradient(135deg,#3b82f6,#06b6d4)', aba:'extintores' },
     { titulo:'Inspeções', valor:inspF.length, sub:'Realizadas', icone:'📋', cor:'linear-gradient(135deg,#10b981,#14b8a6)', aba:'inspecoes' },
-    { titulo:'Documentos', valor:docF.length, sub:'Cadastrados', icone:'📄', cor:'linear-gradient(135deg,#2563eb,#22d3ee)', aba:'documentos' },
+    { titulo:'Documentos', valor:docF.length, sub:`${docsComArquivo} com PDF`, icone:'📄', cor:'linear-gradient(135deg,#2563eb,#22d3ee)', aba:'documentos' },
   ]
 
   const listaBase = dados[aba]||[]
@@ -273,16 +314,14 @@ export default function Home() {
                 </button>
               ))}
             </div>
-            {isAdmin && (
+            {aba==='inicio' && docF.length>0 && (
               <div style={{background:'white',borderRadius:24,padding:20,border:'1px solid #a7f3d0',marginTop:20}}>
-                <h3 style={{margin:'0 0 12px',fontWeight:900, color:'#0f766e'}}>🏢 Empresas com acesso</h3>
-                {(dados.empresas||[]).slice(0,5).map((e:any)=>(
-                  <div key={e.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderTop:'1px solid #f0fdfa',flexWrap:'wrap',gap:8}}>
-                    <span style={{fontWeight:700}}>{e.nome} <span style={{fontWeight:400,color:'#64748b',fontSize:13}}>• {e.login}</span></span>
-                    <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                      <code style={{background:'#ecfeff',padding:'6px 10px',borderRadius:8,fontSize:13}}>Senha: {e.senha}</code>
-                      <button onClick={()=>copiar(e.senha, e.id)} style={{...btn, background:'linear-gradient(90deg,#0d9488,#2563eb)',color:'white'}}>{senhaCopiada===e.id ? '✅ Copiado!' : '📋 Copiar'}</button>
-                    </div>
+                <h3 style={{margin:'0 0 4px',fontWeight:900, color:'#0f766e'}}>📁 Arquivos recentes</h3>
+                <p style={{margin:'0 0 12px', fontSize:13, color:'#64748b'}}>{docsComArquivo} arquivos salvos • clique para ver ou baixar</p>
+                {docF.slice(-3).reverse().map((d:any)=>(
+                  <div key={d.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderTop:'1px solid #f0fdfa',flexWrap:'wrap',gap:8}}>
+                    <span style={{fontWeight:700}}>📄 {d.titulo} <span style={{fontWeight:400,color:'#64748b',fontSize:13}}>• {d.arquivoNome || 'sem arquivo'}</span></span>
+                    {d.arquivoData && <div style={{display:'flex',gap:8}}><button onClick={()=>verArquivo(d)} style={{...btn, background:'#dbeafe', color:'#1e40af'}}>👁️ Ver</button><button onClick={()=>baixarArquivo(d)} style={{...btn, background:'#dcfce7', color:'#15803d'}}>⬇️ Baixar</button></div>}
                   </div>
                 ))}
               </div>
@@ -295,10 +334,16 @@ export default function Home() {
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:12}}>
               <div>
                 <h2 style={{fontSize:24,fontWeight:900,textTransform:'capitalize',margin:0, color:'#0f172a'}}>{aba} { !isAdmin && <span style={{fontSize:13, fontWeight:400, color:'#0d9488'}}>- só {usuario.empresa}</span>}</h2>
-                <p style={{color:'#64748b',fontSize:14,margin:'4px 0 0'}}>Total: {listaFiltrada.length} registros • <span style={{color:'#16a34a', fontWeight:700}}>● Ativos</span></p>
+                <p style={{color:'#64748b',fontSize:14,margin:'4px 0 0'}}>Total: {listaFiltrada.length} registros {aba==='documentos' && `• ${docsComArquivo} com PDF 📄`}</p>
               </div>
-              <button onClick={abrirNovo} style={{...btn, background:'linear-gradient(90deg,#0d9488,#2563eb)', color:'white', padding:'12px 20px', borderRadius:20, fontSize:14, boxShadow:'0 4px 12px rgba(37,99,235,0.3)'}}>＋ Adicionar</button>
+              <button onClick={abrirNovo} style={{...btn, background:'linear-gradient(90deg,#0d9488,#2563eb)', color:'white', padding:'12px 20px', borderRadius:20, fontSize:14, boxShadow:'0 4px 12px rgba(37,99,235,0.3)'}}>{aba==='documentos' ? '📎 Subir Documento' : '＋ Adicionar'}</button>
             </div>
+            {aba==='documentos' && (
+              <div style={{background:'#f0fdfa', border:'2px dashed #5eead4', borderRadius:16, padding:16, marginTop:16, textAlign:'center'}}>
+                <div style={{fontWeight:800, color:'#0f766e'}}>📁 Pasta de Arquivos • {usuario.empresa}</div>
+                <div style={{fontSize:13, color:'#64748b', marginTop:4}}>Aqui ficam todos os PDFs, PGR, PCMSO, ASO, laudos... Clique em <b>📎 Subir Documento</b> e escolha o arquivo da sua máquina. Máx 4MB por arquivo.</div>
+              </div>
+            )}
             <input placeholder={`🔍 Buscar em ${aba}...`} value={busca} onChange={e=>setBusca(e.target.value)} style={{...input, marginTop:16, background:'#f0fdfa'}} />
             <div style={{marginTop:16, display:'flex', flexDirection:'column', gap:12}}>
               {listaFiltrada.map((item:any,i:number)=>{
@@ -306,13 +351,21 @@ export default function Home() {
                 return (
                 <div key={item.id||item._id||i} style={{border:'1px solid #e0f2fe',borderRadius:20,padding:16,display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap', background:'linear-gradient(135deg,#ffffff,#f0fdfa)'}}>
                   <div style={{display:'flex', gap:14, alignItems:'center', flex:1, minWidth:220}}>
-                    <div style={{width:52,height:52,borderRadius:16,background:corAvatar, color:'white', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:900, fontSize:16, flexShrink:0}}>{iniciais(item.nome || item.titulo || item.localizacao || '??')}</div>
+                    <div style={{width:52,height:52,borderRadius:16,background:corAvatar, color:'white', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:900, fontSize:16, flexShrink:0}}>{aba==='documentos' ? '📄' : iniciais(item.nome || item.titulo || item.localizacao || '??')}</div>
                     <div style={{flex:1}}>
                       <div style={{fontWeight:900, fontSize:16, color:'#0f172a'}}>{item.nome || item.titulo || item.localizacao || 'Registro'}</div>
                       <div style={{fontSize:13,color:'#64748b', marginTop:2}}>
                         {aba==='empresas' ? `${item.responsavel||''} • ${item.telefone||''} • ${item.email||''}` : CAMPOS[aba]?.slice(1,4).map((c:any)=> item[c.k] ? `${c.l}: ${item[c.k]} • ` : '').join('')}
                       </div>
+                      {aba==='documentos' && item.arquivoNome && <div style={{fontSize:12, color:'#0f766e', fontWeight:700, marginTop:6}}>📎 {item.arquivoNome} • {(item.arquivoTamanho ? (item.arquivoTamanho/1024).toFixed(0)+' KB' : '')}</div>}
+                      {aba==='documentos' && !item.arquivoNome && <div style={{fontSize:12, color:'#94a3b8', marginTop:6}}>Sem arquivo anexado</div>}
                       <span style={{display:'inline-block', marginTop:6, background:'#dcfce7', color:'#15803d', padding:'2px 10px', borderRadius:20, fontSize:11, fontWeight:800}}>● ATIVO</span>
+                      {aba==='documentos' && item.arquivoData && (
+                        <div style={{display:'flex', gap:8, marginTop:10}}>
+                          <button onClick={()=>verArquivo(item)} style={{...btn, background:'#dbeafe', color:'#1e40af'}}>👁️ Ver PDF</button>
+                          <button onClick={()=>baixarArquivo(item)} style={{...btn, background:'#dcfce7', color:'#15803d'}}>⬇️ Baixar</button>
+                        </div>
+                      )}
                       {aba==='empresas' && (
                         <div style={{marginTop:8, display:'flex', gap:8, flexWrap:'wrap', alignItems:'center'}}>
                           <span style={{background:'#e0f2fe',color:'#1d4ed8',padding:'4px 10px',borderRadius:20,fontSize:12,fontWeight:700}}>Login: {item.login}</span>
@@ -329,7 +382,7 @@ export default function Home() {
                 </div>
                 )
               })}
-              {listaFiltrada.length===0 && <p style={{color:'#94a3b8', textAlign:'center', padding:20}}>Nenhum registro ainda. Clica em <b>＋ Adicionar</b>!</p>}
+              {listaFiltrada.length===0 && <p style={{color:'#94a3b8', textAlign:'center', padding:20}}>{aba==='documentos' ? '📁 Pasta vazia! Clica em 📎 Subir Documento e manda o primeiro PDF!' : 'Nenhum registro ainda. Clica em ＋ Adicionar!'}</p>}
             </div>
           </div>
         )}
@@ -338,7 +391,7 @@ export default function Home() {
       {modal && (
         <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:100, padding:16}}>
           <div style={{background:'white', borderRadius:24, padding:24, width:'100%', maxWidth:480, maxHeight:'90vh', overflowY:'auto'}}>
-            <h3 style={{margin:'0 0 16px', fontSize:20, fontWeight:900, color:'#0f766e'}}>{editando ? '✏️ Editar' : '＋ Adicionar'} - {aba}</h3>
+            <h3 style={{margin:'0 0 16px', fontSize:20, fontWeight:900, color:'#0f766e'}}>{editando ? '✏️ Editar' : aba==='documentos' ? '📎 Subir Documento' : '＋ Adicionar'} - {aba}</h3>
             <div style={{display:'flex', flexDirection:'column', gap:12}}>
               {(CAMPOS[aba]||[]).map((c:any)=>{
                 if (c.k==='senha') return (
@@ -364,6 +417,18 @@ export default function Home() {
                   </div>
                 )
               })}
+
+              {aba==='documentos' && (
+                <div style={{background:'#f0fdfa', border:'2px dashed #5eead4', borderRadius:16, padding:16, textAlign:'center'}}>
+                  <div style={{fontWeight:800, color:'#0f766e', marginBottom:8}}>📁 Subir arquivo da máquina</div>
+                  <label style={{display:'block', background:'linear-gradient(90deg,#0d9488,#2563eb)', color:'white', padding:'12px', borderRadius:12, fontWeight:800, cursor:'pointer'}}>
+                    {subindoArquivo ? '⏳ Subindo...' : arquivoNome ? `✅ ${arquivoNome}` : '📎 Clique para escolher PDF / Imagem / Word'}
+                    <input type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" onChange={handleArquivo} style={{display:'none'}} />
+                  </label>
+                  {form.arquivoNome && <div style={{fontSize:12, color:'#15803d', fontWeight:700, marginTop:8}}>✅ Arquivo pronto: {form.arquivoNome}</div>}
+                  <div style={{fontSize:11, color:'#64748b', marginTop:6}}>Aceita PDF, foto, Word • Máx 4MB • Fica salvo na pasta da empresa</div>
+                </div>
+              )}
             </div>
             {aba==='empresas' && form.login && form.senha && (
               <div style={{background:'#ecfdf5', borderRadius:12, padding:12, marginTop:16, fontSize:13}}>

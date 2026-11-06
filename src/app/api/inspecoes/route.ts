@@ -1,23 +1,31 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+
 export async function GET() {
   const lista = await prisma.inspecao.findMany({ orderBy: { createdAt: 'desc' } })
   return NextResponse.json(lista)
 }
+
 export async function POST(req: Request) {
   try {
     const b = await req.json()
-    if (!b.local || !b.tipo) return NextResponse.json({ error: 'Preencha local e tipo' }, { status: 400 })
+
+    if (!b.titulo && !b.local) {
+      return NextResponse.json({ error: 'Preencha título e local' }, { status: 400 })
+    }
+
     const novo = await prisma.inspecao.create({
-      data: { local: b.local, tipo: b.tipo, data: b.data ? new Date(b.data) : new Date(), status: b.status || 'OK' }
+      data: {
+        titulo: b.titulo || b.local || 'Inspeção',
+        local: b.local || '',
+        data: b.data || '',
+        status: b.status || 'Pendente',
+        observacao: b.observacao || ''
+      }
     })
+
     return NextResponse.json(novo)
-  } catch (e: any) { return NextResponse.json({ error: e.message }, { status: 500 }) }
-}
-export async function DELETE(req: Request) {
-  const { searchParams } = new URL(req.url)
-  const id = searchParams.get('id')
-  if (!id) return NextResponse.json({ error: 'Sem id' }, { status: 400 })
-  await prisma.inspecao.delete({ where: { id } })
-  return NextResponse.json({ ok: true })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
 }

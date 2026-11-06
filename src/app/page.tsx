@@ -10,10 +10,7 @@ export default function Home() {
       const urls = ['funcionarios', 'epis', 'extintores', 'inspecoes', 'documentos']
       const res: any = {}
       for (const u of urls) {
-        try {
-          const r = await fetch(`/api/${u}`)
-          res[u] = await r.json()
-        } catch { res[u] = [] }
+        try { const r = await fetch(`/api/${u}`); res[u] = await r.json() } catch { res[u] = [] }
       }
       setDados(res)
     }
@@ -21,11 +18,11 @@ export default function Home() {
   }, [])
 
   const cards = [
-    { titulo: 'Funcionários', valor: dados.funcionarios?.length || 0, sub: 'Cadastrados', icone: '👷', cor: 'bg-blue-500', aba: 'funcionarios' },
-    { titulo: "EPI's", valor: dados.epis?.length || 0, sub: 'Entregues', icone: '🦺', cor: 'bg-orange-500', aba: 'epis' },
-    { titulo: 'Extintores', valor: dados.extintores?.length || 0, sub: 'Cadastrados', icone: '🧯', cor: 'bg-red-500', aba: 'extintores' },
-    { titulo: 'Inspeções', valor: dados.inspecoes?.length || 0, sub: 'Realizadas', icone: '📋', cor: 'bg-emerald-500', aba: 'inspecoes' },
-    { titulo: 'Documentos', valor: dados.documentos?.length || 0, sub: 'Cadastrados', icone: '📄', cor: 'bg-violet-500', aba: 'documentos' },
+    { titulo: 'Funcionários', valor: dados.funcionarios?.length || 0, sub: 'Cadastrados', icone: '👷', cor: '#3b82f6', aba: 'funcionarios' },
+    { titulo: "EPI's", valor: dados.epis?.length || 0, sub: 'Entregues', icone: '🦺', cor: '#f97316', aba: 'epis' },
+    { titulo: 'Extintores', valor: dados.extintores?.length || 0, sub: 'Cadastrados', icone: '🧯', cor: '#ef4444', aba: 'extintores' },
+    { titulo: 'Inspeções', valor: dados.inspecoes?.length || 0, sub: 'Realizadas', icone: '📋', cor: '#10b981', aba: 'inspecoes' },
+    { titulo: 'Documentos', valor: dados.documentos?.length || 0, sub: 'Cadastrados', icone: '📄', cor: '#8b5cf6', aba: 'documentos' },
   ]
 
   const menu = [
@@ -40,69 +37,69 @@ export default function Home() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#f1f5f9]">
-      <header className="bg-[#0f172a] text-white sticky top-0 z-50 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+    <div style={{ minHeight: '100vh', background: '#f1f5f9', fontFamily: 'Arial, sans-serif' }}>
+      {/* HEADER */}
+      <header style={{ background: '#0f172a', color: 'white', padding: '12px 16px', position: 'sticky', top: 0, zIndex: 50 }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <img src="/logo.png" alt="PREVIX" style={{ width: 44, height: 44, objectFit: 'contain', background: 'white', borderRadius: 12, padding: 4 }} />
             <div>
-              <h1 className="font-black text-xl leading-none tracking-wide">PREVIX</h1>
-              <p className="text-[10px] tracking-[0.2em] text-orange-400 font-bold">PREVENÇÃO QUE PROTEGE</p>
+              <div style={{ fontWeight: 900, fontSize: 20, letterSpacing: 1, lineHeight: 1 }}>PREVIX</div>
+              <div style={{ fontSize: 10, letterSpacing: 2, color: '#fb923c', fontWeight: 700 }}>PREVENÇÃO QUE PROTEGE</div>
             </div>
           </div>
-          <button className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-full text-sm font-bold">Sair</button>
+          <button style={{ background: '#ef4444', color: 'white', border: 'none', padding: '8px 16px', borderRadius: 20, fontWeight: 700, cursor: 'pointer' }}>Sair</button>
         </div>
-        <div className="max-w-7xl mx-auto px-4 pb-3 flex gap-2 overflow-x-auto">
+        <div style={{ maxWidth: 1200, margin: '12px auto 0', display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
           {menu.map(m => (
-            <button key={m.id} onClick={() => setAba(m.id)}
-              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold ${aba === m.id ? 'bg-white text-slate-900' : 'bg-white/10 text-white/80'}`}>
+            <button key={m.id} onClick={() => setAba(m.id)} style={{ whiteSpace: 'nowrap', padding: '8px 16px', borderRadius: 20, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 14, background: aba === m.id ? 'white' : 'rgba(255,255,255,0.1)', color: aba === m.id ? '#0f172a' : 'white' }}>
               {m.icone} {m.label}
             </button>
           ))}
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main style={{ maxWidth: 1200, margin: '0 auto', padding: 16 }}>
         {aba === 'inicio' && (
           <>
-            <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border flex flex-col md:flex-row justify-between gap-4">
+            <div style={{ background: 'white', borderRadius: 24, padding: 24, display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', border: '1px solid #e2e8f0' }}>
               <div>
-                <p className="text-xs font-bold tracking-widest text-slate-400">SUPER ADMIN • VOCÊ ESTÁ VENDO:</p>
-                <h2 className="text-3xl md:text-4xl font-black mt-2">Olá, Cristiano! 👋</h2>
-                <p className="text-slate-500 mt-2">Bem-vindo de volta ao seu painel SST • <b className="text-slate-800">Sol Nascente Construtora</b></p>
-                <span className="inline-block mt-4 bg-orange-50 text-orange-700 border border-orange-100 px-3 py-1.5 rounded-full text-xs font-bold">Sol Nascente Construtora</span>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: '#94a3b8' }}>SUPER ADMIN • VOCÊ ESTÁ VENDO:</div>
+                <h2 style={{ fontSize: 32, fontWeight: 900, margin: '8px 0 0' }}>Olá, Cristiano! 👋</h2>
+                <p style={{ color: '#64748b' }}>Bem-vindo de volta ao seu painel SST • <b style={{ color: '#1e293b' }}>Sol Nascente Construtora</b></p>
+                <span style={{ display: 'inline-block', marginTop: 12, background: '#fff7ed', color: '#c2410c', border: '1px solid #ffedd5', padding: '6px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700 }}>Sol Nascente Construtora</span>
               </div>
-              <div className="flex items-start">
-                <span className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-full text-sm font-bold">✅ PREVIX Completo!</span>
-              </div>
+              <span style={{ background: '#ecfdf5', color: '#047857', padding: '8px 16px', borderRadius: 20, fontSize: 14, fontWeight: 700, height: 'fit-content' }}>✅ PREVIX Completo!</span>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mt-6">
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginTop: 20 }}>
               {cards.map(c => (
-                <button key={c.titulo} onClick={() => setAba(c.aba)} className="bg-white rounded-3xl p-5 text-left shadow-sm border hover:shadow-lg">
-                  <div className={`w-12 h-12 ${c.cor} rounded-2xl flex items-center justify-center text-2xl`}>{c.icone}</div>
-                  <p className="text-slate-500 text-sm mt-4">{c.titulo}</p>
-                  <p className="text-4xl font-black mt-1">{c.valor}</p>
-                  <p className="text-xs text-slate-400 mt-1">{c.sub}</p>
+                <button key={c.titulo} onClick={() => setAba(c.aba)} style={{ background: 'white', borderRadius: 24, padding: 20, textAlign: 'left', border: '1px solid #e2e8f0', cursor: 'pointer' }}>
+                  <div style={{ width: 48, height: 48, background: c.cor, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>{c.icone}</div>
+                  <div style={{ color: '#64748b', fontSize: 14, marginTop: 16 }}>{c.titulo}</div>
+                  <div style={{ fontSize: 36, fontWeight: 900 }}>{c.valor}</div>
+                  <div style={{ fontSize: 12, color: '#94a3b8' }}>{c.sub}</div>
                 </button>
               ))}
             </div>
           </>
         )}
+
         {aba !== 'inicio' && (
-          <div className="bg-white rounded-3xl p-6 shadow-sm border">
-            <h2 className="text-2xl font-black capitalize">{aba}</h2>
-            <p className="text-slate-500 text-sm mt-2">Total: {dados[aba]?.length || 0} registros</p>
-            <div className="mt-4 space-y-3">
+          <div style={{ background: 'white', borderRadius: 24, padding: 24, border: '1px solid #e2e8f0' }}>
+            <h2 style={{ fontSize: 24, fontWeight: 900, textTransform: 'capitalize', margin: 0 }}>{aba}</h2>
+            <p style={{ color: '#64748b', fontSize: 14 }}>Total: {dados[aba]?.length || 0} registros</p>
+            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
               {(dados[aba] || []).map((item: any, i: number) => (
-                <div key={i} className="border rounded-2xl p-4 flex justify-between">
+                <div key={i} style={{ border: '1px solid #e2e8f0', borderRadius: 16, padding: 16, display: 'flex', justifyContent: 'space-between' }}>
                   <div>
-                    <p className="font-bold">{item.nome || item.titulo || item.localizacao || item.tipo || 'Registro'}</p>
-                    <p className="text-sm text-slate-500">{item.cargo || item.empresa || item.local || item.capacidade || ''}</p>
+                    <div style={{ fontWeight: 700 }}>{item.nome || item.titulo || item.localizacao || item.tipo || 'Registro'}</div>
+                    <div style={{ fontSize: 14, color: '#64748b' }}>{item.cargo || item.empresa || item.local || item.capacidade || ''}</div>
                   </div>
-                  <span className="text-xs bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full h-fit font-bold">{item.status || 'OK'}</span>
+                  <span style={{ fontSize: 12, background: '#ecfdf5', color: '#047857', padding: '4px 12px', borderRadius: 20, height: 'fit-content', fontWeight: 700 }}>{item.status || 'OK'}</span>
                 </div>
               ))}
-              {(!dados[aba] || dados[aba].length === 0) && <p className="text-slate-400">Nenhum registro ainda.</p>}
+              {(!dados[aba] || dados[aba].length === 0) && <p style={{ color: '#94a3b8' }}>Nenhum registro ainda.</p>}
             </div>
           </div>
         )}

@@ -41,23 +41,21 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#f1f5f9]">
-      {/* HEADER NOVO */}
       <header className="bg-[#0f172a] text-white sticky top-0 z-50 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="PREVIX" className="h-11 w-11 object-contain bg-white rounded-xl p-1" />
+            <img src="/logo.png" alt="PREVIX" style={{ width: 44, height: 44, objectFit: 'contain', background: 'white', borderRadius: 12, padding: 4 }} />
             <div>
               <h1 className="font-black text-xl leading-none tracking-wide">PREVIX</h1>
               <p className="text-[10px] tracking-[0.2em] text-orange-400 font-bold">PREVENÇÃO QUE PROTEGE</p>
             </div>
           </div>
-          <button className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-full text-sm font-bold transition">Sair</button>
+          <button className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-full text-sm font-bold">Sair</button>
         </div>
-        {/* MENU */}
         <div className="max-w-7xl mx-auto px-4 pb-3 flex gap-2 overflow-x-auto">
           {menu.map(m => (
             <button key={m.id} onClick={() => setAba(m.id)}
-              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition ${aba === m.id ? 'bg-white text-slate-900' : 'bg-white/10 text-white/80 hover:bg-white/20'}`}>
+              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold ${aba === m.id ? 'bg-white text-slate-900' : 'bg-white/10 text-white/80'}`}>
               {m.icone} {m.label}
             </button>
           ))}
@@ -67,7 +65,6 @@ export default function Home() {
       <main className="max-w-7xl mx-auto px-4 py-6">
         {aba === 'inicio' && (
           <>
-            {/* BOAS VINDAS */}
             <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border flex flex-col md:flex-row justify-between gap-4">
               <div>
                 <p className="text-xs font-bold tracking-widest text-slate-400">SUPER ADMIN • VOCÊ ESTÁ VENDO:</p>
@@ -79,11 +76,9 @@ export default function Home() {
                 <span className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-full text-sm font-bold">✅ PREVIX Completo!</span>
               </div>
             </div>
-
-            {/* CARDS */}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mt-6">
               {cards.map(c => (
-                <button key={c.titulo} onClick={() => setAba(c.aba)} className="bg-white rounded-3xl p-5 text-left shadow-sm border hover:shadow-lg hover:-translate-y-1 transition text-left">
+                <button key={c.titulo} onClick={() => setAba(c.aba)} className="bg-white rounded-3xl p-5 text-left shadow-sm border hover:shadow-lg">
                   <div className={`w-12 h-12 ${c.cor} rounded-2xl flex items-center justify-center text-2xl`}>{c.icone}</div>
                   <p className="text-slate-500 text-sm mt-4">{c.titulo}</p>
                   <p className="text-4xl font-black mt-1">{c.valor}</p>
@@ -91,14 +86,8 @@ export default function Home() {
                 </button>
               ))}
             </div>
-
-            <div className="bg-white rounded-3xl p-5 mt-6 shadow-sm border">
-              <p className="font-bold">🎉 Todas as abas funcionando</p>
-              <p className="text-sm text-slate-500 mt-1">Clique em um card acima para ver os detalhes.</p>
-            </div>
           </>
         )}
-
         {aba !== 'inicio' && (
           <div className="bg-white rounded-3xl p-6 shadow-sm border">
             <h2 className="text-2xl font-black capitalize">{aba}</h2>

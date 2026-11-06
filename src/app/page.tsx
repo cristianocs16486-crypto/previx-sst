@@ -152,7 +152,7 @@ export default function Home() {
     setEditando(null); setArquivoNome(''); setPastaSelecionadaForm(pastaAtual!=='Todas' ? pastaAtual : 'PGR')
     if (aba === 'empresas') setForm({ senha: gerarSenhaForte(), status: 'Ativa', plano: 'Mensal' })
     else if (usuario?.tipo === 'empresa') setForm({ empresa: usuario.empresa, pasta: pastaAtual!=='Todas' ? pastaAtual : 'PGR', tipo: pastaAtual!=='Todas' ? pastaAtual : 'PGR' })
-    else setForm({ pasta: pastaAtual!=='Todas' ? pastaAtual : 'PGR', tipo: pastaAtual!=='Todas' ? pastaAtual : 'PGR' })
+    else setForm({ pasta: pastaAtual!=='Todas' ? pastaAtual : 'PGR', tipo: pastaAtual!=='Todas' ? pastaAtual : 'PGR', empresa: '' })
     setVerSenha(false); setModal(true)
   }
   function abrirEditar(item:any) { setEditando(item); setForm(item); setArquivoNome(item.arquivoNome||''); setPastaSelecionadaForm(item.pasta||item.tipo||'Outros'); setVerSenha(false); setModal(true) }
@@ -166,6 +166,13 @@ export default function Home() {
       formFinal.pasta = pastaSelecionadaForm || formFinal.pasta || 'Outros'
       formFinal.tipo = formFinal.pasta
       if (!formFinal.titulo) { alert('⚠️ Coloca o título do documento!'); return }
+      // TRAVA: SE FOR ADMIN E NÃO ESCOLHEU EMPRESA, PERGUNTA
+      if (usuario?.tipo === 'admin' && !formFinal.empresa) {
+        const empEscolhida = prompt('Qual empresa é dona desse arquivo?\n\nDigite igual está cadastrado. Ex: Solnascente LTDA\n\nOu deixe vazio para ser arquivo GERAL (só admin vê)')
+        if (empEscolhida) formFinal.empresa = empEscolhida
+        else formFinal.empresa = 'GERAL - Só Admin'
+      }
+      if (usuario?.tipo === 'empresa') formFinal.empresa = usuario.empresa
     }
     if (aba==='empresas') {
       if (!formFinal.login && formFinal.nome) formFinal.login = formFinal.nome.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,12)
@@ -183,7 +190,7 @@ export default function Home() {
       lista.push(novo)
       const nd = {...dados, [aba]: lista}; setDados(nd); salvarNoNavegador(nd)
       if (aba==='empresas') alert(`✅ Empresa criada!\n\nLogin: ${novo.login}\nSenha: ${novo.senha}`)
-      if (aba==='documentos') alert(`✅ Salvo na pasta ${novo.pasta}!\n\n📄 ${novo.arquivoNome || novo.titulo}`)
+      if (aba==='documentos') alert(`✅ Salvo na pasta ${novo.pasta}!\n🏢 Empresa: ${novo.empresa}\n📄 ${novo.arquivoNome || novo.titulo}`)
     }
     setModal(false); setForm({}); setEditando(null); setArquivoNome('')
   }
@@ -196,12 +203,21 @@ export default function Home() {
     const nd = {...dados, [aba]: novaLista}; setDados(nd); salvarNoNavegador(nd)
   }
 
+  // *** TRAVA DE EMPRESA - AQUI É O PULO DO GATO ***
   function dadosFiltradosPorEmpresa(lista:any[]) {
     if (!usuario) return []
     if (usuario.tipo === 'admin') return lista
+    // EMPRESA: só vê o que é DELA. Documento sem empresa ou GERAL não aparece pra ela.
     return lista.filter((it:any)=>{
-      if (!it.empresa) return true
-      return it.empresa.toLowerCase().includes(usuario.empresa.toLowerCase().split(' ')[0].toLowerCase()) || it.empresa.toLowerCase() === usuario.empresa.toLowerCase() || it.nome === usuario.empresa
+      if (!it.empresa) return false
+      const empItem = it.empresa.toLowerCase()
+      const empUser = usuario.empresa.toLowerCase()
+      if (empItem.includes('geral')) return false
+      if (empItem === empUser) return true
+      // Solnascente LTDA vs Solnascente
+      if (empItem.includes(empUser.split(' ')[0].toLowerCase()) && empUser.split(' ')[0].length > 3) return true
+      if (empUser.includes(empItem.split(' ')[0].toLowerCase()) && empItem.split(' ')[0].length > 3) return true
+      return false
     })
   }
 
@@ -316,7 +332,7 @@ export default function Home() {
             </div>
             <div style={{background:'white',borderRadius:24,padding:20,border:'1px solid #a7f3d0',marginTop:20}}>
               <h3 style={{margin:'0 0 4px',fontWeight:900, color:'#0f766e'}}>📁 Pastas de Documentos • {usuario.empresa}</h3>
-              <p style={{margin:'0 0 12px', fontSize:13, color:'#64748b'}}>Nada solto! Cada arquivo dentro da sua pasta.</p>
+              <p style={{margin:'0 0 12px', fontSize:13, color:'#64748b'}}>{isAdmin ? 'Você vê tudo. As empresas só veem o que é delas.' : 'Só os arquivos da sua empresa. Nada de outra empresa aparece aqui.'}</p>
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:12}}>
                 {PASTAS.map(p=>(
                   <button key={p.id} onClick={()=>{setAba('documentos'); setPastaAtual(p.id)}} style={{textAlign:'left', background:'#f0fdfa', border:'1px solid #ccfbf1', borderRadius:16, padding:14, cursor:'pointer'}}>
@@ -334,7 +350,7 @@ export default function Home() {
           <div style={{background:'white',borderRadius:24,padding:24,border:'1px solid #a7f3d0'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:12}}>
               <div>
-                <h2 style={{fontSize:24,fontWeight:900,textTransform:'capitalize',margin:0, color:'#0f172a'}}>{aba} {aba==='documentos' && pastaAtual!=='Todas' && <span style={{fontSize:14, color:'#0d9488'}}>• 📁 {pastaAtual}</span>}</h2>
+                <h2 style={{fontSize:24,fontWeight:900,textTransform:'capitalize',margin:0, color:'#0f172a'}}>{aba} {aba==='documentos' && pastaAtual!=='Todas' && <span style={{fontSize:14, color:'#0d9488'}}>• 📁 {pastaAtual}</span>} {!isAdmin && <span style={{fontSize:13, fontWeight:400, color:'#0d9488'}}>- só {usuario.empresa}</span>}</h2>
                 <p style={{color:'#64748b',fontSize:14,margin:'4px 0 0'}}>Total: {listaFiltrada.length} registros {aba==='documentos' && `• ${docsComArquivo} com PDF 📄`}</p>
               </div>
               <button onClick={abrirNovo} style={{...btn, background:'linear-gradient(90deg,#0d9488,#2563eb)', color:'white', padding:'12px 20px', borderRadius:20, fontSize:14}}>{aba==='documentos' ? `📎 Subir em ${pastaAtual==='Todas' ? 'PGR' : pastaAtual}` : '＋ Adicionar'}</button>
@@ -351,6 +367,7 @@ export default function Home() {
                 </div>
                 <div style={{background:'#f0fdfa', border:'2px dashed #5eead4', borderRadius:16, padding:14, marginTop:12, textAlign:'center', fontSize:13, color:'#64748b'}}>
                   {pastaAtual==='Todas' ? '📂 Você está vendo TODAS as pastas. Clique em uma pasta acima pra filtrar.' : `📁 Você está dentro da pasta ${pastaAtual} • Tudo que subir agora vai pra essa pasta.`}
+                  {!isAdmin && <div style={{fontWeight:800, color:'#15803d', marginTop:4}}>🔒 Você só vê arquivos da {usuario.empresa}</div>}
                 </div>
               </div>
             )}
@@ -367,9 +384,9 @@ export default function Home() {
                     <div style={{flex:1}}>
                       <div style={{fontWeight:900, fontSize:16, color:'#0f172a'}}>{item.nome || item.titulo || item.localizacao || 'Registro'}</div>
                       <div style={{fontSize:13,color:'#64748b', marginTop:2}}>
-                        {aba==='empresas' ? `${item.responsavel||''} • ${item.telefone||''} • ${item.email||''}` : aba==='documentos' ? `Pasta: ${pastaItem} • Venc: ${item.vencimento||'-'}` : CAMPOS[aba]?.slice(1,4).map((c:any)=> item[c.k] ? `${c.l}: ${item[c.k]} • ` : '').join('')}
+                        {aba==='empresas' ? `${item.responsavel||''} • ${item.telefone||''} • ${item.email||''}` : aba==='documentos' ? `Pasta: ${pastaItem} • Empresa: ${item.empresa||'-'} • Venc: ${item.vencimento||'-'}` : CAMPOS[aba]?.slice(1,4).map((c:any)=> item[c.k] ? `${c.l}: ${item[c.k]} • ` : '').join('')}
                       </div>
-                      {aba==='documentos' && <span style={{display:'inline-block', marginTop:6, background:'#e0f2fe', color:'#1e40af', padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:800}}>📁 {pastaItem}</span>}
+                      {aba==='documentos' && <span style={{display:'inline-block', marginTop:6, background:'#e0f2fe', color:'#1e40af', padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:800}}>📁 {pastaItem} • 🏢 {item.empresa||'-'}</span>}
                       {aba==='documentos' && item.arquivoNome && <div style={{fontSize:12, color:'#0f766e', fontWeight:700, marginTop:6}}>📎 {item.arquivoNome}</div>}
                       {aba==='documentos' && item.arquivoData && (
                         <div style={{display:'flex', gap:8, marginTop:10, flexWrap:'wrap'}}>
@@ -396,7 +413,7 @@ export default function Home() {
                 </div>
                 )
               })}
-              {listaFiltrada.length===0 && <p style={{color:'#94a3b8', textAlign:'center', padding:20}}>{aba==='documentos' ? `📁 Pasta ${pastaAtual} vazia! Clica em 📎 Subir em ${pastaAtual} e manda o primeiro arquivo!` : 'Nenhum registro ainda.'}</p>}
+              {listaFiltrada.length===0 && <p style={{color:'#94a3b8', textAlign:'center', padding:20}}>{aba==='documentos' ? `📁 Pasta ${pastaAtual} vazia! ${!isAdmin ? `Nenhum arquivo da ${usuario.empresa} aqui ainda.` : `Clica em 📎 Subir em ${pastaAtual} e manda o primeiro arquivo!`}` : 'Nenhum registro ainda.'}</p>}
             </div>
           </div>
         )}
@@ -408,6 +425,14 @@ export default function Home() {
             <h3 style={{margin:'0 0 16px', fontSize:20, fontWeight:900, color:'#0f766e'}}>{editando ? '✏️ Editar' : aba==='documentos' ? '📎 Subir Documento' : '＋ Adicionar'} - {aba}</h3>
             <div style={{display:'flex', flexDirection:'column', gap:12}}>
               {(CAMPOS[aba]||[]).map((c:any)=>{
+                if (c.k==='empresa' && usuario?.tipo==='empresa') return null
+                if (c.k==='empresa' && usuario?.tipo==='admin' && aba==='documentos') return (
+                  <div key={c.k}>
+                    <label style={{fontSize:13, fontWeight:700}}>🏢 {c.l} - Dona do arquivo</label>
+                    <input value={form[c.k]||''} onChange={e=>setForm({...form, [c.k]: e.target.value})} placeholder="Ex: Solnascente LTDA" style={{...input, marginTop:4}} />
+                    <div style={{fontSize:11, color:'#64748b', marginTop:4}}>Se deixar vazio, vira GERAL (só tu como admin vê). Se colocar Solnascente LTDA, só a Solnascente vê.</div>
+                  </div>
+                )
                 if (c.k==='senha') return (
                   <div key={c.k}>
                     <label style={{fontSize:13, fontWeight:700}}>🔐 {c.l} - Única por empresa</label>
@@ -441,7 +466,7 @@ export default function Home() {
                         <button key={p.id} type="button" onClick={()=>setPastaSelecionadaForm(p.id)} style={{padding:'10px 6px', borderRadius:12, border: pastaSelecionadaForm===p.id ? `2px solid ${p.cor}` : '1px solid #e2e8f0', background: pastaSelecionadaForm===p.id ? '#f0fdfa' : 'white', cursor:'pointer', fontWeight:800, fontSize:12}}>{p.icone} {p.nome}<br/><span style={{fontSize:10, color:'#64748b', fontWeight:400}}>{contarPasta(p.id)} arq.</span></button>
                       ))}
                     </div>
-                    <div style={{fontSize:12, color:'#0f766e', fontWeight:700, marginTop:8}}>✅ Vai salvar em: 📁 {pastaSelecionadaForm}</div>
+                    <div style={{fontSize:12, color:'#0f766e', fontWeight:700, marginTop:8}}>✅ Vai salvar em: 📁 {pastaSelecionadaForm} • 🏢 {usuario?.tipo==='empresa' ? usuario.empresa : (form.empresa || 'GERAL - Só Admin')}</div>
                   </div>
                   <div style={{background:'#f0fdfa', border:'2px dashed #5eead4', borderRadius:16, padding:16, textAlign:'center'}}>
                     <div style={{fontWeight:800, color:'#0f766e', marginBottom:8}}>📁 Subir arquivo da máquina</div>

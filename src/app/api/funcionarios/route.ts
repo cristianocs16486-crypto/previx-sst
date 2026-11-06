@@ -19,8 +19,7 @@ export async function POST(req: Request) {
         nome: b.nome,
         cargo: b.cargo || '',
         empresa: b.empresa || 'Sol Nascente',
-        cpf: b.cpf || '',
-        telefone: b.telefone || ''
+        cpf: b.cpf || ''
       }
     })
 

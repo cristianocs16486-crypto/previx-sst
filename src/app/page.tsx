@@ -11,6 +11,14 @@ const CAMPOS: any = {
   empresas: [{k:'nome',l:'Nome da Empresa'},{k:'cnpj',l:'CNPJ'},{k:'responsavel',l:'Responsável'},{k:'telefone',l:'Telefone'},{k:'email',l:'E-mail da Empresa'},{k:'login',l:'Login de Acesso'},{k:'senha',l:'Senha Única'}],
 }
 
+const CORES_CARDS: any = {
+  funcionarios: 'linear-gradient(135deg,#14b8a6,#06b6d4)',
+  epis: 'linear-gradient(135deg,#22c55e,#84cc16)',
+  extintores: 'linear-gradient(135deg,#3b82f6,#06b6d4)',
+  inspecoes: 'linear-gradient(135deg,#10b981,#14b8a6)',
+  documentos: 'linear-gradient(135deg,#2563eb,#22d3ee)',
+}
+
 function gerarSenhaForte() {
   const letras = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ'
   const nums = '23456789'
@@ -122,7 +130,6 @@ export default function Home() {
       if (!formFinal.senha) formFinal.senha = gerarSenhaForte()
     }
     if (usuario?.tipo==='empresa') formFinal.empresa = usuario.empresa
-
     const lista = [...(dados[aba]||[])]
     if (editando) {
       const id = editando.id || editando._id
@@ -160,26 +167,33 @@ export default function Home() {
     })
   }
 
+  function iniciais(nome:string) {
+    if (!nome) return '??'
+    const p = nome.split(' ').filter(Boolean)
+    if (p.length===1) return p[0].slice(0,2).toUpperCase()
+    return (p[0][0]+p[1][0]).toUpperCase()
+  }
+
   const btn = { padding:'8px 14px', borderRadius:10, border:'none', cursor:'pointer', fontWeight:700, fontSize:13 } as any
-  const input = { width:'100%', padding:'12px', borderRadius:12, border:'1px solid #e2e8f0', fontSize:14, boxSizing:'border-box' as any }
+  const input = { width:'100%', padding:'12px', borderRadius:12, border:'1px solid #cbd5e1', fontSize:14, boxSizing:'border-box' as any }
 
   if (carregando) return <div style={{padding:40, textAlign:'center'}}>Carregando PREVIX...</div>
 
   if (!usuario) {
     return (
-      <div style={{minHeight:'100vh', background:'#0f172a', display:'flex', alignItems:'center', justifyContent:'center', padding:16, fontFamily:'Arial, sans-serif'}}>
-        <div style={{background:'white', borderRadius:24, padding:32, width:'100%', maxWidth:420}}>
+      <div style={{minHeight:'100vh', background:'linear-gradient(135deg,#0d9488,#2563eb)', display:'flex', alignItems:'center', justifyContent:'center', padding:16, fontFamily:'Arial, sans-serif'}}>
+        <div style={{background:'white', borderRadius:24, padding:32, width:'100%', maxWidth:420, boxShadow:'0 20px 50px rgba(0,0,0,0.3)'}}>
           <div style={{textAlign:'center'}}>
             <img src="/logo.png" alt="PREVIX" style={{width:80,height:80,objectFit:'contain',background:'white',borderRadius:16,padding:8, border:'1px solid #e2e8f0'}} />
-            <h1 style={{fontSize:32, fontWeight:900, margin:'12px 0 0', letterSpacing:1}}>PREVIX</h1>
-            <p style={{color:'#fb923c', fontWeight:700, fontSize:11, letterSpacing:2, margin:'4px 0 0'}}>PREVENÇÃO QUE PROTEGE</p>
+            <h1 style={{fontSize:32, fontWeight:900, margin:'12px 0 0', letterSpacing:1, color:'#0f172a'}}>PREVIX</h1>
+            <p style={{color:'#0d9488', fontWeight:800, fontSize:11, letterSpacing:2, margin:'4px 0 0'}}>PREVENÇÃO QUE PROTEGE</p>
             <p style={{color:'#64748b', marginTop:16}}>Acesse seu painel SST</p>
           </div>
           <div style={{display:'flex', flexDirection:'column', gap:12, marginTop:20}}>
             <div><label style={{fontSize:13, fontWeight:700}}>👤 Login</label><input value={loginForm.login} onChange={e=>setLoginForm({...loginForm, login:e.target.value})} placeholder="Ex: solnascente" style={{...input, marginTop:4}} /></div>
             <div><label style={{fontSize:13, fontWeight:700}}>🔐 Senha</label><input type="password" value={loginForm.senha} onChange={e=>setLoginForm({...loginForm, senha:e.target.value})} onKeyDown={e=>{if(e.key==='Enter') fazerLogin()}} placeholder="Sua senha única" style={{...input, marginTop:4}} /></div>
             {erroLogin && <div style={{background:'#fee2e2', color:'#b91c1c', padding:10, borderRadius:10, fontSize:13, fontWeight:700}}>{erroLogin}</div>}
-            <button onClick={fazerLogin} style={{...btn, background:'#0f172a', color:'white', padding:14, fontSize:15, borderRadius:12}}>Entrar →</button>
+            <button onClick={fazerLogin} style={{...btn, background:'linear-gradient(90deg,#0d9488,#2563eb)', color:'white', padding:14, fontSize:15, borderRadius:12}}>Entrar →</button>
           </div>
           <p style={{textAlign:'center', fontSize:12, color:'#94a3b8', marginTop:20}}>Esqueceu sua senha? Fale com o suporte PREVIX.</p>
         </div>
@@ -206,11 +220,11 @@ export default function Home() {
   const docF = dadosFiltradosPorEmpresa(dados.documentos||[])
 
   const cards = [
-    { titulo:'Funcionários', valor:funcs.length, sub:'Cadastrados', icone:'👷', cor:'#3b82f6', aba:'funcionarios' },
-    { titulo:"EPI's", valor:episF.length, sub:'Entregues', icone:'🦺', cor:'#f97316', aba:'epis' },
-    { titulo:'Extintores', valor:extF.length, sub:'Cadastrados', icone:'🧯', cor:'#ef4444', aba:'extintores' },
-    { titulo:'Inspeções', valor:inspF.length, sub:'Realizadas', icone:'📋', cor:'#10b981', aba:'inspecoes' },
-    { titulo:'Documentos', valor:docF.length, sub:'Cadastrados', icone:'📄', cor:'#8b5cf6', aba:'documentos' },
+    { titulo:'Funcionários', valor:funcs.length, sub:'Cadastrados', icone:'👷', cor:'linear-gradient(135deg,#14b8a6,#06b6d4)', aba:'funcionarios' },
+    { titulo:"EPI's", valor:episF.length, sub:'Entregues', icone:'🦺', cor:'linear-gradient(135deg,#22c55e,#84cc16)', aba:'epis' },
+    { titulo:'Extintores', valor:extF.length, sub:'Cadastrados', icone:'🧯', cor:'linear-gradient(135deg,#3b82f6,#06b6d4)', aba:'extintores' },
+    { titulo:'Inspeções', valor:inspF.length, sub:'Realizadas', icone:'📋', cor:'linear-gradient(135deg,#10b981,#14b8a6)', aba:'inspecoes' },
+    { titulo:'Documentos', valor:docF.length, sub:'Cadastrados', icone:'📄', cor:'linear-gradient(135deg,#2563eb,#22d3ee)', aba:'documentos' },
   ]
 
   const listaBase = dados[aba]||[]
@@ -218,21 +232,21 @@ export default function Home() {
   const listaFiltrada = listaPorEmpresa.filter((it:any)=> JSON.stringify(it).toLowerCase().includes(busca.toLowerCase()))
 
   return (
-    <div style={{minHeight:'100vh', background:'#f1f5f9', fontFamily:'Arial, sans-serif'}}>
-      <header style={{background:'#0f172a', color:'white', padding:'12px 16px', position:'sticky', top:0, zIndex:50}}>
+    <div style={{minHeight:'100vh', background:'#ecfeff', fontFamily:'Arial, sans-serif'}}>
+      <header style={{background:'linear-gradient(90deg,#0d9488,#2563eb)', color:'white', padding:'12px 16px', position:'sticky', top:0, zIndex:50, boxShadow:'0 4px 20px rgba(37,99,235,0.3)'}}>
         <div style={{maxWidth:1200, margin:'0 auto', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
           <div style={{display:'flex', alignItems:'center', gap:12}}>
             <img src="/logo.png" alt="PREVIX" style={{width:44,height:44,objectFit:'contain',background:'white',borderRadius:12,padding:4}} />
-            <div><div style={{fontWeight:900,fontSize:20,letterSpacing:1,lineHeight:1}}>PREVIX</div><div style={{fontSize:10,letterSpacing:2,color:'#fb923c',fontWeight:700}}>PREVENÇÃO QUE PROTEGE</div></div>
+            <div><div style={{fontWeight:900,fontSize:20,letterSpacing:1,lineHeight:1}}>PREVIX <span style={{fontSize:12, fontWeight:700, background:'rgba(255,255,255,0.2)', padding:'2px 8px', borderRadius:20}}>SST</span></div><div style={{fontSize:10,letterSpacing:2,color:'#a7f3d0',fontWeight:700}}>PREVENÇÃO QUE PROTEGE</div></div>
           </div>
           <div style={{display:'flex', gap:8, alignItems:'center'}}>
-            <span style={{fontSize:12, background:isAdmin ? '#f97316' : '#10b981', padding:'6px 12px', borderRadius:20, fontWeight:700}}>{isAdmin ? '👨‍💼 SUPER ADMIN' : `🏢 ${usuario.empresa}`}</span>
-            <button onClick={sair} style={{...btn, background:'#ef4444', color:'white', borderRadius:20}}>Sair</button>
+            <span style={{fontSize:12, background: isAdmin ? '#f97316' : '#22c55e', padding:'6px 12px', borderRadius:20, fontWeight:700}}>{isAdmin ? '👨‍💼 SUPER ADMIN' : `🏢 ${usuario.empresa}`}</span>
+            <button onClick={sair} style={{...btn, background:'white', color:'#0f172a', borderRadius:20}}>Sair</button>
           </div>
         </div>
         <div style={{maxWidth:1200, margin:'12px auto 0', display:'flex', gap:8, overflowX:'auto', paddingBottom:4}}>
           {menu.map(m=>(
-            <button key={m.id} onClick={()=>{setAba(m.id); setBusca('')}} style={{whiteSpace:'nowrap', padding:'8px 16px', borderRadius:20, border:'none', cursor:'pointer', fontWeight:600, fontSize:14, background: aba===m.id?'white':'rgba(255,255,255,0.1)', color: aba===m.id?'#0f172a':'white'}}>{m.icone} {m.label}</button>
+            <button key={m.id} onClick={()=>{setAba(m.id); setBusca('')}} style={{whiteSpace:'nowrap', padding:'8px 16px', borderRadius:20, border:'none', cursor:'pointer', fontWeight:700, fontSize:14, background: aba===m.id?'white':'rgba(255,255,255,0.15)', color: aba===m.id?'#0f766e':'white'}}>{m.icone} {m.label}</button>
           ))}
         </div>
       </header>
@@ -240,34 +254,34 @@ export default function Home() {
       <main style={{maxWidth:1200, margin:'0 auto', padding:16}}>
         {aba==='inicio' && (
           <>
-            <div style={{background:'white', borderRadius:24, padding:24, display:'flex', justifyContent:'space-between', gap:16, flexWrap:'wrap', border:'1px solid #e2e8f0'}}>
+            <div style={{background:'linear-gradient(135deg,#ffffff,#ecfeff)', borderRadius:24, padding:24, display:'flex', justifyContent:'space-between', gap:16, flexWrap:'wrap', border:'1px solid #a7f3d0', boxShadow:'0 4px 20px rgba(13,148,136,0.08)'}}>
               <div>
-                <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:'#94a3b8'}}>{isAdmin ? 'SUPER ADMIN • VOCÊ ESTÁ VENDO TUDO' : `EMPRESA • VOCÊ ESTÁ VENDO SÓ: ${usuario.empresa.toUpperCase()}`}</div>
-                <h2 style={{fontSize:32,fontWeight:900,margin:'8px 0 0'}}>Olá, {usuario.nome}! 👋</h2>
-                <p style={{color:'#64748b'}}>Bem-vindo ao seu painel SST • <b style={{color:'#1e293b'}}>{isAdmin ? 'Todas as empresas' : usuario.empresa}</b></p>
-                <span style={{display:'inline-block',marginTop:12,background:'#fff7ed',color:'#c2410c',border:'1px solid #ffedd5',padding:'6px 12px',borderRadius:20,fontSize:12,fontWeight:700}}>{isAdmin ? 'Modo Super Admin' : usuario.empresa}</span>
+                <div style={{fontSize:11,fontWeight:800,letterSpacing:2,color:'#0d9488'}}>{isAdmin ? 'SUPER ADMIN • VOCÊ ESTÁ VENDO TUDO' : `EMPRESA • VOCÊ ESTÁ VENDO SÓ: ${usuario.empresa.toUpperCase()}`}</div>
+                <h2 style={{fontSize:32,fontWeight:900,margin:'8px 0 0', color:'#0f172a'}}>Olá, {usuario.nome}! 👋</h2>
+                <p style={{color:'#64748b'}}>Bem-vindo ao seu painel SST • <b style={{color:'#0f766e'}}>{isAdmin ? 'Todas as empresas' : usuario.empresa}</b></p>
+                <span style={{display:'inline-block',marginTop:12,background:'#ccfbf1',color:'#0f766e',border:'1px solid #99f6e4',padding:'6px 12px',borderRadius:20,fontSize:12,fontWeight:800}}>{isAdmin ? 'Modo Super Admin' : usuario.empresa}</span>
               </div>
-              <span style={{background:'#ecfdf5',color:'#047857',padding:'8px 16px',borderRadius:20,fontSize:14,fontWeight:700,height:'fit-content'}}>✅ PREVIX Completo!</span>
+              <span style={{background:'#dcfce7',color:'#15803d',padding:'8px 16px',borderRadius:20,fontSize:14,fontWeight:800,height:'fit-content'}}>✅ PREVIX Completo!</span>
             </div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))',gap:16,marginTop:20}}>
               {cards.map(c=>(
-                <button key={c.titulo} onClick={()=>setAba(c.aba)} style={{background:'white',borderRadius:24,padding:20,textAlign:'left',border:'1px solid #e2e8f0',cursor:'pointer'}}>
-                  <div style={{width:48,height:48,background:c.cor,borderRadius:16,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>{c.icone}</div>
-                  <div style={{color:'#64748b',fontSize:14,marginTop:16}}>{c.titulo}</div>
-                  <div style={{fontSize:36,fontWeight:900}}>{c.valor}</div>
-                  <div style={{fontSize:12,color:'#94a3b8'}}>{c.sub}</div>
+                <button key={c.titulo} onClick={()=>setAba(c.aba)} style={{background:c.cor,borderRadius:24,padding:20,textAlign:'left',border:'none',cursor:'pointer', color:'white', boxShadow:'0 8px 20px rgba(0,0,0,0.12)'}}>
+                  <div style={{width:48,height:48,background:'rgba(255,255,255,0.25)',borderRadius:16,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>{c.icone}</div>
+                  <div style={{color:'rgba(255,255,255,0.9)',fontSize:14,marginTop:16, fontWeight:700}}>{c.titulo}</div>
+                  <div style={{fontSize:38,fontWeight:900, lineHeight:1}}>{c.valor}</div>
+                  <div style={{fontSize:12,color:'rgba(255,255,255,0.85)'}}>{c.sub} • Clique para abrir →</div>
                 </button>
               ))}
             </div>
             {isAdmin && (
-              <div style={{background:'white',borderRadius:24,padding:20,border:'1px solid #e2e8f0',marginTop:20}}>
-                <h3 style={{margin:'0 0 12px',fontWeight:900}}>🏢 Empresas com acesso</h3>
+              <div style={{background:'white',borderRadius:24,padding:20,border:'1px solid #a7f3d0',marginTop:20}}>
+                <h3 style={{margin:'0 0 12px',fontWeight:900, color:'#0f766e'}}>🏢 Empresas com acesso</h3>
                 {(dados.empresas||[]).slice(0,5).map((e:any)=>(
-                  <div key={e.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderTop:'1px solid #f1f5f9',flexWrap:'wrap',gap:8}}>
+                  <div key={e.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderTop:'1px solid #f0fdfa',flexWrap:'wrap',gap:8}}>
                     <span style={{fontWeight:700}}>{e.nome} <span style={{fontWeight:400,color:'#64748b',fontSize:13}}>• {e.login}</span></span>
                     <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                      <code style={{background:'#f1f5f9',padding:'6px 10px',borderRadius:8,fontSize:13}}>Senha: {e.senha}</code>
-                      <button onClick={()=>copiar(e.senha, e.id)} style={{...btn, background:'#0f172a',color:'white'}}>{senhaCopiada===e.id ? '✅ Copiado!' : '📋 Copiar'}</button>
+                      <code style={{background:'#ecfeff',padding:'6px 10px',borderRadius:8,fontSize:13}}>Senha: {e.senha}</code>
+                      <button onClick={()=>copiar(e.senha, e.id)} style={{...btn, background:'linear-gradient(90deg,#0d9488,#2563eb)',color:'white'}}>{senhaCopiada===e.id ? '✅ Copiado!' : '📋 Copiar'}</button>
                     </div>
                   </div>
                 ))}
@@ -277,37 +291,44 @@ export default function Home() {
         )}
 
         {aba!=='inicio' && (
-          <div style={{background:'white',borderRadius:24,padding:24,border:'1px solid #e2e8f0'}}>
+          <div style={{background:'white',borderRadius:24,padding:24,border:'1px solid #a7f3d0', boxShadow:'0 4px 20px rgba(13,148,136,0.06)'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:12}}>
               <div>
-                <h2 style={{fontSize:24,fontWeight:900,textTransform:'capitalize',margin:0}}>{aba} { !isAdmin && <span style={{fontSize:13, fontWeight:400, color:'#64748b'}}>- só {usuario.empresa}</span>}</h2>
-                <p style={{color:'#64748b',fontSize:14,margin:'4px 0 0'}}>Total: {listaFiltrada.length} registros</p>
+                <h2 style={{fontSize:24,fontWeight:900,textTransform:'capitalize',margin:0, color:'#0f172a'}}>{aba} { !isAdmin && <span style={{fontSize:13, fontWeight:400, color:'#0d9488'}}>- só {usuario.empresa}</span>}</h2>
+                <p style={{color:'#64748b',fontSize:14,margin:'4px 0 0'}}>Total: {listaFiltrada.length} registros • <span style={{color:'#16a34a', fontWeight:700}}>● Ativos</span></p>
               </div>
-              <button onClick={abrirNovo} style={{...btn, background:'#0f172a', color:'white', padding:'12px 20px', borderRadius:20, fontSize:14}}>＋ Adicionar</button>
+              <button onClick={abrirNovo} style={{...btn, background:'linear-gradient(90deg,#0d9488,#2563eb)', color:'white', padding:'12px 20px', borderRadius:20, fontSize:14, boxShadow:'0 4px 12px rgba(37,99,235,0.3)'}}>＋ Adicionar</button>
             </div>
-            <input placeholder={`🔍 Buscar em ${aba}...`} value={busca} onChange={e=>setBusca(e.target.value)} style={{...input, marginTop:16}} />
+            <input placeholder={`🔍 Buscar em ${aba}...`} value={busca} onChange={e=>setBusca(e.target.value)} style={{...input, marginTop:16, background:'#f0fdfa'}} />
             <div style={{marginTop:16, display:'flex', flexDirection:'column', gap:12}}>
-              {listaFiltrada.map((item:any,i:number)=>(
-                <div key={item.id||item._id||i} style={{border:'1px solid #e2e8f0',borderRadius:16,padding:16,display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-                  <div style={{flex:1, minWidth:220}}>
-                    <div style={{fontWeight:800, fontSize:16}}>{item.nome || item.titulo || item.localizacao || 'Registro'}</div>
-                    <div style={{fontSize:13,color:'#64748b', marginTop:2}}>
-                      {aba==='empresas' ? `${item.responsavel||''} • ${item.telefone||''} • ${item.email||''}` : CAMPOS[aba]?.slice(1,4).map((c:any)=> item[c.k] ? `${c.l}: ${item[c.k]} • ` : '').join('')}
-                    </div>
-                    {aba==='empresas' && (
-                      <div style={{marginTop:8, display:'flex', gap:8, flexWrap:'wrap', alignItems:'center'}}>
-                        <span style={{background:'#e0e7ff',color:'#3730a3',padding:'4px 10px',borderRadius:20,fontSize:12,fontWeight:700}}>Login: {item.login}</span>
-                        <span style={{background:'#fef3c7',color:'#92400e',padding:'4px 10px',borderRadius:20,fontSize:12,fontWeight:700}}>Senha: {item.senha}</span>
-                        <button onClick={()=>copiar(`Login: ${item.login} | Senha: ${item.senha}`, item.id)} style={{...btn, background:'#f1f5f9', fontSize:12}}>{senhaCopiada===item.id ? '✅ Copiado!' : '📋 Copiar Acesso'}</button>
+              {listaFiltrada.map((item:any,i:number)=>{
+                const corAvatar = CORES_CARDS[aba] || 'linear-gradient(135deg,#0d9488,#2563eb)'
+                return (
+                <div key={item.id||item._id||i} style={{border:'1px solid #e0f2fe',borderRadius:20,padding:16,display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap', background:'linear-gradient(135deg,#ffffff,#f0fdfa)'}}>
+                  <div style={{display:'flex', gap:14, alignItems:'center', flex:1, minWidth:220}}>
+                    <div style={{width:52,height:52,borderRadius:16,background:corAvatar, color:'white', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:900, fontSize:16, flexShrink:0}}>{iniciais(item.nome || item.titulo || item.localizacao || '??')}</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:900, fontSize:16, color:'#0f172a'}}>{item.nome || item.titulo || item.localizacao || 'Registro'}</div>
+                      <div style={{fontSize:13,color:'#64748b', marginTop:2}}>
+                        {aba==='empresas' ? `${item.responsavel||''} • ${item.telefone||''} • ${item.email||''}` : CAMPOS[aba]?.slice(1,4).map((c:any)=> item[c.k] ? `${c.l}: ${item[c.k]} • ` : '').join('')}
                       </div>
-                    )}
+                      <span style={{display:'inline-block', marginTop:6, background:'#dcfce7', color:'#15803d', padding:'2px 10px', borderRadius:20, fontSize:11, fontWeight:800}}>● ATIVO</span>
+                      {aba==='empresas' && (
+                        <div style={{marginTop:8, display:'flex', gap:8, flexWrap:'wrap', alignItems:'center'}}>
+                          <span style={{background:'#e0f2fe',color:'#1d4ed8',padding:'4px 10px',borderRadius:20,fontSize:12,fontWeight:700}}>Login: {item.login}</span>
+                          <span style={{background:'#fef9c3',color:'#854d0e',padding:'4px 10px',borderRadius:20,fontSize:12,fontWeight:700}}>Senha: {item.senha}</span>
+                          <button onClick={()=>copiar(`Login: ${item.login} | Senha: ${item.senha}`, item.id)} style={{...btn, background:'#f1f5f9', fontSize:12}}>{senhaCopiada===item.id ? '✅ Copiado!' : '📋 Copiar Acesso'}</button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div style={{display:'flex',gap:8}}>
                     <button onClick={()=>abrirEditar(item)} style={{...btn, background:'#dbeafe', color:'#1e40af'}}>✏️ Editar</button>
                     <button onClick={()=>excluir(item)} style={{...btn, background:'#fee2e2', color:'#b91c1c'}}>🗑️ Excluir</button>
                   </div>
                 </div>
-              ))}
+                )
+              })}
               {listaFiltrada.length===0 && <p style={{color:'#94a3b8', textAlign:'center', padding:20}}>Nenhum registro ainda. Clica em <b>＋ Adicionar</b>!</p>}
             </div>
           </div>
@@ -317,7 +338,7 @@ export default function Home() {
       {modal && (
         <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:100, padding:16}}>
           <div style={{background:'white', borderRadius:24, padding:24, width:'100%', maxWidth:480, maxHeight:'90vh', overflowY:'auto'}}>
-            <h3 style={{margin:'0 0 16px', fontSize:20, fontWeight:900}}>{editando ? '✏️ Editar' : '＋ Adicionar'} - {aba}</h3>
+            <h3 style={{margin:'0 0 16px', fontSize:20, fontWeight:900, color:'#0f766e'}}>{editando ? '✏️ Editar' : '＋ Adicionar'} - {aba}</h3>
             <div style={{display:'flex', flexDirection:'column', gap:12}}>
               {(CAMPOS[aba]||[]).map((c:any)=>{
                 if (c.k==='senha') return (
@@ -327,7 +348,7 @@ export default function Home() {
                       <input type={verSenha ? 'text' : 'password'} value={form[c.k]||''} onChange={e=>setForm({...form, [c.k]: e.target.value})} placeholder="Senha única" style={{...input, flex:1}} />
                       <button onClick={()=>setVerSenha(!verSenha)} style={{...btn, background:'#f1f5f9'}}>{verSenha ? '🙈' : '👁️'}</button>
                     </div>
-                    <button onClick={()=>setForm({...form, senha: gerarSenhaForte()})} style={{...btn, background:'#fef3c7', color:'#92400e', marginTop:8, width:'100%', padding:10}}>🎲 Gerar senha forte automática</button>
+                    <button onClick={()=>setForm({...form, senha: gerarSenhaForte()})} style={{...btn, background:'#fef9c3', color:'#854d0e', marginTop:8, width:'100%', padding:10}}>🎲 Gerar senha forte automática</button>
                   </div>
                 )
                 if (c.k==='login') return (
@@ -351,7 +372,7 @@ export default function Home() {
             )}
             <div style={{display:'flex', gap:10, marginTop:20}}>
               <button onClick={()=>setModal(false)} style={{...btn, flex:1, background:'#f1f5f9', padding:12}}>Cancelar</button>
-              <button onClick={salvar} style={{...btn, flex:1, background:'#0f172a', color:'white', padding:12}}>💾 Salvar</button>
+              <button onClick={salvar} style={{...btn, flex:1, background:'linear-gradient(90deg,#0d9488,#2563eb)', color:'white', padding:12}}>💾 Salvar</button>
             </div>
           </div>
         </div>

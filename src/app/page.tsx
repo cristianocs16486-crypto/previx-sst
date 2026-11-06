@@ -22,6 +22,9 @@ function gerarSenhaForte() {
   return 'Previx' + s
 }
 
+// SUPER ADMIN - SÓ TU SABE
+const ADMIN = { login: 'cristiano', senha: 'previx123', nome: 'Cristiano', tipo: 'admin', empresa: 'Todas' }
+
 export default function Home() {
   const [dados, setDados] = useState<any>({ funcionarios: [], epis: [], extintores: [], inspecoes: [], documentos: [], exames: [], empresas: [] })
   const [aba, setAba] = useState('inicio')
@@ -31,27 +34,83 @@ export default function Home() {
   const [busca, setBusca] = useState('')
   const [verSenha, setVerSenha] = useState(false)
   const [senhaCopiada, setSenhaCopiada] = useState('')
+  const [usuario, setUsuario] = useState<any>(null)
+  const [loginForm, setLoginForm] = useState({ login: '', senha: '' })
+  const [erroLogin, setErroLogin] = useState('')
+  const [carregando, setCarregando] = useState(true)
 
-  useEffect(() => { carregar() }, [])
+  useEffect(() => {
+    const sess = localStorage.getItem('previx_session')
+    if (sess) { try { setUsuario(JSON.parse(sess)) } catch {} }
+    carregar()
+    setCarregando(false)
+  }, [])
+
   async function carregar() {
     const urls = ['funcionarios','epis','extintores','inspecoes','documentos','exames','empresas']
     const res: any = {}
     for (const u of urls) {
       try { const r = await fetch(`/api/${u}`); const j = await r.json(); res[u] = Array.isArray(j) ? j : j.data || [] } catch { res[u] = [] }
     }
-    // se não tem API de empresas, pega do navegador
-    if (!res.empresas?.length) {
-      try { const local = JSON.parse(localStorage.getItem('previx_empresas')||'[]'); if(local.length) res.empresas = local } catch {}
-    }
+    // empresas salvas no navegador - ESSENCIAL pro login funcionar
+    try {
+      const localEmp = JSON.parse(localStorage.getItem('previx_empresas')||'[]')
+      if (localEmp.length) res.empresas = localEmp
+      // se não tem Solnascente, cria ela pra não travar
+      if (!localEmp.find((e:any)=>e.login==='solnascente')) {
+        const sol = { id: 'sol1', nome: 'Solnascente LTDA', cnpj: '', responsavel: 'Ronaldo', telefone: '82994145622', email: 'Lojas.cs16486@gmail.com', login: 'solnascente', senha: '12345678', status: 'Ativa' }
+        if (!res.empresas.find((e:any)=>e.login==='solnascente')) res.empresas.push(sol)
+        localStorage.setItem('previx_empresas', JSON.stringify(res.empresas))
+      }
+    } catch {}
+    // dados de exemplo salvos no navegador
+    try {
+      const localDados = JSON.parse(localStorage.getItem('previx_dados')||'{}')
+      if (localDados.funcionarios) res.funcionarios = localDados.funcionarios
+    } catch {}
     setDados(res)
+  }
+
+  function salvarNoNavegador(novosDados:any) {
+    localStorage.setItem('previx_empresas', JSON.stringify(novosDados.empresas||[]))
+    localStorage.setItem('previx_dados', JSON.stringify(novosDados))
+  }
+
+  function fazerLogin() {
+    setErroLogin('')
+    const login = loginForm.login.trim().toLowerCase()
+    const senha = loginForm.senha.trim()
+    // 1. É o ADMIN?
+    if (login === ADMIN.login && senha === ADMIN.senha) {
+      const u = ADMIN
+      setUsuario(u); localStorage.setItem('previx_session', JSON.stringify(u)); setAba('inicio'); return
+    }
+    if (login === 'admin' && senha === 'admin') {
+      const u = ADMIN
+      setUsuario(u); localStorage.setItem('previx_session', JSON.stringify(u)); setAba('inicio'); return
+    }
+    // 2. É UMA EMPRESA?
+    const emp = (dados.empresas||[]).find((e:any)=> (e.login||'').toLowerCase() === login && (e.senha||'') === senha)
+    if (emp) {
+      const u = { login: emp.login, senha: emp.senha, nome: emp.responsavel || emp.nome, tipo: 'empresa', empresa: emp.nome, empresaId: emp.id }
+      setUsuario(u); localStorage.setItem('previx_session', JSON.stringify(u)); setAba('inicio'); return
+    }
+    setErroLogin('Login ou senha incorretos! Confere e tenta de novo.')
+  }
+
+  function sair() {
+    setUsuario(null); localStorage.removeItem('previx_session'); setLoginForm({login:'',senha:''}); setAba('inicio')
   }
 
   function abrirNovo() {
     setEditando(null)
     if (aba === 'empresas') {
-      const senha = gerarSenhaForte()
-      setForm({ senha, status: 'Ativa', plano: 'Mensal' })
-    } else setForm({})
+      setForm({ senha: gerarSenhaForte(), status: 'Ativa', plano: 'Mensal' })
+    } else {
+      // se for empresa, já preenche o nome da empresa dela automaticamente
+      if (usuario?.tipo === 'empresa') setForm({ empresa: usuario.empresa })
+      else setForm({})
+    }
     setVerSenha(false); setModal(true)
   }
   function abrirEditar(item:any) { setEditando(item); setForm(item); setVerSenha(false); setModal(true) }
@@ -64,36 +123,30 @@ export default function Home() {
 
   async function salvar() {
     if (!aba || aba==='inicio') return
-    // gera login automatico se for empresa e não tiver
     let formFinal = {...form}
     if (aba==='empresas') {
-      if (!formFinal.login && formFinal.nome) {
-        formFinal.login = formFinal.nome.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,12)
-      }
+      if (!formFinal.login && formFinal.nome) formFinal.login = formFinal.nome.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,12)
       if (!formFinal.senha) formFinal.senha = gerarSenhaForte()
-      if (!formFinal.email) formFinal.email = ''
     }
+    // empresa só cadastra pra ela mesma
+    if (usuario?.tipo==='empresa') formFinal.empresa = usuario.empresa
+
     const lista = [...(dados[aba]||[])]
     if (editando) {
       const id = editando.id || editando._id
       try { await fetch(`/api/${aba}/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(formFinal) }) } catch {}
       const idx = lista.findIndex((x:any)=>(x.id||x._id)===id)
       if (idx>=0) lista[idx] = {...lista[idx], ...formFinal}
-      setDados({...dados, [aba]: lista})
-      if (aba==='empresas') localStorage.setItem('previx_empresas', JSON.stringify(lista))
+      const nd = {...dados, [aba]: lista}; setDados(nd); salvarNoNavegador(nd)
     } else {
       const novo = { ...formFinal, id: Date.now().toString(), status: formFinal.status || 'Ativa' }
       try {
         const r = await fetch(`/api/${aba}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(novo) })
         const j = await r.json().catch(()=>null)
-        if (j && (j.id || j._id || j.data)) lista.push(j.data || j)
-        else lista.push(novo)
+        if (j && (j.id || j._id || j.data)) lista.push(j.data || j); else lista.push(novo)
       } catch { lista.push(novo) }
-      setDados({...dados, [aba]: lista})
-      if (aba==='empresas') localStorage.setItem('previx_empresas', JSON.stringify(lista))
-      if (aba==='empresas') {
-        alert(`✅ Empresa criada!\n\nLogin: ${novo.login}\nSenha: ${novo.senha}\n\nManda isso pra empresa!`)
-      }
+      const nd = {...dados, [aba]: lista}; setDados(nd); salvarNoNavegador(nd)
+      if (aba==='empresas') alert(`✅ Empresa criada!\n\nLogin: ${novo.login}\nSenha: ${novo.senha}`)
     }
     setModal(false); setForm({}); setEditando(null)
   }
@@ -103,18 +156,56 @@ export default function Home() {
     const id = item.id || item._id
     try { await fetch(`/api/${aba}/${id}`, { method:'DELETE' }) } catch {}
     const novaLista = (dados[aba]||[]).filter((x:any)=>(x.id||x._id)!==id)
-    setDados({...dados, [aba]: novaLista})
-    if (aba==='empresas') localStorage.setItem('previx_empresas', JSON.stringify(novaLista))
+    const nd = {...dados, [aba]: novaLista}; setDados(nd); salvarNoNavegador(nd)
   }
 
-  const cards = [
-    { titulo:'Funcionários', valor:dados.funcionarios?.length||0, sub:'Cadastrados', icone:'👷', cor:'#3b82f6', aba:'funcionarios' },
-    { titulo:"EPI's", valor:dados.epis?.length||0, sub:'Entregues', icone:'🦺', cor:'#f97316', aba:'epis' },
-    { titulo:'Extintores', valor:dados.extintores?.length||0, sub:'Cadastrados', icone:'🧯', cor:'#ef4444', aba:'extintores' },
-    { titulo:'Inspeções', valor:dados.inspecoes?.length||0, sub:'Realizadas', icone:'📋', cor:'#10b981', aba:'inspecoes' },
-    { titulo:'Documentos', valor:dados.documentos?.length||0, sub:'Cadastrados', icone:'📄', cor:'#8b5cf6', aba:'documentos' },
-  ]
-  const menu = [
+  // FILTRO POR EMPRESA - O PULO DO GATO
+  function dadosFiltradosPorEmpresa(lista:any[]) {
+    if (!usuario) return []
+    if (usuario.tipo === 'admin') return lista
+    // empresa só vê o que tem o nome dela no campo empresa, ou se for dado sem empresa ainda, mostra só se for dela
+    // Pra não esconder tudo no começo, se o item não tem campo empresa, considera que é dela se ela acabou de criar
+    return lista.filter((it:any)=>{
+      if (!it.empresa) return true // mostra os primeiros testes
+      return it.empresa.toLowerCase().includes(usuario.empresa.toLowerCase().split(' ')[0].toLowerCase()) || it.empresa.toLowerCase() === usuario.empresa.toLowerCase() || it.nome === usuario.empresa
+    })
+  }
+
+  const btn = { padding:'8px 14px', borderRadius:10, border:'none', cursor:'pointer', fontWeight:700, fontSize:13 } as any
+  const input = { width:'100%', padding:'12px', borderRadius:12, border:'1px solid #e2e8f0', fontSize:14, boxSizing:'border-box' as any }
+
+  if (carregando) return <div style={{padding:40, textAlign:'center'}}>Carregando PREVIX...</div>
+
+  // ===== TELA DE LOGIN =====
+  if (!usuario) {
+    return (
+      <div style={{minHeight:'100vh', background:'#0f172a', display:'flex', alignItems:'center', justifyContent:'center', padding:16, fontFamily:'Arial, sans-serif'}}>
+        <div style={{background:'white', borderRadius:24, padding:32, width:'100%', maxWidth:420}}>
+          <div style={{textAlign:'center'}}>
+            <img src="/logo.png" alt="PREVIX" style={{width:80,height:80,objectFit:'contain',background:'white',borderRadius:16,padding:8, border:'1px solid #e2e8f0'}} />
+            <h1 style={{fontSize:32, fontWeight:900, margin:'12px 0 0', letterSpacing:1}}>PREVIX</h1>
+            <p style={{color:'#fb923c', fontWeight:700, fontSize:11, letterSpacing:2, margin:'4px 0 0'}}>PREVENÇÃO QUE PROTEGE</p>
+            <p style={{color:'#64748b', marginTop:16}}>Acesse seu painel SST</p>
+          </div>
+          <div style={{display:'flex', flexDirection:'column', gap:12, marginTop:20}}>
+            <div><label style={{fontSize:13, fontWeight:700}}>👤 Login</label><input value={loginForm.login} onChange={e=>setLoginForm({...loginForm, login:e.target.value})} placeholder="Ex: solnascente" style={{...input, marginTop:4}} /></div>
+            <div><label style={{fontSize:13, fontWeight:700}}>🔐 Senha</label><input type="password" value={loginForm.senha} onChange={e=>setLoginForm({...loginForm, senha:e.target.value})} onKeyDown={e=>{if(e.key==='Enter') fazerLogin()}} placeholder="Sua senha única" style={{...input, marginTop:4}} /></div>
+            {erroLogin && <div style={{background:'#fee2e2', color:'#b91c1c', padding:10, borderRadius:10, fontSize:13, fontWeight:700}}>{erroLogin}</div>}
+            <button onClick={fazerLogin} style={{...btn, background:'#0f172a', color:'white', padding:14, fontSize:15, borderRadius:12}}>Entrar →</button>
+          </div>
+          <div style={{background:'#f8fafc', borderRadius:12, padding:12, marginTop:20, fontSize:12, color:'#64748b', lineHeight:1.6}}>
+            <b style={{color:'#0f172a'}}>Teste agora:</b><br/>
+            👨‍💼 Admin: <b>cristiano</b> / <b>previx123</b><br/>
+            🏢 Empresa: <b>solnascente</b> / <b>12345678</b>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ===== PAINEL LOGADO =====
+  const isAdmin = usuario.tipo === 'admin'
+  const menuBase = [
     {id:'inicio',label:'Início',icone:'🏠'},
     {id:'funcionarios',label:'Funcionários',icone:'👷'},
     {id:'epis',label:"EPI's",icone:'🦺'},
@@ -122,12 +213,26 @@ export default function Home() {
     {id:'inspecoes',label:'Inspeções',icone:'📋'},
     {id:'documentos',label:'Documentos',icone:'📄'},
     {id:'exames',label:'Exames',icone:'🩺'},
-    {id:'empresas',label:'Empresas',icone:'🏢'},
+  ]
+  const menu = isAdmin ? [...menuBase, {id:'empresas',label:'Empresas',icone:'🏢'}] : menuBase
+
+  const funcs = dadosFiltradosPorEmpresa(dados.funcionarios||[])
+  const episF = dadosFiltradosPorEmpresa(dados.epis||[])
+  const extF = dadosFiltradosPorEmpresa(dados.extintores||[])
+  const inspF = dadosFiltradosPorEmpresa(dados.inspecoes||[])
+  const docF = dadosFiltradosPorEmpresa(dados.documentos||[])
+
+  const cards = [
+    { titulo:'Funcionários', valor:funcs.length, sub:'Cadastrados', icone:'👷', cor:'#3b82f6', aba:'funcionarios' },
+    { titulo:"EPI's", valor:episF.length, sub:'Entregues', icone:'🦺', cor:'#f97316', aba:'epis' },
+    { titulo:'Extintores', valor:extF.length, sub:'Cadastrados', icone:'🧯', cor:'#ef4444', aba:'extintores' },
+    { titulo:'Inspeções', valor:inspF.length, sub:'Realizadas', icone:'📋', cor:'#10b981', aba:'inspecoes' },
+    { titulo:'Documentos', valor:docF.length, sub:'Cadastrados', icone:'📄', cor:'#8b5cf6', aba:'documentos' },
   ]
 
-  const listaFiltrada = (dados[aba]||[]).filter((it:any)=> JSON.stringify(it).toLowerCase().includes(busca.toLowerCase()))
-  const btn = { padding:'8px 14px', borderRadius:10, border:'none', cursor:'pointer', fontWeight:700, fontSize:13 } as any
-  const input = { width:'100%', padding:'12px', borderRadius:12, border:'1px solid #e2e8f0', fontSize:14, boxSizing:'border-box' as any }
+  const listaBase = dados[aba]||[]
+  const listaPorEmpresa = dadosFiltradosPorEmpresa(listaBase)
+  const listaFiltrada = listaPorEmpresa.filter((it:any)=> JSON.stringify(it).toLowerCase().includes(busca.toLowerCase()))
 
   return (
     <div style={{minHeight:'100vh', background:'#f1f5f9', fontFamily:'Arial, sans-serif'}}>
@@ -137,7 +242,10 @@ export default function Home() {
             <img src="/logo.png" alt="PREVIX" style={{width:44,height:44,objectFit:'contain',background:'white',borderRadius:12,padding:4}} />
             <div><div style={{fontWeight:900,fontSize:20,letterSpacing:1,lineHeight:1}}>PREVIX</div><div style={{fontSize:10,letterSpacing:2,color:'#fb923c',fontWeight:700}}>PREVENÇÃO QUE PROTEGE</div></div>
           </div>
-          <button style={{...btn, background:'#ef4444', color:'white', borderRadius:20}}>Sair</button>
+          <div style={{display:'flex', gap:8, alignItems:'center'}}>
+            <span style={{fontSize:12, background:isAdmin ? '#f97316' : '#10b981', padding:'6px 12px', borderRadius:20, fontWeight:700}}>{isAdmin ? '👨‍💼 SUPER ADMIN' : `🏢 ${usuario.empresa}`}</span>
+            <button onClick={sair} style={{...btn, background:'#ef4444', color:'white', borderRadius:20}}>Sair</button>
+          </div>
         </div>
         <div style={{maxWidth:1200, margin:'12px auto 0', display:'flex', gap:8, overflowX:'auto', paddingBottom:4}}>
           {menu.map(m=>(
@@ -151,10 +259,10 @@ export default function Home() {
           <>
             <div style={{background:'white', borderRadius:24, padding:24, display:'flex', justifyContent:'space-between', gap:16, flexWrap:'wrap', border:'1px solid #e2e8f0'}}>
               <div>
-                <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:'#94a3b8'}}>SUPER ADMIN • VOCÊ ESTÁ VENDO:</div>
-                <h2 style={{fontSize:32,fontWeight:900,margin:'8px 0 0'}}>Olá, Cristiano! 👋</h2>
-                <p style={{color:'#64748b'}}>Bem-vindo de volta ao seu painel SST • <b style={{color:'#1e293b'}}>Sol Nascente Construtora</b></p>
-                <span style={{display:'inline-block',marginTop:12,background:'#fff7ed',color:'#c2410c',border:'1px solid #ffedd5',padding:'6px 12px',borderRadius:20,fontSize:12,fontWeight:700}}>Sol Nascente Construtora</span>
+                <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:'#94a3b8'}}>{isAdmin ? 'SUPER ADMIN • VOCÊ ESTÁ VENDO TUDO' : `EMPRESA • VOCÊ ESTÁ VENDO SÓ: ${usuario.empresa.toUpperCase()}`}</div>
+                <h2 style={{fontSize:32,fontWeight:900,margin:'8px 0 0'}}>Olá, {usuario.nome}! 👋</h2>
+                <p style={{color:'#64748b'}}>Bem-vindo ao seu painel SST • <b style={{color:'#1e293b'}}>{isAdmin ? 'Todas as empresas' : usuario.empresa}</b></p>
+                <span style={{display:'inline-block',marginTop:12,background:'#fff7ed',color:'#c2410c',border:'1px solid #ffedd5',padding:'6px 12px',borderRadius:20,fontSize:12,fontWeight:700}}>{isAdmin ? 'Modo Super Admin' : usuario.empresa}</span>
               </div>
               <span style={{background:'#ecfdf5',color:'#047857',padding:'8px 16px',borderRadius:20,fontSize:14,fontWeight:700,height:'fit-content'}}>✅ PREVIX Completo!</span>
             </div>
@@ -168,19 +276,20 @@ export default function Home() {
                 </button>
               ))}
             </div>
-            <div style={{background:'white',borderRadius:24,padding:20,border:'1px solid #e2e8f0',marginTop:20}}>
-              <h3 style={{margin:'0 0 12px',fontWeight:900}}>🏢 Empresas com acesso</h3>
-              {(dados.empresas||[]).slice(0,5).map((e:any)=>(
-                <div key={e.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderTop:'1px solid #f1f5f9',flexWrap:'wrap',gap:8}}>
-                  <span style={{fontWeight:700}}>{e.nome} <span style={{fontWeight:400,color:'#64748b',fontSize:13}}>• {e.login}</span></span>
-                  <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                    <code style={{background:'#f1f5f9',padding:'6px 10px',borderRadius:8,fontSize:13}}>Senha: {e.senha}</code>
-                    <button onClick={()=>copiar(e.senha, e.id)} style={{...btn, background:'#0f172a',color:'white'}}>{senhaCopiada===e.id ? '✅ Copiado!' : '📋 Copiar'}</button>
+            {isAdmin && (
+              <div style={{background:'white',borderRadius:24,padding:20,border:'1px solid #e2e8f0',marginTop:20}}>
+                <h3 style={{margin:'0 0 12px',fontWeight:900}}>🏢 Empresas com acesso</h3>
+                {(dados.empresas||[]).slice(0,5).map((e:any)=>(
+                  <div key={e.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderTop:'1px solid #f1f5f9',flexWrap:'wrap',gap:8}}>
+                    <span style={{fontWeight:700}}>{e.nome} <span style={{fontWeight:400,color:'#64748b',fontSize:13}}>• {e.login}</span></span>
+                    <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                      <code style={{background:'#f1f5f9',padding:'6px 10px',borderRadius:8,fontSize:13}}>Senha: {e.senha}</code>
+                      <button onClick={()=>copiar(e.senha, e.id)} style={{...btn, background:'#0f172a',color:'white'}}>{senhaCopiada===e.id ? '✅ Copiado!' : '📋 Copiar'}</button>
+                    </div>
                   </div>
-                </div>
-              ))}
-              {(!dados.empresas||dados.empresas.length===0) && <p style={{color:'#94a3b8'}}>Nenhuma empresa ainda. Vai em Empresas → Adicionar.</p>}
-            </div>
+                ))}
+              </div>
+            )}
           </>
         )}
 
@@ -188,7 +297,7 @@ export default function Home() {
           <div style={{background:'white',borderRadius:24,padding:24,border:'1px solid #e2e8f0'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:12}}>
               <div>
-                <h2 style={{fontSize:24,fontWeight:900,textTransform:'capitalize',margin:0}}>{aba}</h2>
+                <h2 style={{fontSize:24,fontWeight:900,textTransform:'capitalize',margin:0}}>{aba} { !isAdmin && <span style={{fontSize:13, fontWeight:400, color:'#64748b'}}>- só {usuario.empresa}</span>}</h2>
                 <p style={{color:'#64748b',fontSize:14,margin:'4px 0 0'}}>Total: {listaFiltrada.length} registros</p>
               </div>
               <button onClick={abrirNovo} style={{...btn, background:'#0f172a', color:'white', padding:'12px 20px', borderRadius:20, fontSize:14}}>＋ Adicionar</button>
@@ -209,7 +318,6 @@ export default function Home() {
                         <button onClick={()=>copiar(`Login: ${item.login} | Senha: ${item.senha}`, item.id)} style={{...btn, background:'#f1f5f9', fontSize:12}}>{senhaCopiada===item.id ? '✅ Copiado!' : '📋 Copiar Acesso'}</button>
                       </div>
                     )}
-                    {aba!=='empresas' && <span style={{display:'inline-block',marginTop:6,fontSize:11,background:'#ecfdf5',color:'#047857',padding:'3px 10px',borderRadius:20,fontWeight:700}}>{item.status || item.resultado || 'OK'}</span>}
                   </div>
                   <div style={{display:'flex',gap:8}}>
                     <button onClick={()=>abrirEditar(item)} style={{...btn, background:'#dbeafe', color:'#1e40af'}}>✏️ Editar</button>
@@ -217,7 +325,7 @@ export default function Home() {
                   </div>
                 </div>
               ))}
-              {listaFiltrada.length===0 && <p style={{color:'#94a3b8', textAlign:'center', padding:20}}>Nenhum registro. Clica em <b>＋ Adicionar</b> pra criar o primeiro!</p>}
+              {listaFiltrada.length===0 && <p style={{color:'#94a3b8', textAlign:'center', padding:20}}>Nenhum registro ainda. Clica em <b>＋ Adicionar</b>!</p>}
             </div>
           </div>
         )}
@@ -231,25 +339,23 @@ export default function Home() {
               {(CAMPOS[aba]||[]).map((c:any)=>{
                 if (c.k==='senha') return (
                   <div key={c.k}>
-                    <label style={{fontSize:13, fontWeight:700, color:'#334155'}}>🔐 {c.l} - Única por empresa</label>
+                    <label style={{fontSize:13, fontWeight:700}}>🔐 {c.l} - Única por empresa</label>
                     <div style={{display:'flex', gap:8, marginTop:4}}>
                       <input type={verSenha ? 'text' : 'password'} value={form[c.k]||''} onChange={e=>setForm({...form, [c.k]: e.target.value})} placeholder="Senha única" style={{...input, flex:1}} />
                       <button onClick={()=>setVerSenha(!verSenha)} style={{...btn, background:'#f1f5f9'}}>{verSenha ? '🙈' : '👁️'}</button>
                     </div>
                     <button onClick={()=>setForm({...form, senha: gerarSenhaForte()})} style={{...btn, background:'#fef3c7', color:'#92400e', marginTop:8, width:'100%', padding:10}}>🎲 Gerar senha forte automática</button>
-                    <p style={{fontSize:12, color:'#64748b', margin:'6px 0 0'}}>Essa senha é só dessa empresa. Não repete com outra.</p>
                   </div>
                 )
                 if (c.k==='login') return (
                   <div key={c.k}>
-                    <label style={{fontSize:13, fontWeight:700, color:'#334155'}}>👤 {c.l}</label>
+                    <label style={{fontSize:13, fontWeight:700}}>👤 {c.l}</label>
                     <input value={form[c.k]||''} onChange={e=>setForm({...form, [c.k]: e.target.value.toLowerCase().replace(/[^a-z0-9]/g,'')})} placeholder="ex: solnascente" style={{...input, marginTop:4}} />
-                    <p style={{fontSize:12, color:'#64748b', margin:'4px 0 0'}}>Se deixar em branco, a gente cria sozinho a partir do nome.</p>
                   </div>
                 )
                 return (
                   <div key={c.k}>
-                    <label style={{fontSize:13, fontWeight:700, color:'#334155'}}>{c.l}</label>
+                    <label style={{fontSize:13, fontWeight:700}}>{c.l}</label>
                     <input value={form[c.k]||''} onChange={e=>setForm({...form, [c.k]: e.target.value})} placeholder={c.l} style={{...input, marginTop:4}} />
                   </div>
                 )

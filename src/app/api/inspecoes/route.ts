@@ -19,8 +19,7 @@ export async function POST(req: Request) {
         titulo: b.titulo || b.local || 'Inspeção',
         local: b.local || '',
         data: b.data || '',
-        status: b.status || 'Pendente',
-        observacao: b.observacao || ''
+        status: b.status || 'Pendente'
       }
     })
 

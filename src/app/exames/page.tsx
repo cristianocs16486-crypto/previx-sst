@@ -1,112 +1,51 @@
-"use client";
-import { useEffect, useState } from "react";
-
-type Exame = {
-  id: string;
-  funcionario: string;
-  tipo: string;
-  resultado: string;
-  data: string;
-};
-
+'use client'
+import { useEffect, useState } from 'react'
 export default function Exames() {
-  const [exames, setExames] = useState<Exame[]>([]);
-  const [nome, setNome] = useState("");
-  const [tipo, setTipo] = useState("Admissional");
-
+  const [lista, setLista] = useState<any[]>([])
+  const [funcionario, setFuncionario] = useState('')
+  const [tipo, setTipo] = useState('')
+  const [data, setData] = useState('')
+  const [resultado, setResultado] = useState('Apto')
+  const [msg, setMsg] = useState('')
   async function carregar() {
-    const res = await fetch("/api/exames");
-    const data = await res.json();
-    setExames(data);
+    const r = await fetch('/api/exames', { cache: 'no-store' })
+    const d = await r.json().catch(() => [])
+    setLista(Array.isArray(d) ? d : [])
   }
-
-  useEffect(() => {
-    carregar();
-  }, []);
-
-  async function salvar() {
-    if (!nome.trim()) {
-      alert("Digite o nome do funcionário");
-      return;
-    }
-    await fetch("/api/exames", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        funcionario: nome,
-        tipo: tipo,
-        resultado: "Apto",
-        data: new Date().toISOString(),
-      }),
-    });
-    setNome("");
-    carregar();
+  useEffect(() => { carregar() }, [])
+  async function salvar(e: any) {
+    e.preventDefault()
+    setMsg('Salvando...')
+    const r = await fetch('/api/exames', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ funcionario, tipo, data, resultado }) })
+    const d = await r.json().catch(() => ({}))
+    if (r.ok) { setMsg('Salvo!'); setFuncionario(''); setTipo(''); setData(''); carregar() }
+    else setMsg('Erro: ' + (d.error || 'não salvou'))
   }
-
   async function excluir(id: string) {
-    if (!confirm("Tem certeza que deseja excluir este exame?")) return;
-    await fetch(`/api/exames/${id}`, { method: "DELETE" });
-    carregar();
+    if (!confirm('Excluir?')) return
+    await fetch('/api/exames?id=' + id, { method: 'DELETE' })
+    carregar()
   }
-
+  const input = { padding: 10, borderRadius: 8, border: '1px solid #ddd', width: '100%' } as any
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px", fontFamily: "sans-serif" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 28 }}>🩺</span>
-        <h1 style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", margin: 0 }}>Exames</h1>
-      </div>
-      <p style={{ color: "#64748b", marginTop: 4 }}>{exames.length} registros</p>
-
-      {/* Formulário */}
-      <div style={{ background: "#fff", borderRadius: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #f1f5f9", padding: 16, marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <input
-          value={nome}
-          onChange={(e) => setNome(e.target.value)}
-          placeholder="Nome do funcionário *"
-          style={{ flex: 1, minWidth: 200, border: "1px solid #e2e8f0", borderRadius: 12, padding: "10px 16px", outline: "none", fontSize: 14 }}
-        />
-        <select
-          value={tipo}
-          onChange={(e) => setTipo(e.target.value)}
-          style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: "10px 12px", fontSize: 14, background: "#fff" }}
-        >
-          <option>Admissional</option>
-          <option>Periódico</option>
-          <option>Demissional</option>
-          <option>Retorno ao Trabalho</option>
-          <option>Mudança de Função</option>
-        </select>
-        <button
-          onClick={salvar}
-          style={{ background: "#0ea5e9", color: "#fff", fontWeight: 700, padding: "10px 20px", borderRadius: 12, border: "none", cursor: "pointer", fontSize: 14 }}
-        >
-          + Novo Exame
-        </button>
-      </div>
-
-      {/* Lista */}
-      <div style={{ background: "#fff", borderRadius: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #f1f5f9", marginTop: 16, overflow: "hidden" }}>
-        {exames.length === 0 && (
-          <p style={{ padding: 24, textAlign: "center", color: "#94a3b8", fontSize: 14 }}>Nenhum exame cadastrado ainda.</p>
-        )}
-        {exames.map((ex, i) => (
-          <div key={ex.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 24px", borderTop: i === 0 ? "none" : "1px solid #f1f5f9" }}>
-            <div>
-              <p style={{ fontWeight: 700, color: "#0f172a", fontSize: 15, margin: 0 }}>{ex.funcionario}</p>
-              <p style={{ color: "#64748b", fontSize: 13, margin: "4px 0 0" }}>{ex.tipo} • {new Date(ex.data).toLocaleDateString("pt-BR")}</p>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ background: "#f0fdf4", color: "#15803d", fontSize: 12, fontWeight: 700, padding: "6px 12px", borderRadius: 999 }}>✅ {ex.resultado}</span>
-              <button
-                onClick={() => excluir(ex.id)}
-                style={{ background: "#ef4444", color: "#fff", fontSize: 12, fontWeight: 700, padding: "7px 12px", borderRadius: 8, border: "none", cursor: "pointer" }}
-              >
-                Excluir
-              </button>
-            </div>
+    <div style={{ maxWidth: 600, margin: '0 auto', padding: 20, fontFamily: 'sans-serif' }}>
+      <h1 style={{ fontSize: 24, fontWeight: 700 }}>Exames</h1>
+      <form onSubmit={salvar} style={{ background: '#f9fafb', padding: 16, borderRadius: 12, marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <input style={input} value={funcionario} onChange={e => setFuncionario(e.target.value)} placeholder="Nome do funcionário" />
+        <input style={input} value={tipo} onChange={e => setTipo(e.target.value)} placeholder="Tipo - ex: Admissional" />
+        <input style={input} type="date" value={data} onChange={e => setData(e.target.value)} />
+        <select style={input} value={resultado} onChange={e => setResultado(e.target.value)}><option>Apto</option><option>Inapto</option></select>
+        <button style={{ background: '#16a34a', color: '#fff', padding: 12, borderRadius: 8, border: 'none', fontWeight: 700 }}>Salvar Exame</button>
+        {msg && <p style={{ fontSize: 13 }}>{msg}</p>}
+      </form>
+      <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {lista.map((x: any) => (
+          <div key={x.id} style={{ border: '1px solid #eee', padding: 14, borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div><p style={{ fontWeight: 600, margin: 0 }}>{x.funcionario} - {x.tipo}</p><p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>{String(x.data).slice(0, 10)} - {x.resultado}</p></div>
+            <button onClick={() => excluir(x.id)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '8px 12px', borderRadius: 8 }}>Excluir</button>
           </div>
         ))}
       </div>
     </div>
-  );
+  )
 }

@@ -1,60 +1,58 @@
 'use client'
 import { useEffect, useState } from 'react'
-
-export default function EPIsPage() {
-  const [funcionarios, setFuncionarios] = useState<any[]>([])
-  const [epis, setEpis] = useState<any[]>([])
-  const [formFunc, setFormFunc] = useState({nome:'', funcao:''})
-  const [formEPI, setFormEPI] = useState({funcionarioId:'', epiNome:'', ca:''})
-
+export default function Epis() {
+  const [lista, setLista] = useState<any[]>([])
+  const [funcs, setFuncs] = useState<any[]>([])
+  const [funcionarioId, setFuncionarioId] = useState('')
+  const [nomeEpi, setNomeEpi] = useState('')
+  const [ca, setCa] = useState('')
+  const [data, setData] = useState('')
+  const [msg, setMsg] = useState('')
   async function carregar() {
-    const f = await fetch('/api/funcionarios').then(r=>r.json())
-    const e = await fetch('/api/epis').then(r=>r.json())
-    setFuncionarios(f); setEpis(e)
-    if(f[0] && !formEPI.funcionarioId) setFormEPI(prev=>({...prev, funcionarioId:f[0].id}))
+    const r = await fetch('/api/epis', { cache: 'no-store' })
+    const d = await r.json().catch(() => [])
+    setLista(Array.isArray(d) ? d : [])
+    const rf = await fetch('/api/funcionarios', { cache: 'no-store' })
+    const df = await rf.json().catch(() => [])
+    setFuncs(Array.isArray(df) ? df : [])
   }
-  useEffect(()=>{carregar()},[])
-
-  async function addFunc() {
-    await fetch('/api/funcionarios', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(formFunc)})
-    setFormFunc({nome:'', funcao:''}); carregar()
+  useEffect(() => { carregar() }, [])
+  async function salvar(e: any) {
+    e.preventDefault()
+    setMsg('Salvando...')
+    const func = funcs.find((f: any) => f.id === funcionarioId)
+    const r = await fetch('/api/epis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ funcionarioId, funcionarioNome: func?.nome || '', nomeEpi, ca, data }) })
+    const d = await r.json().catch(() => ({}))
+    if (r.ok) { setMsg('Salvo!'); setNomeEpi(''); setCa(''); setData(''); carregar() }
+    else setMsg('Erro: ' + (d.error || 'não salvou'))
   }
-  async function addEPI() {
-    await fetch('/api/epis', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(formEPI)})
-    setFormEPI({...formEPI, epiNome:'', ca:''}); carregar()
+  async function excluir(id: string) {
+    if (!confirm('Excluir?')) return
+    await fetch('/api/epis?id=' + id, { method: 'DELETE' })
+    carregar()
   }
-
+  const input = { padding: 10, borderRadius: 8, border: '1px solid #ddd', width: '100%' } as any
   return (
-    <div style={{padding:24, maxWidth:1100, margin:'0 auto', fontFamily:'sans-serif'}}>
-      <h1 style={{fontSize:24, fontWeight:900}}>NR-06 - Controle de EPI - Previx SST</h1>
-      <p style={{color:'#6b7280'}}>Entrega de EPI com CA - Obrigatorio MTE</p>
-
-      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginTop:20}}>
-        <div style={{border:'1px solid #e5e7eb', padding:16, borderRadius:12}}>
-          <h3 style={{fontWeight:800}}>1. Cadastrar Funcionário Norte Vidros</h3>
-          <input placeholder="Nome" value={formFunc.nome} onChange={e=>setFormFunc({...formFunc, nome:e.target.value})} style={{width:'100%', padding:10, marginTop:8, borderRadius:8, border:'1px solid #ccc'}} />
-          <input placeholder="Função - ex: Vidraceiro" value={formFunc.funcao} onChange={e=>setFormFunc({...formFunc, funcao:e.target.value})} style={{width:'100%', padding:10, marginTop:8, borderRadius:8, border:'1px solid #ccc'}} />
-          <button onClick={addFunc} style={{marginTop:10, padding:'10px', background:'#16a34a', color:'white', border:'none', borderRadius:8, width:'100%', fontWeight:700}}>Adicionar Funcionário</button>
-          <div style={{marginTop:12}}>{funcionarios.map((f:any)=><div key={f.id} style={{padding:6, borderBottom:'1px solid #eee'}}>{f.nome} - {f.funcao} - {f.epis.length} EPIs</div>)}</div>
-        </div>
-
-        <div style={{border:'1px solid #e5e7eb', padding:16, borderRadius:12}}>
-          <h3 style={{fontWeight:800}}>2. Registrar Entrega de EPI</h3>
-          <select value={formEPI.funcionarioId} onChange={e=>setFormEPI({...formEPI, funcionarioId:e.target.value})} style={{width:'100%', padding:10, marginTop:8, borderRadius:8, border:'1px solid #ccc'}}>
-            {funcionarios.map((f:any)=><option key={f.id} value={f.id}>{f.nome}</option>)}
-          </select>
-          <input placeholder="EPI - ex: Óculos de Segurança" value={formEPI.epiNome} onChange={e=>setFormEPI({...formEPI, epiNome:e.target.value})} style={{width:'100%', padding:10, marginTop:8, borderRadius:8, border:'1px solid #ccc'}} />
-          <input placeholder="CA - ex: 12345" value={formEPI.ca} onChange={e=>setFormEPI({...formEPI, ca:e.target.value})} style={{width:'100%', padding:10, marginTop:8, borderRadius:8, border:'1px solid #ccc'}} />
-          <button onClick={addEPI} style={{marginTop:10, padding:'10px', background:'#dc2626', color:'white', border:'none', borderRadius:8, width:'100%', fontWeight:700}}>Registrar Entrega</button>
-        </div>
-      </div>
-
-      <div style={{marginTop:24}}>
-        <h3 style={{fontWeight:800}}>Histórico de Entregas - Para Auditoria MTE</h3>
-        <table style={{width:'100%', marginTop:10, borderCollapse:'collapse'}}>
-          <thead><tr style={{background:'#f3f4f6', textAlign:'left'}}><th style={{padding:8}}>Data</th><th style={{padding:8}}>Funcionário</th><th style={{padding:8}}>EPI</th><th style={{padding:8}}>CA</th></tr></thead>
-          <tbody>{epis.map((e:any)=><tr key={e.id} style={{borderBottom:'1px solid #eee'}}><td style={{padding:8}}>{new Date(e.dataEntrega).toLocaleDateString('pt-BR')}</td><td style={{padding:8}}>{e.funcionario?.nome}</td><td style={{padding:8}}>{e.epiNome}</td><td style={{padding:8}}>{e.ca}</td></tr>)}</tbody>
-        </table>
+    <div style={{ maxWidth: 600, margin: '0 auto', padding: 20, fontFamily: 'sans-serif' }}>
+      <h1 style={{ fontSize: 24, fontWeight: 700 }}>EPI&apos;s</h1>
+      <form onSubmit={salvar} style={{ background: '#f9fafb', padding: 16, borderRadius: 12, marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <select style={input} value={funcionarioId} onChange={e => setFuncionarioId(e.target.value)}>
+          <option value="">Selecione o funcionário</option>
+          {funcs.map((f: any) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+        </select>
+        <input style={input} value={nomeEpi} onChange={e => setNomeEpi(e.target.value)} placeholder="Nome do EPI - ex: Capacete" />
+        <input style={input} value={ca} onChange={e => setCa(e.target.value)} placeholder="CA" />
+        <input style={input} type="date" value={data} onChange={e => setData(e.target.value)} />
+        <button style={{ background: '#16a34a', color: '#fff', padding: 12, borderRadius: 8, border: 'none', fontWeight: 700 }}>Salvar EPI</button>
+        {msg && <p style={{ fontSize: 13 }}>{msg}</p>}
+      </form>
+      <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {lista.map((x: any) => (
+          <div key={x.id} style={{ border: '1px solid #eee', padding: 14, borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div><p style={{ fontWeight: 600, margin: 0 }}>{x.nomeEpi} - CA: {x.ca}</p><p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>{x.funcionarioNome || x.funcionario?.nome || ''} - {x.data}</p></div>
+            <button onClick={() => excluir(x.id)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '8px 12px', borderRadius: 8 }}>Excluir</button>
+          </div>
+        ))}
       </div>
     </div>
   )

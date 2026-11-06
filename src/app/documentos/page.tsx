@@ -1,29 +1,49 @@
-"use client";
-import { useState } from "react";
+'use client'
+import { useEffect, useState } from 'react'
 export default function Documentos() {
-  const [lista, setLista] = useState([
-    { id: 1, nome: "PGR - Programa de Gerenciamento de Riscos", empresa: "Sol Nascente", venc: "12/12/2026" },
-    { id: 2, nome: "PCMSO", empresa: "Sol Nascente", venc: "10/01/2027" },
-    { id: 3, nome: "LTCAT", empresa: "Obra XYZ", venc: "20/02/2027" },
-  ]);
-  const [nome, setNome] = useState("");
+  const [lista, setLista] = useState<any[]>([])
+  const [nome, setNome] = useState('')
+  const [empresa, setEmpresa] = useState('Sol Nascente')
+  const [vencimento, setVencimento] = useState('')
+  const [msg, setMsg] = useState('')
+  async function carregar() {
+    const r = await fetch('/api/documentos', { cache: 'no-store' })
+    const d = await r.json().catch(() => [])
+    setLista(Array.isArray(d) ? d : [])
+  }
+  useEffect(() => { carregar() }, [])
+  async function salvar(e: any) {
+    e.preventDefault()
+    setMsg('Salvando...')
+    const r = await fetch('/api/documentos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome, empresa, vencimento }) })
+    const d = await r.json().catch(() => ({}))
+    if (r.ok) { setMsg('Salvo!'); setNome(''); setVencimento(''); carregar() }
+    else setMsg('Erro: ' + (d.error || 'não salvou'))
+  }
+  async function excluir(id: string) {
+    if (!confirm('Excluir?')) return
+    await fetch('/api/documentos?id=' + id, { method: 'DELETE' })
+    carregar()
+  }
+  const input = { padding: 10, borderRadius: 8, border: '1px solid #ddd', width: '100%' } as any
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div><h1 style={{ fontSize: 28, fontWeight: 900, margin: 0 }}>📄 Documentos</h1><p style={{ color: "#64748b" }}>{lista.length} cadastrados</p></div>
-      <form onSubmit={(e) => { e.preventDefault(); if (!nome) return; setLista([{ id: Date.now(), nome, empresa: "Sol Nascente", venc: "—" }, ...lista]); setNome(""); }} style={{ background: "white", borderRadius: 16, padding: 20, border: "1px solid #e2e8f0", display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: PGR, PCMSO, LTCAT, ASO..." required style={input} />
-        <button style={btn}>+ Novo Documento</button>
+    <div style={{ maxWidth: 600, margin: '0 auto', padding: 20, fontFamily: 'sans-serif' }}>
+      <h1 style={{ fontSize: 24, fontWeight: 700 }}>Documentos</h1>
+      <form onSubmit={salvar} style={{ background: '#f9fafb', padding: 16, borderRadius: 12, marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <input style={input} value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome do documento" />
+        <input style={input} value={empresa} onChange={e => setEmpresa(e.target.value)} placeholder="Empresa" />
+        <input style={input} type="date" value={vencimento} onChange={e => setVencimento(e.target.value)} />
+        <button style={{ background: '#16a34a', color: '#fff', padding: 12, borderRadius: 8, border: 'none', fontWeight: 700 }}>Salvar Documento</button>
+        {msg && <p style={{ fontSize: 13 }}>{msg}</p>}
       </form>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
-        {lista.map((d) => (
-          <div key={d.id} style={{ background: "white", borderRadius: 16, padding: 18, border: "1px solid #e2e8f0" }}>
-            <div style={{ fontSize: 30 }}>📄</div><b>{d.nome}</b><div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>{d.empresa} • Vence: {d.venc}</div>
-            <div style={{ marginTop: 10, background: "#f1f5f9", padding: "8px", borderRadius: 8, fontSize: 12, textAlign: "center", fontWeight: 700 }}>📥 Baixar / Visualizar</div>
+      <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {lista.map((x: any) => (
+          <div key={x.id} style={{ border: '1px solid #eee', padding: 14, borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div><p style={{ fontWeight: 600, margin: 0 }}>{x.nome}</p><p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>{x.empresa} - Vence: {String(x.vencimento).slice(0, 10)}</p></div>
+            <button onClick={() => excluir(x.id)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '8px 12px', borderRadius: 8 }}>Excluir</button>
           </div>
         ))}
       </div>
     </div>
-  );
+  )
 }
-const input = { padding: "12px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 14, flex: 1, minWidth: 180 } as const;
-const btn = { background: "#8b5cf6", color: "white", border: 0, borderRadius: 10, padding: "12px 18px", fontWeight: 800, cursor: "pointer" } as const;

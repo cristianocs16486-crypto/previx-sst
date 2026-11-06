@@ -16,6 +16,7 @@ export async function POST(req: Request) {
 
     const novo = await prisma.extintor.create({
       data: {
+        tipo: body.tipo || 'PQS',
         capacidade: body.capacidade || '6kg',
         localizacao: body.localizacao,
         ultimaRecarga: body.ultimaRecarga || '',

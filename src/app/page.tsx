@@ -8,7 +8,18 @@ const CAMPOS: any = {
   inspecoes: [{k:'titulo',l:'Título'},{k:'local',l:'Local'},{k:'responsavel',l:'Responsável'},{k:'data',l:'Data'},{k:'status',l:'Status'}],
   documentos: [{k:'titulo',l:'Título'},{k:'tipo',l:'Tipo'},{k:'empresa',l:'Empresa'},{k:'vencimento',l:'Vencimento'}],
   exames: [{k:'nome',l:'Funcionário'},{k:'tipo',l:'Tipo Exame'},{k:'data',l:'Data'},{k:'resultado',l:'Resultado'},{k:'clinica',l:'Clínica'}],
-  empresas: [{k:'nome',l:'Nome da Empresa'},{k:'cnpj',l:'CNPJ'},{k:'responsavel',l:'Responsável'},{k:'telefone',l:'Telefone'}],
+  empresas: [{k:'nome',l:'Nome da Empresa'},{k:'cnpj',l:'CNPJ'},{k:'responsavel',l:'Responsável'},{k:'telefone',l:'Telefone'},{k:'email',l:'E-mail da Empresa'},{k:'login',l:'Login de Acesso'},{k:'senha',l:'Senha Única'}],
+}
+
+function gerarSenhaForte() {
+  const letras = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ'
+  const nums = '23456789'
+  const simb = '@!#'
+  let s = ''
+  for(let i=0;i<4;i++) s += letras[Math.floor(Math.random()*letras.length)]
+  for(let i=0;i<3;i++) s += nums[Math.floor(Math.random()*nums.length)]
+  s += simb[Math.floor(Math.random()*simb.length)]
+  return 'Previx' + s
 }
 
 export default function Home() {
@@ -18,6 +29,8 @@ export default function Home() {
   const [editando, setEditando] = useState<any>(null)
   const [form, setForm] = useState<any>({})
   const [busca, setBusca] = useState('')
+  const [verSenha, setVerSenha] = useState(false)
+  const [senhaCopiada, setSenhaCopiada] = useState('')
 
   useEffect(() => { carregar() }, [])
   async function carregar() {
@@ -26,23 +39,50 @@ export default function Home() {
     for (const u of urls) {
       try { const r = await fetch(`/api/${u}`); const j = await r.json(); res[u] = Array.isArray(j) ? j : j.data || [] } catch { res[u] = [] }
     }
+    // se não tem API de empresas, pega do navegador
+    if (!res.empresas?.length) {
+      try { const local = JSON.parse(localStorage.getItem('previx_empresas')||'[]'); if(local.length) res.empresas = local } catch {}
+    }
     setDados(res)
   }
 
-  function abrirNovo() { setEditando(null); setForm({}); setModal(true) }
-  function abrirEditar(item:any) { setEditando(item); setForm(item); setModal(true) }
+  function abrirNovo() {
+    setEditando(null)
+    if (aba === 'empresas') {
+      const senha = gerarSenhaForte()
+      setForm({ senha, status: 'Ativa', plano: 'Mensal' })
+    } else setForm({})
+    setVerSenha(false); setModal(true)
+  }
+  function abrirEditar(item:any) { setEditando(item); setForm(item); setVerSenha(false); setModal(true) }
+
+  function copiar(texto:string, id:string) {
+    navigator.clipboard.writeText(texto)
+    setSenhaCopiada(id)
+    setTimeout(()=>setSenhaCopiada(''), 2000)
+  }
 
   async function salvar() {
     if (!aba || aba==='inicio') return
+    // gera login automatico se for empresa e não tiver
+    let formFinal = {...form}
+    if (aba==='empresas') {
+      if (!formFinal.login && formFinal.nome) {
+        formFinal.login = formFinal.nome.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,12)
+      }
+      if (!formFinal.senha) formFinal.senha = gerarSenhaForte()
+      if (!formFinal.email) formFinal.email = ''
+    }
     const lista = [...(dados[aba]||[])]
     if (editando) {
       const id = editando.id || editando._id
-      try { await fetch(`/api/${aba}/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(form) }) } catch {}
+      try { await fetch(`/api/${aba}/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(formFinal) }) } catch {}
       const idx = lista.findIndex((x:any)=>(x.id||x._id)===id)
-      if (idx>=0) lista[idx] = {...lista[idx], ...form}
+      if (idx>=0) lista[idx] = {...lista[idx], ...formFinal}
       setDados({...dados, [aba]: lista})
+      if (aba==='empresas') localStorage.setItem('previx_empresas', JSON.stringify(lista))
     } else {
-      const novo = { ...form, id: Date.now().toString(), status: form.status || 'OK' }
+      const novo = { ...formFinal, id: Date.now().toString(), status: formFinal.status || 'Ativa' }
       try {
         const r = await fetch(`/api/${aba}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(novo) })
         const j = await r.json().catch(()=>null)
@@ -50,6 +90,10 @@ export default function Home() {
         else lista.push(novo)
       } catch { lista.push(novo) }
       setDados({...dados, [aba]: lista})
+      if (aba==='empresas') localStorage.setItem('previx_empresas', JSON.stringify(lista))
+      if (aba==='empresas') {
+        alert(`✅ Empresa criada!\n\nLogin: ${novo.login}\nSenha: ${novo.senha}\n\nManda isso pra empresa!`)
+      }
     }
     setModal(false); setForm({}); setEditando(null)
   }
@@ -58,7 +102,9 @@ export default function Home() {
     if (!confirm(`Excluir ${item.nome || item.titulo || 'esse registro'}?`)) return
     const id = item.id || item._id
     try { await fetch(`/api/${aba}/${id}`, { method:'DELETE' }) } catch {}
-    setDados({...dados, [aba]: (dados[aba]||[]).filter((x:any)=>(x.id||x._id)!==id)})
+    const novaLista = (dados[aba]||[]).filter((x:any)=>(x.id||x._id)!==id)
+    setDados({...dados, [aba]: novaLista})
+    if (aba==='empresas') localStorage.setItem('previx_empresas', JSON.stringify(novaLista))
   }
 
   const cards = [
@@ -80,7 +126,6 @@ export default function Home() {
   ]
 
   const listaFiltrada = (dados[aba]||[]).filter((it:any)=> JSON.stringify(it).toLowerCase().includes(busca.toLowerCase()))
-
   const btn = { padding:'8px 14px', borderRadius:10, border:'none', cursor:'pointer', fontWeight:700, fontSize:13 } as any
   const input = { width:'100%', padding:'12px', borderRadius:12, border:'1px solid #e2e8f0', fontSize:14, boxSizing:'border-box' as any }
 
@@ -123,6 +168,19 @@ export default function Home() {
                 </button>
               ))}
             </div>
+            <div style={{background:'white',borderRadius:24,padding:20,border:'1px solid #e2e8f0',marginTop:20}}>
+              <h3 style={{margin:'0 0 12px',fontWeight:900}}>🏢 Empresas com acesso</h3>
+              {(dados.empresas||[]).slice(0,5).map((e:any)=>(
+                <div key={e.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderTop:'1px solid #f1f5f9',flexWrap:'wrap',gap:8}}>
+                  <span style={{fontWeight:700}}>{e.nome} <span style={{fontWeight:400,color:'#64748b',fontSize:13}}>• {e.login}</span></span>
+                  <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                    <code style={{background:'#f1f5f9',padding:'6px 10px',borderRadius:8,fontSize:13}}>Senha: {e.senha}</code>
+                    <button onClick={()=>copiar(e.senha, e.id)} style={{...btn, background:'#0f172a',color:'white'}}>{senhaCopiada===e.id ? '✅ Copiado!' : '📋 Copiar'}</button>
+                  </div>
+                </div>
+              ))}
+              {(!dados.empresas||dados.empresas.length===0) && <p style={{color:'#94a3b8'}}>Nenhuma empresa ainda. Vai em Empresas → Adicionar.</p>}
+            </div>
           </>
         )}
 
@@ -135,18 +193,23 @@ export default function Home() {
               </div>
               <button onClick={abrirNovo} style={{...btn, background:'#0f172a', color:'white', padding:'12px 20px', borderRadius:20, fontSize:14}}>＋ Adicionar</button>
             </div>
-
             <input placeholder={`🔍 Buscar em ${aba}...`} value={busca} onChange={e=>setBusca(e.target.value)} style={{...input, marginTop:16}} />
-
             <div style={{marginTop:16, display:'flex', flexDirection:'column', gap:12}}>
               {listaFiltrada.map((item:any,i:number)=>(
                 <div key={item.id||item._id||i} style={{border:'1px solid #e2e8f0',borderRadius:16,padding:16,display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-                  <div style={{flex:1, minWidth:200}}>
+                  <div style={{flex:1, minWidth:220}}>
                     <div style={{fontWeight:800, fontSize:16}}>{item.nome || item.titulo || item.localizacao || 'Registro'}</div>
                     <div style={{fontSize:13,color:'#64748b', marginTop:2}}>
-                      {CAMPOS[aba]?.slice(1,4).map((c:any)=> item[c.k] ? `${c.l}: ${item[c.k]} • ` : '').join('')}
+                      {aba==='empresas' ? `${item.responsavel||''} • ${item.telefone||''} • ${item.email||''}` : CAMPOS[aba]?.slice(1,4).map((c:any)=> item[c.k] ? `${c.l}: ${item[c.k]} • ` : '').join('')}
                     </div>
-                    <span style={{display:'inline-block',marginTop:6,fontSize:11,background:'#ecfdf5',color:'#047857',padding:'3px 10px',borderRadius:20,fontWeight:700}}>{item.status || item.resultado || 'OK'}</span>
+                    {aba==='empresas' && (
+                      <div style={{marginTop:8, display:'flex', gap:8, flexWrap:'wrap', alignItems:'center'}}>
+                        <span style={{background:'#e0e7ff',color:'#3730a3',padding:'4px 10px',borderRadius:20,fontSize:12,fontWeight:700}}>Login: {item.login}</span>
+                        <span style={{background:'#fef3c7',color:'#92400e',padding:'4px 10px',borderRadius:20,fontSize:12,fontWeight:700}}>Senha: {item.senha}</span>
+                        <button onClick={()=>copiar(`Login: ${item.login} | Senha: ${item.senha}`, item.id)} style={{...btn, background:'#f1f5f9', fontSize:12}}>{senhaCopiada===item.id ? '✅ Copiado!' : '📋 Copiar Acesso'}</button>
+                      </div>
+                    )}
+                    {aba!=='empresas' && <span style={{display:'inline-block',marginTop:6,fontSize:11,background:'#ecfdf5',color:'#047857',padding:'3px 10px',borderRadius:20,fontWeight:700}}>{item.status || item.resultado || 'OK'}</span>}
                   </div>
                   <div style={{display:'flex',gap:8}}>
                     <button onClick={()=>abrirEditar(item)} style={{...btn, background:'#dbeafe', color:'#1e40af'}}>✏️ Editar</button>
@@ -165,13 +228,38 @@ export default function Home() {
           <div style={{background:'white', borderRadius:24, padding:24, width:'100%', maxWidth:480, maxHeight:'90vh', overflowY:'auto'}}>
             <h3 style={{margin:'0 0 16px', fontSize:20, fontWeight:900}}>{editando ? '✏️ Editar' : '＋ Adicionar'} - {aba}</h3>
             <div style={{display:'flex', flexDirection:'column', gap:12}}>
-              {(CAMPOS[aba]||[]).map((c:any)=>(
-                <div key={c.k}>
-                  <label style={{fontSize:13, fontWeight:700, color:'#334155'}}>{c.l}</label>
-                  <input value={form[c.k]||''} onChange={e=>setForm({...form, [c.k]: e.target.value})} placeholder={c.l} style={{...input, marginTop:4}} />
-                </div>
-              ))}
+              {(CAMPOS[aba]||[]).map((c:any)=>{
+                if (c.k==='senha') return (
+                  <div key={c.k}>
+                    <label style={{fontSize:13, fontWeight:700, color:'#334155'}}>🔐 {c.l} - Única por empresa</label>
+                    <div style={{display:'flex', gap:8, marginTop:4}}>
+                      <input type={verSenha ? 'text' : 'password'} value={form[c.k]||''} onChange={e=>setForm({...form, [c.k]: e.target.value})} placeholder="Senha única" style={{...input, flex:1}} />
+                      <button onClick={()=>setVerSenha(!verSenha)} style={{...btn, background:'#f1f5f9'}}>{verSenha ? '🙈' : '👁️'}</button>
+                    </div>
+                    <button onClick={()=>setForm({...form, senha: gerarSenhaForte()})} style={{...btn, background:'#fef3c7', color:'#92400e', marginTop:8, width:'100%', padding:10}}>🎲 Gerar senha forte automática</button>
+                    <p style={{fontSize:12, color:'#64748b', margin:'6px 0 0'}}>Essa senha é só dessa empresa. Não repete com outra.</p>
+                  </div>
+                )
+                if (c.k==='login') return (
+                  <div key={c.k}>
+                    <label style={{fontSize:13, fontWeight:700, color:'#334155'}}>👤 {c.l}</label>
+                    <input value={form[c.k]||''} onChange={e=>setForm({...form, [c.k]: e.target.value.toLowerCase().replace(/[^a-z0-9]/g,'')})} placeholder="ex: solnascente" style={{...input, marginTop:4}} />
+                    <p style={{fontSize:12, color:'#64748b', margin:'4px 0 0'}}>Se deixar em branco, a gente cria sozinho a partir do nome.</p>
+                  </div>
+                )
+                return (
+                  <div key={c.k}>
+                    <label style={{fontSize:13, fontWeight:700, color:'#334155'}}>{c.l}</label>
+                    <input value={form[c.k]||''} onChange={e=>setForm({...form, [c.k]: e.target.value})} placeholder={c.l} style={{...input, marginTop:4}} />
+                  </div>
+                )
+              })}
             </div>
+            {aba==='empresas' && form.login && form.senha && (
+              <div style={{background:'#ecfdf5', borderRadius:12, padding:12, marginTop:16, fontSize:13}}>
+                <b>✅ Prévia do acesso:</b><br/>Login: <b>{form.login}</b><br/>Senha: <b>{form.senha}</b>
+              </div>
+            )}
             <div style={{display:'flex', gap:10, marginTop:20}}>
               <button onClick={()=>setModal(false)} style={{...btn, flex:1, background:'#f1f5f9', padding:12}}>Cancelar</button>
               <button onClick={salvar} style={{...btn, flex:1, background:'#0f172a', color:'white', padding:12}}>💾 Salvar</button>

@@ -6,10 +6,19 @@ const CAMPOS: any = {
   epis: [{k:'nome',l:'Nome do EPI'},{k:'tipo',l:'Tipo'},{k:'quantidade',l:'Quantidade'},{k:'funcionario',l:'Funcionário'},{k:'data_entrega',l:'Data Entrega'}],
   extintores: [{k:'localizacao',l:'Localização'},{k:'tipo',l:'Tipo'},{k:'capacidade',l:'Capacidade'},{k:'vencimento',l:'Vencimento'},{k:'status',l:'Status'}],
   inspecoes: [{k:'titulo',l:'Título'},{k:'local',l:'Local'},{k:'responsavel',l:'Responsável'},{k:'data',l:'Data'},{k:'status',l:'Status'}],
-  documentos: [{k:'titulo',l:'Título'},{k:'tipo',l:'Tipo'},{k:'empresa',l:'Empresa'},{k:'vencimento',l:'Vencimento'}],
+  documentos: [{k:'titulo',l:'Título'},{k:'empresa',l:'Empresa'},{k:'vencimento',l:'Vencimento'}],
   exames: [{k:'nome',l:'Funcionário'},{k:'tipo',l:'Tipo Exame'},{k:'data',l:'Data'},{k:'resultado',l:'Resultado'},{k:'clinica',l:'Clínica'}],
   empresas: [{k:'nome',l:'Nome da Empresa'},{k:'cnpj',l:'CNPJ'},{k:'responsavel',l:'Responsável'},{k:'telefone',l:'Telefone'},{k:'email',l:'E-mail da Empresa'},{k:'login',l:'Login de Acesso'},{k:'senha',l:'Senha Única'}],
 }
+
+const PASTAS = [
+  { id:'PGR', nome:'PGR', icone:'📁', cor:'#0d9488' },
+  { id:'PCMSO', nome:'PCMSO', icone:'📁', cor:'#2563eb' },
+  { id:'ASO', nome:'ASO / Exames', icone:'🩺', cor:'#22c55e' },
+  { id:'Laudos', nome:'Laudos', icone:'📋', cor:'#f59e0b' },
+  { id:'Treinamentos', nome:'Treinamentos', icone:'🎓', cor:'#8b5cf6' },
+  { id:'Outros', nome:'Outros', icone:'📦', cor:'#64748b' },
+]
 
 const CORES_CARDS: any = {
   funcionarios: 'linear-gradient(135deg,#14b8a6,#06b6d4)',
@@ -47,6 +56,8 @@ export default function Home() {
   const [carregando, setCarregando] = useState(true)
   const [subindoArquivo, setSubindoArquivo] = useState(false)
   const [arquivoNome, setArquivoNome] = useState('')
+  const [pastaAtual, setPastaAtual] = useState('Todas')
+  const [pastaSelecionadaForm, setPastaSelecionadaForm] = useState('PGR')
 
   useEffect(() => {
     const sess = localStorage.getItem('previx_session')
@@ -73,7 +84,7 @@ export default function Home() {
     try {
       const localDados = JSON.parse(localStorage.getItem('previx_dados')||'{}')
       if (localDados.funcionarios) res.funcionarios = localDados.funcionarios
-      if (localDados.documentos) res.documentos = localDados.documentos
+      if (localDados.documentos) res.documentos = localDados.documentos.map((d:any)=>({...d, pasta: d.pasta || d.tipo || 'Outros', tipo: d.pasta || d.tipo || 'Outros'}))
       if (localDados.empresas) res.empresas = localDados.empresas
     } catch {}
     setDados(res)
@@ -83,16 +94,13 @@ export default function Home() {
     try {
       localStorage.setItem('previx_empresas', JSON.stringify(novosDados.empresas||[]))
       localStorage.setItem('previx_dados', JSON.stringify(novosDados))
-    } catch(e) {
-      alert('⚠️ Arquivo muito grande! Tenta um PDF menor que 4MB.')
-    }
+    } catch(e) { alert('⚠️ Arquivo muito grande! Tenta um PDF menor que 4MB.') }
   }
 
-  // UPLOAD DE ARQUIVO - O PULO DO GATO
   function handleArquivo(e:any) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 4 * 1024 * 1024) { alert('⚠️ Arquivo muito grande! Máximo 4MB. Comprime o PDF e tenta de novo.'); return }
+    if (file.size > 4 * 1024 * 1024) { alert('⚠️ Arquivo muito grande! Máximo 4MB.'); return }
     setSubindoArquivo(true)
     setArquivoNome(file.name)
     const reader = new FileReader()
@@ -114,25 +122,22 @@ export default function Home() {
   function verArquivo(item:any) {
     if (!item.arquivoData) { alert('Esse documento não tem arquivo anexado.'); return }
     const w = window.open()
-    if (w) {
-      w.document.write(`<iframe src="${item.arquivoData}" style="width:100%;height:100vh;border:none"></iframe>`)
-    } else {
-      baixarArquivo(item)
-    }
+    if (w) { w.document.write(`<iframe src="${item.arquivoData}" style="width:100%;height:100vh;border:none"></iframe>`) }
+    else baixarArquivo(item)
+  }
+
+  function moverPasta(item:any, novaPasta:string) {
+    const lista = [...(dados.documentos||[])]
+    const idx = lista.findIndex((x:any)=>(x.id||x._id)===(item.id||item._id))
+    if (idx>=0) { lista[idx] = {...lista[idx], pasta: novaPasta, tipo: novaPasta}; const nd={...dados, documentos: lista}; setDados(nd); salvarNoNavegador(nd) }
   }
 
   function fazerLogin() {
     setErroLogin('')
     const login = loginForm.login.trim().toLowerCase()
     const senha = loginForm.senha.trim()
-    if (login === ADMIN.login && senha === ADMIN.senha) {
-      const u = ADMIN
-      setUsuario(u); localStorage.setItem('previx_session', JSON.stringify(u)); setAba('inicio'); return
-    }
-    if (login === 'admin' && senha === 'admin') {
-      const u = ADMIN
-      setUsuario(u); localStorage.setItem('previx_session', JSON.stringify(u)); setAba('inicio'); return
-    }
+    if (login === ADMIN.login && senha === ADMIN.senha) { setUsuario(ADMIN); localStorage.setItem('previx_session', JSON.stringify(ADMIN)); setAba('inicio'); return }
+    if (login === 'admin' && senha === 'admin') { setUsuario(ADMIN); localStorage.setItem('previx_session', JSON.stringify(ADMIN)); setAba('inicio'); return }
     const emp = (dados.empresas||[]).find((e:any)=> (e.login||'').toLowerCase() === login && (e.senha||'') === senha)
     if (emp) {
       const u = { login: emp.login, senha: emp.senha, nome: emp.responsavel || emp.nome, tipo: 'empresa', empresa: emp.nome, empresaId: emp.id }
@@ -141,32 +146,27 @@ export default function Home() {
     setErroLogin('Login ou senha incorretos! Confere e tenta de novo.')
   }
 
-  function sair() {
-    setUsuario(null); localStorage.removeItem('previx_session'); setLoginForm({login:'',senha:''}); setAba('inicio')
-  }
+  function sair() { setUsuario(null); localStorage.removeItem('previx_session'); setLoginForm({login:'',senha:''}); setAba('inicio'); setPastaAtual('Todas') }
 
   function abrirNovo() {
-    setEditando(null)
-    setArquivoNome('')
-    if (aba === 'empresas') {
-      setForm({ senha: gerarSenhaForte(), status: 'Ativa', plano: 'Mensal' })
-    } else {
-      if (usuario?.tipo === 'empresa') setForm({ empresa: usuario.empresa })
-      else setForm({})
-    }
+    setEditando(null); setArquivoNome(''); setPastaSelecionadaForm(pastaAtual!=='Todas' ? pastaAtual : 'PGR')
+    if (aba === 'empresas') setForm({ senha: gerarSenhaForte(), status: 'Ativa', plano: 'Mensal' })
+    else if (usuario?.tipo === 'empresa') setForm({ empresa: usuario.empresa, pasta: pastaAtual!=='Todas' ? pastaAtual : 'PGR', tipo: pastaAtual!=='Todas' ? pastaAtual : 'PGR' })
+    else setForm({ pasta: pastaAtual!=='Todas' ? pastaAtual : 'PGR', tipo: pastaAtual!=='Todas' ? pastaAtual : 'PGR' })
     setVerSenha(false); setModal(true)
   }
-  function abrirEditar(item:any) { setEditando(item); setForm(item); setArquivoNome(item.arquivoNome||''); setVerSenha(false); setModal(true) }
+  function abrirEditar(item:any) { setEditando(item); setForm(item); setArquivoNome(item.arquivoNome||''); setPastaSelecionadaForm(item.pasta||item.tipo||'Outros'); setVerSenha(false); setModal(true) }
 
-  function copiar(texto:string, id:string) {
-    navigator.clipboard.writeText(texto)
-    setSenhaCopiada(id)
-    setTimeout(()=>setSenhaCopiada(''), 2000)
-  }
+  function copiar(texto:string, id:string) { navigator.clipboard.writeText(texto); setSenhaCopiada(id); setTimeout(()=>setSenhaCopiada(''), 2000) }
 
   async function salvar() {
     if (!aba || aba==='inicio') return
     let formFinal = {...form}
+    if (aba==='documentos') {
+      formFinal.pasta = pastaSelecionadaForm || formFinal.pasta || 'Outros'
+      formFinal.tipo = formFinal.pasta
+      if (!formFinal.titulo) { alert('⚠️ Coloca o título do documento!'); return }
+    }
     if (aba==='empresas') {
       if (!formFinal.login && formFinal.nome) formFinal.login = formFinal.nome.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,12)
       if (!formFinal.senha) formFinal.senha = gerarSenhaForte()
@@ -178,14 +178,12 @@ export default function Home() {
       const idx = lista.findIndex((x:any)=>(x.id||x._id)===id)
       if (idx>=0) lista[idx] = {...lista[idx], ...formFinal}
       const nd = {...dados, [aba]: lista}; setDados(nd); salvarNoNavegador(nd)
-      try { await fetch(`/api/${aba}/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({titulo: formFinal.titulo, tipo: formFinal.tipo, empresa: formFinal.empresa, vencimento: formFinal.vencimento}) }) } catch {}
     } else {
       const novo = { ...formFinal, id: Date.now().toString(), status: formFinal.status || 'Ativa' }
       lista.push(novo)
       const nd = {...dados, [aba]: lista}; setDados(nd); salvarNoNavegador(nd)
-      try { await fetch(`/api/${aba}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({titulo: novo.titulo, tipo: novo.tipo, empresa: novo.empresa, vencimento: novo.vencimento}) }) } catch {}
       if (aba==='empresas') alert(`✅ Empresa criada!\n\nLogin: ${novo.login}\nSenha: ${novo.senha}`)
-      if (aba==='documentos' && novo.arquivoNome) alert(`✅ Documento salvo!\n\n📄 ${novo.arquivoNome}\nAgora aparece na lista pra baixar!`)
+      if (aba==='documentos') alert(`✅ Salvo na pasta ${novo.pasta}!\n\n📄 ${novo.arquivoNome || novo.titulo}`)
     }
     setModal(false); setForm({}); setEditando(null); setArquivoNome('')
   }
@@ -235,7 +233,6 @@ export default function Home() {
             {erroLogin && <div style={{background:'#fee2e2', color:'#b91c1c', padding:10, borderRadius:10, fontSize:13, fontWeight:700}}>{erroLogin}</div>}
             <button onClick={fazerLogin} style={{...btn, background:'linear-gradient(90deg,#0d9488,#2563eb)', color:'white', padding:14, fontSize:15, borderRadius:12}}>Entrar →</button>
           </div>
-          <p style={{textAlign:'center', fontSize:12, color:'#94a3b8', marginTop:20}}>Esqueceu sua senha? Fale com o suporte PREVIX.</p>
         </div>
       </div>
     )
@@ -259,6 +256,7 @@ export default function Home() {
   const inspF = dadosFiltradosPorEmpresa(dados.inspecoes||[])
   const docF = dadosFiltradosPorEmpresa(dados.documentos||[])
   const docsComArquivo = docF.filter((d:any)=>d.arquivoData).length
+  const contarPasta = (p:string) => docF.filter((d:any)=>(d.pasta||d.tipo||'Outros')===p).length
 
   const cards = [
     { titulo:'Funcionários', valor:funcs.length, sub:'Cadastrados', icone:'👷', cor:'linear-gradient(135deg,#14b8a6,#06b6d4)', aba:'funcionarios' },
@@ -270,11 +268,14 @@ export default function Home() {
 
   const listaBase = dados[aba]||[]
   const listaPorEmpresa = dadosFiltradosPorEmpresa(listaBase)
-  const listaFiltrada = listaPorEmpresa.filter((it:any)=> JSON.stringify(it).toLowerCase().includes(busca.toLowerCase()))
+  let listaFiltrada = listaPorEmpresa.filter((it:any)=> JSON.stringify(it).toLowerCase().includes(busca.toLowerCase()))
+  if (aba==='documentos' && pastaAtual!=='Todas') {
+    listaFiltrada = listaFiltrada.filter((it:any)=>(it.pasta||it.tipo||'Outros')===pastaAtual)
+  }
 
   return (
     <div style={{minHeight:'100vh', background:'#ecfeff', fontFamily:'Arial, sans-serif'}}>
-      <header style={{background:'linear-gradient(90deg,#0d9488,#2563eb)', color:'white', padding:'12px 16px', position:'sticky', top:0, zIndex:50, boxShadow:'0 4px 20px rgba(37,99,235,0.3)'}}>
+      <header style={{background:'linear-gradient(90deg,#0d9488,#2563eb)', color:'white', padding:'12px 16px', position:'sticky', top:0, zIndex:50}}>
         <div style={{maxWidth:1200, margin:'0 auto', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
           <div style={{display:'flex', alignItems:'center', gap:12}}>
             <img src="/logo.png" alt="PREVIX" style={{width:44,height:44,objectFit:'contain',background:'white',borderRadius:12,padding:4}} />
@@ -287,7 +288,7 @@ export default function Home() {
         </div>
         <div style={{maxWidth:1200, margin:'12px auto 0', display:'flex', gap:8, overflowX:'auto', paddingBottom:4}}>
           {menu.map(m=>(
-            <button key={m.id} onClick={()=>{setAba(m.id); setBusca('')}} style={{whiteSpace:'nowrap', padding:'8px 16px', borderRadius:20, border:'none', cursor:'pointer', fontWeight:700, fontSize:14, background: aba===m.id?'white':'rgba(255,255,255,0.15)', color: aba===m.id?'#0f766e':'white'}}>{m.icone} {m.label}</button>
+            <button key={m.id} onClick={()=>{setAba(m.id); setBusca(''); setPastaAtual('Todas')}} style={{whiteSpace:'nowrap', padding:'8px 16px', borderRadius:20, border:'none', cursor:'pointer', fontWeight:700, fontSize:14, background: aba===m.id?'white':'rgba(255,255,255,0.15)', color: aba===m.id?'#0f766e':'white'}}>{m.icone} {m.label}</button>
           ))}
         </div>
       </header>
@@ -295,18 +296,17 @@ export default function Home() {
       <main style={{maxWidth:1200, margin:'0 auto', padding:16}}>
         {aba==='inicio' && (
           <>
-            <div style={{background:'linear-gradient(135deg,#ffffff,#ecfeff)', borderRadius:24, padding:24, display:'flex', justifyContent:'space-between', gap:16, flexWrap:'wrap', border:'1px solid #a7f3d0', boxShadow:'0 4px 20px rgba(13,148,136,0.08)'}}>
+            <div style={{background:'linear-gradient(135deg,#ffffff,#ecfeff)', borderRadius:24, padding:24, display:'flex', justifyContent:'space-between', gap:16, flexWrap:'wrap', border:'1px solid #a7f3d0'}}>
               <div>
                 <div style={{fontSize:11,fontWeight:800,letterSpacing:2,color:'#0d9488'}}>{isAdmin ? 'SUPER ADMIN • VOCÊ ESTÁ VENDO TUDO' : `EMPRESA • VOCÊ ESTÁ VENDO SÓ: ${usuario.empresa.toUpperCase()}`}</div>
                 <h2 style={{fontSize:32,fontWeight:900,margin:'8px 0 0', color:'#0f172a'}}>Olá, {usuario.nome}! 👋</h2>
                 <p style={{color:'#64748b'}}>Bem-vindo ao seu painel SST • <b style={{color:'#0f766e'}}>{isAdmin ? 'Todas as empresas' : usuario.empresa}</b></p>
-                <span style={{display:'inline-block',marginTop:12,background:'#ccfbf1',color:'#0f766e',border:'1px solid #99f6e4',padding:'6px 12px',borderRadius:20,fontSize:12,fontWeight:800}}>{isAdmin ? 'Modo Super Admin' : usuario.empresa}</span>
               </div>
               <span style={{background:'#dcfce7',color:'#15803d',padding:'8px 16px',borderRadius:20,fontSize:14,fontWeight:800,height:'fit-content'}}>✅ PREVIX Completo!</span>
             </div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))',gap:16,marginTop:20}}>
               {cards.map(c=>(
-                <button key={c.titulo} onClick={()=>setAba(c.aba)} style={{background:c.cor,borderRadius:24,padding:20,textAlign:'left',border:'none',cursor:'pointer', color:'white', boxShadow:'0 8px 20px rgba(0,0,0,0.12)'}}>
+                <button key={c.titulo} onClick={()=>setAba(c.aba)} style={{background:c.cor,borderRadius:24,padding:20,textAlign:'left',border:'none',cursor:'pointer', color:'white'}}>
                   <div style={{width:48,height:48,background:'rgba(255,255,255,0.25)',borderRadius:16,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>{c.icone}</div>
                   <div style={{color:'rgba(255,255,255,0.9)',fontSize:14,marginTop:16, fontWeight:700}}>{c.titulo}</div>
                   <div style={{fontSize:38,fontWeight:900, lineHeight:1}}>{c.valor}</div>
@@ -314,40 +314,52 @@ export default function Home() {
                 </button>
               ))}
             </div>
-            {aba==='inicio' && docF.length>0 && (
-              <div style={{background:'white',borderRadius:24,padding:20,border:'1px solid #a7f3d0',marginTop:20}}>
-                <h3 style={{margin:'0 0 4px',fontWeight:900, color:'#0f766e'}}>📁 Arquivos recentes</h3>
-                <p style={{margin:'0 0 12px', fontSize:13, color:'#64748b'}}>{docsComArquivo} arquivos salvos • clique para ver ou baixar</p>
-                {docF.slice(-3).reverse().map((d:any)=>(
-                  <div key={d.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderTop:'1px solid #f0fdfa',flexWrap:'wrap',gap:8}}>
-                    <span style={{fontWeight:700}}>📄 {d.titulo} <span style={{fontWeight:400,color:'#64748b',fontSize:13}}>• {d.arquivoNome || 'sem arquivo'}</span></span>
-                    {d.arquivoData && <div style={{display:'flex',gap:8}}><button onClick={()=>verArquivo(d)} style={{...btn, background:'#dbeafe', color:'#1e40af'}}>👁️ Ver</button><button onClick={()=>baixarArquivo(d)} style={{...btn, background:'#dcfce7', color:'#15803d'}}>⬇️ Baixar</button></div>}
-                  </div>
+            <div style={{background:'white',borderRadius:24,padding:20,border:'1px solid #a7f3d0',marginTop:20}}>
+              <h3 style={{margin:'0 0 4px',fontWeight:900, color:'#0f766e'}}>📁 Pastas de Documentos • {usuario.empresa}</h3>
+              <p style={{margin:'0 0 12px', fontSize:13, color:'#64748b'}}>Nada solto! Cada arquivo dentro da sua pasta.</p>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:12}}>
+                {PASTAS.map(p=>(
+                  <button key={p.id} onClick={()=>{setAba('documentos'); setPastaAtual(p.id)}} style={{textAlign:'left', background:'#f0fdfa', border:'1px solid #ccfbf1', borderRadius:16, padding:14, cursor:'pointer'}}>
+                    <div style={{fontSize:22}}>{p.icone}</div>
+                    <div style={{fontWeight:900, color:'#0f172a', marginTop:6}}>{p.nome}</div>
+                    <div style={{fontSize:12, color:'#64748b'}}>{contarPasta(p.id)} arquivo(s)</div>
+                  </button>
                 ))}
               </div>
-            )}
+            </div>
           </>
         )}
 
         {aba!=='inicio' && (
-          <div style={{background:'white',borderRadius:24,padding:24,border:'1px solid #a7f3d0', boxShadow:'0 4px 20px rgba(13,148,136,0.06)'}}>
+          <div style={{background:'white',borderRadius:24,padding:24,border:'1px solid #a7f3d0'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:12}}>
               <div>
-                <h2 style={{fontSize:24,fontWeight:900,textTransform:'capitalize',margin:0, color:'#0f172a'}}>{aba} { !isAdmin && <span style={{fontSize:13, fontWeight:400, color:'#0d9488'}}>- só {usuario.empresa}</span>}</h2>
+                <h2 style={{fontSize:24,fontWeight:900,textTransform:'capitalize',margin:0, color:'#0f172a'}}>{aba} {aba==='documentos' && pastaAtual!=='Todas' && <span style={{fontSize:14, color:'#0d9488'}}>• 📁 {pastaAtual}</span>}</h2>
                 <p style={{color:'#64748b',fontSize:14,margin:'4px 0 0'}}>Total: {listaFiltrada.length} registros {aba==='documentos' && `• ${docsComArquivo} com PDF 📄`}</p>
               </div>
-              <button onClick={abrirNovo} style={{...btn, background:'linear-gradient(90deg,#0d9488,#2563eb)', color:'white', padding:'12px 20px', borderRadius:20, fontSize:14, boxShadow:'0 4px 12px rgba(37,99,235,0.3)'}}>{aba==='documentos' ? '📎 Subir Documento' : '＋ Adicionar'}</button>
+              <button onClick={abrirNovo} style={{...btn, background:'linear-gradient(90deg,#0d9488,#2563eb)', color:'white', padding:'12px 20px', borderRadius:20, fontSize:14}}>{aba==='documentos' ? `📎 Subir em ${pastaAtual==='Todas' ? 'PGR' : pastaAtual}` : '＋ Adicionar'}</button>
             </div>
+
             {aba==='documentos' && (
-              <div style={{background:'#f0fdfa', border:'2px dashed #5eead4', borderRadius:16, padding:16, marginTop:16, textAlign:'center'}}>
-                <div style={{fontWeight:800, color:'#0f766e'}}>📁 Pasta de Arquivos • {usuario.empresa}</div>
-                <div style={{fontSize:13, color:'#64748b', marginTop:4}}>Aqui ficam todos os PDFs, PGR, PCMSO, ASO, laudos... Clique em <b>📎 Subir Documento</b> e escolha o arquivo da sua máquina. Máx 4MB por arquivo.</div>
+              <div style={{marginTop:16}}>
+                <div style={{fontSize:13, fontWeight:800, color:'#0f766e', marginBottom:8}}>📁 PASTAS • Clique para abrir:</div>
+                <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+                  <button onClick={()=>setPastaAtual('Todas')} style={{...btn, background: pastaAtual==='Todas' ? '#0f766e' : '#f1f5f9', color: pastaAtual==='Todas' ? 'white' : '#0f172a', borderRadius:20, padding:'8px 16px'}}>📂 Todas ({docF.length})</button>
+                  {PASTAS.map(p=>(
+                    <button key={p.id} onClick={()=>setPastaAtual(p.id)} style={{...btn, background: pastaAtual===p.id ? p.cor : '#f1f5f9', color: pastaAtual===p.id ? 'white' : '#0f172a', borderRadius:20, padding:'8px 16px'}}>{p.icone} {p.nome} ({contarPasta(p.id)})</button>
+                  ))}
+                </div>
+                <div style={{background:'#f0fdfa', border:'2px dashed #5eead4', borderRadius:16, padding:14, marginTop:12, textAlign:'center', fontSize:13, color:'#64748b'}}>
+                  {pastaAtual==='Todas' ? '📂 Você está vendo TODAS as pastas. Clique em uma pasta acima pra filtrar.' : `📁 Você está dentro da pasta ${pastaAtual} • Tudo que subir agora vai pra essa pasta.`}
+                </div>
               </div>
             )}
+
             <input placeholder={`🔍 Buscar em ${aba}...`} value={busca} onChange={e=>setBusca(e.target.value)} style={{...input, marginTop:16, background:'#f0fdfa'}} />
             <div style={{marginTop:16, display:'flex', flexDirection:'column', gap:12}}>
               {listaFiltrada.map((item:any,i:number)=>{
                 const corAvatar = CORES_CARDS[aba] || 'linear-gradient(135deg,#0d9488,#2563eb)'
+                const pastaItem = item.pasta || item.tipo || 'Outros'
                 return (
                 <div key={item.id||item._id||i} style={{border:'1px solid #e0f2fe',borderRadius:20,padding:16,display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap', background:'linear-gradient(135deg,#ffffff,#f0fdfa)'}}>
                   <div style={{display:'flex', gap:14, alignItems:'center', flex:1, minWidth:220}}>
@@ -355,15 +367,17 @@ export default function Home() {
                     <div style={{flex:1}}>
                       <div style={{fontWeight:900, fontSize:16, color:'#0f172a'}}>{item.nome || item.titulo || item.localizacao || 'Registro'}</div>
                       <div style={{fontSize:13,color:'#64748b', marginTop:2}}>
-                        {aba==='empresas' ? `${item.responsavel||''} • ${item.telefone||''} • ${item.email||''}` : CAMPOS[aba]?.slice(1,4).map((c:any)=> item[c.k] ? `${c.l}: ${item[c.k]} • ` : '').join('')}
+                        {aba==='empresas' ? `${item.responsavel||''} • ${item.telefone||''} • ${item.email||''}` : aba==='documentos' ? `Pasta: ${pastaItem} • Venc: ${item.vencimento||'-'}` : CAMPOS[aba]?.slice(1,4).map((c:any)=> item[c.k] ? `${c.l}: ${item[c.k]} • ` : '').join('')}
                       </div>
-                      {aba==='documentos' && item.arquivoNome && <div style={{fontSize:12, color:'#0f766e', fontWeight:700, marginTop:6}}>📎 {item.arquivoNome} • {(item.arquivoTamanho ? (item.arquivoTamanho/1024).toFixed(0)+' KB' : '')}</div>}
-                      {aba==='documentos' && !item.arquivoNome && <div style={{fontSize:12, color:'#94a3b8', marginTop:6}}>Sem arquivo anexado</div>}
-                      <span style={{display:'inline-block', marginTop:6, background:'#dcfce7', color:'#15803d', padding:'2px 10px', borderRadius:20, fontSize:11, fontWeight:800}}>● ATIVO</span>
+                      {aba==='documentos' && <span style={{display:'inline-block', marginTop:6, background:'#e0f2fe', color:'#1e40af', padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:800}}>📁 {pastaItem}</span>}
+                      {aba==='documentos' && item.arquivoNome && <div style={{fontSize:12, color:'#0f766e', fontWeight:700, marginTop:6}}>📎 {item.arquivoNome}</div>}
                       {aba==='documentos' && item.arquivoData && (
-                        <div style={{display:'flex', gap:8, marginTop:10}}>
+                        <div style={{display:'flex', gap:8, marginTop:10, flexWrap:'wrap'}}>
                           <button onClick={()=>verArquivo(item)} style={{...btn, background:'#dbeafe', color:'#1e40af'}}>👁️ Ver PDF</button>
                           <button onClick={()=>baixarArquivo(item)} style={{...btn, background:'#dcfce7', color:'#15803d'}}>⬇️ Baixar</button>
+                          <select value={pastaItem} onChange={e=>moverPasta(item, e.target.value)} style={{padding:'6px 10px', borderRadius:10, border:'1px solid #cbd5e1', fontSize:12, fontWeight:700}}>
+                            {PASTAS.map(p=><option key={p.id} value={p.id}>Mover p/ {p.nome}</option>)}
+                          </select>
                         </div>
                       )}
                       {aba==='empresas' && (
@@ -382,7 +396,7 @@ export default function Home() {
                 </div>
                 )
               })}
-              {listaFiltrada.length===0 && <p style={{color:'#94a3b8', textAlign:'center', padding:20}}>{aba==='documentos' ? '📁 Pasta vazia! Clica em 📎 Subir Documento e manda o primeiro PDF!' : 'Nenhum registro ainda. Clica em ＋ Adicionar!'}</p>}
+              {listaFiltrada.length===0 && <p style={{color:'#94a3b8', textAlign:'center', padding:20}}>{aba==='documentos' ? `📁 Pasta ${pastaAtual} vazia! Clica em 📎 Subir em ${pastaAtual} e manda o primeiro arquivo!` : 'Nenhum registro ainda.'}</p>}
             </div>
           </div>
         )}
@@ -419,25 +433,30 @@ export default function Home() {
               })}
 
               {aba==='documentos' && (
-                <div style={{background:'#f0fdfa', border:'2px dashed #5eead4', borderRadius:16, padding:16, textAlign:'center'}}>
-                  <div style={{fontWeight:800, color:'#0f766e', marginBottom:8}}>📁 Subir arquivo da máquina</div>
-                  <label style={{display:'block', background:'linear-gradient(90deg,#0d9488,#2563eb)', color:'white', padding:'12px', borderRadius:12, fontWeight:800, cursor:'pointer'}}>
-                    {subindoArquivo ? '⏳ Subindo...' : arquivoNome ? `✅ ${arquivoNome}` : '📎 Clique para escolher PDF / Imagem / Word'}
-                    <input type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" onChange={handleArquivo} style={{display:'none'}} />
-                  </label>
-                  {form.arquivoNome && <div style={{fontSize:12, color:'#15803d', fontWeight:700, marginTop:8}}>✅ Arquivo pronto: {form.arquivoNome}</div>}
-                  <div style={{fontSize:11, color:'#64748b', marginTop:6}}>Aceita PDF, foto, Word • Máx 4MB • Fica salvo na pasta da empresa</div>
-                </div>
+                <>
+                  <div>
+                    <label style={{fontSize:13, fontWeight:800, color:'#0f766e'}}>📁 Escolha a PASTA - pra não ficar solto!</label>
+                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginTop:8}}>
+                      {PASTAS.map(p=>(
+                        <button key={p.id} type="button" onClick={()=>setPastaSelecionadaForm(p.id)} style={{padding:'10px 6px', borderRadius:12, border: pastaSelecionadaForm===p.id ? `2px solid ${p.cor}` : '1px solid #e2e8f0', background: pastaSelecionadaForm===p.id ? '#f0fdfa' : 'white', cursor:'pointer', fontWeight:800, fontSize:12}}>{p.icone} {p.nome}<br/><span style={{fontSize:10, color:'#64748b', fontWeight:400}}>{contarPasta(p.id)} arq.</span></button>
+                      ))}
+                    </div>
+                    <div style={{fontSize:12, color:'#0f766e', fontWeight:700, marginTop:8}}>✅ Vai salvar em: 📁 {pastaSelecionadaForm}</div>
+                  </div>
+                  <div style={{background:'#f0fdfa', border:'2px dashed #5eead4', borderRadius:16, padding:16, textAlign:'center'}}>
+                    <div style={{fontWeight:800, color:'#0f766e', marginBottom:8}}>📁 Subir arquivo da máquina</div>
+                    <label style={{display:'block', background:'linear-gradient(90deg,#0d9488,#2563eb)', color:'white', padding:'12px', borderRadius:12, fontWeight:800, cursor:'pointer'}}>
+                      {subindoArquivo ? '⏳ Subindo...' : arquivoNome ? `✅ ${arquivoNome}` : '📎 Clique para escolher PDF / Imagem / Word'}
+                      <input type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" onChange={handleArquivo} style={{display:'none'}} />
+                    </label>
+                    <div style={{fontSize:11, color:'#64748b', marginTop:6}}>Máx 4MB • Fica salvo dentro da pasta {pastaSelecionadaForm}</div>
+                  </div>
+                </>
               )}
             </div>
-            {aba==='empresas' && form.login && form.senha && (
-              <div style={{background:'#ecfdf5', borderRadius:12, padding:12, marginTop:16, fontSize:13}}>
-                <b>✅ Prévia do acesso:</b><br/>Login: <b>{form.login}</b><br/>Senha: <b>{form.senha}</b>
-              </div>
-            )}
             <div style={{display:'flex', gap:10, marginTop:20}}>
               <button onClick={()=>setModal(false)} style={{...btn, flex:1, background:'#f1f5f9', padding:12}}>Cancelar</button>
-              <button onClick={salvar} style={{...btn, flex:1, background:'linear-gradient(90deg,#0d9488,#2563eb)', color:'white', padding:12}}>💾 Salvar</button>
+              <button onClick={salvar} style={{...btn, flex:1, background:'linear-gradient(90deg,#0d9488,#2563eb)', color:'white', padding:12}}>💾 Salvar na pasta {aba==='documentos' ? pastaSelecionadaForm : ''}</button>
             </div>
           </div>
         </div>

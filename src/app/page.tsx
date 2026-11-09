@@ -108,7 +108,9 @@ export default function Home() {
     const riscos = dadosFiltrados(dados.riscos || [])
     const funcs = dadosFiltrados(dados.funcionarios || [])
     const empObj = (dados.empresas || []).find((e: any) => e.nome === usuario?.empresa) || {}
-    const empNome = usuario?.empresa || 'Empresa'
+    const empObj2 = usuario?.tipo === 'admin' ? (dados.empresas || []).find((e: any) => e.nome.toLowerCase().includes('solnascente')) || (dados.empresas || [])[0] || {} : (dados.empresas || []).find((e: any) => e.nome === usuario?.empresa) || {}
+const empNome = empObj2.nome || usuario?.empresa || 'Empresa'
+const empObj = empObj2
     const hoje = new Date().toLocaleDateString('pt-BR')
     const validade = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString('pt-BR')
     const num = 'PREVIX-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 9000) + 1000)
@@ -129,7 +131,7 @@ export default function Home() {
       + '<div class="topo"><div><div class="logo">PREVIX <span>SST</span></div><div>PREVENÇÃO QUE PROTEGE</div></div><div style="text-align:right"><b>' + num + '</b><div>Emitido: ' + hoje + '</div><div>Validade: ' + validade + '</div></div></div>'
       + '<h1>' + titulo + '</h1><div style="text-align:center;color:#0d9488;font-weight:800">' + sub + '</div>'
       + '<div class="grid"><div class="card"><h3>Empresa</h3><p><b>Razão Social:</b> ' + empNome + '</p><p><b>CNPJ:</b> ' + (empObj.cnpj || 'Não informado') + '</p><p><b>Responsável:</b> ' + (empObj.responsavel || usuario?.nome || '-') + '</p><p><b>Telefone:</b> ' + (empObj.telefone || '-') + '</p></div>'
-      + '<div class="card"><h3>Responsável Técnico</h3><p><b>Nome:</b> ' + (usuario?.nome || 'Cristiano') + '</p><p><b>Função:</b> Técnico / Engenheiro de Segurança do Trabalho</p><p><b>Registro:</b> CREA / MTE - A preencher</p><p><b>Elaborado por:</b> PREVIX SST</p></div></div>'
+      + '<div class="card"><h3>Responsável Técnico</h3><p><b>Nome:</b> Cristiano</p><p><b>Função:</b> Técnico de Segurança do Trabalho</p> + '</p><p><b>Função:</b> Técnico / Engenheiro de Segurança do Trabalho</p><p><b>Registro:</b> CREA / MTE - A preencher</p><p><b>Elaborado por:</b> PREVIX SST</p></div></div>'
       + '<h2>1. OBJETIVO</h2><p>' + objetivo + '</p><p>Este documento atende às exigências legais, subsidia o eSocial (S-2240), o PPP e a gestão de SST da empresa.</p>'
       + '<h2>2. BASE LEGAL E NORMAS</h2><ul>' + base + '</ul><p><b>Atenção:</b> Este laudo deve ser validado e assinado pelo responsável técnico habilitado.</p>'
       + '<h2>3. INVENTÁRIO DE RISCOS / GHE</h2><table><thead><tr><th>#</th><th>GHE / Setor</th><th>Risco</th><th>Tipo</th><th>Agente</th><th>Limite</th><th>EPI</th><th>Ação</th></tr></thead><tbody>' + linhasR + '</tbody></table>'
@@ -137,7 +139,7 @@ export default function Home() {
       + '<h2>5. PLANO DE AÇÃO</h2><table><thead><tr><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr></thead><tbody><tr><td>Revisar inventário</td><td>Resp. Técnico</td><td>30 dias</td><td>Pendente</td></tr><tr><td>Entregar EPIs</td><td>Empresa</td><td>Imediato</td><td>Contínuo</td></tr><tr><td>Exames periódicos</td><td>Clínica</td><td>Conforme PCMSO</td><td>Agendado</td></tr><tr><td>Revisão anual</td><td>Resp. Técnico</td><td>' + validade + '</td><td>Programado</td></tr></tbody></table>'
       + '<h2>6. FUNCIONÁRIOS</h2><table><thead><tr><th>Nome</th><th>Cargo</th><th>Setor</th><th>CPF</th></tr></thead><tbody>' + linhasF + '</tbody></table>'
       + '<h2>7. CONCLUSÃO</h2><p>Manter inventário atualizado, garantir entrega e uso correto dos EPIs, realizar exames conforme PCMSO e promover treinamentos periódicos.</p>'
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:40px;text-align:center"><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (usuario?.nome || 'Cristiano') + '</b><div>Responsável Técnico</div></div><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (empObj.responsavel || empNome) + '</b><div>Responsável pela Empresa - ' + hoje + '</div></div></div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:40px;text-align:center"><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>Cristiano</b> + '</b><div>Responsável Técnico</div></div><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (empObj.responsavel || empNome) + '</b><div>Responsável pela Empresa - ' + hoje + '</div></div></div>'
       + '<div class="btnprint"><button onclick="window.print()">Imprimir / Salvar como PDF</button></div></body></html>'
     const w = window.open('', '_blank')
     if (w) { w.document.write(html); w.document.close() }

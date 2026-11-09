@@ -70,12 +70,10 @@ export default function Home() {
   const [funcSelecionado, setFuncSelecionado] = useState<any>(null)
   const [verPIN, setVerPIN] = useState(false)
   const [pinCopiado, setPinCopiado] = useState('')
-  // ASSINATURA
   const canvasRef = useRef<any>(null)
   const [desenhando, setDesenhando] = useState(false)
   const [assinatura, setAssinatura] = useState('')
   const [temAssinatura, setTemAssinatura] = useState(false)
-  // DIGITAL - BIOMETRIA DO CELULAR
   const [digitalOk, setDigitalOk] = useState(false)
   const [digitalMsg, setDigitalMsg] = useState('')
   const [digitalCarregando, setDigitalCarregando] = useState(false)
@@ -128,25 +126,70 @@ export default function Home() {
   function celularTemDigital() {
     return typeof window !== 'undefined' && !!window.PublicKeyCredential
   }
+  function bufParaBase64(buf:any) {
+    let s = ''
+    const bytes = new Uint8Array(buf)
+    for (let i=0;i<bytes.length;i++) s += String.fromCharCode(bytes[i])
+    return btoa(s)
+  }
+  function base64ParaBuf(b64:string) {
+    const s = atob(b64)
+    const bytes = new Uint8Array(s.length)
+    for (let i=0;i<s.length;i++) bytes[i] = s.charCodeAt(i)
+    return bytes.buffer
+  }
   async function confirmarComDigital() {
     if (!funcSelecionado) { setDigitalMsg('⚠️ Primeiro escolhe o funcionário!'); return }
-    if (!celularTemDigital()) { setDigitalMsg('❌ Esse aparelho não tem digital / Face ID. Usa PIN ou assinatura.'); alert('Esse celular / navegador não suporta biometria. Usa PIN ou assinatura.'); return }
-    // Precisa ser HTTPS (Vercel já é) e o usuário precisa interagir
+    if (!celularTemDigital()) { setDigitalMsg('❌ Esse aparelho não tem digital / Face ID. Usa PIN ou assinatura.'); return }
     setDigitalCarregando(true); setDigitalMsg('👆 Encosta o dedo / mostra o rosto agora...')
     try {
+      const chaveFunc = (funcSelecionado.cpf || funcSelecionado.nome || '').toString()
+      const salvas: any = JSON.parse(localStorage.getItem('previx_digital') || '{}')
+      const idSalvo = salvas[chaveFunc]
       const challenge = new Uint8Array(32)
       window.crypto.getRandomValues(challenge)
-      const cred: any = await navigator.credentials.get({
+
+      if (idSalvo) {
+        try {
+          const cred: any = await navigator.credentials.get({
+            publicKey: {
+              challenge,
+              timeout: 60000,
+              userVerification: 'required',
+              allowCredentials: [{ id: base64ParaBuf(idSalvo), type: 'public-key', transports: ['internal'] }]
+            }
+          } as any)
+          if (cred) {
+            setDigitalOk(true)
+            setDigitalMsg('✅ Digital confirmada! Pode salvar sem PIN e sem assinatura.')
+            setPinErro('')
+            setDigitalCarregando(false)
+            return
+          }
+        } catch (e:any) {
+          console.log('Falhou ler, vai criar nova', e)
+        }
+      }
+
+      setDigitalMsg('👆 Primeira vez! Vai aparecer pra criar a chave. Encosta o dedo...')
+      const userId = new TextEncoder().encode(chaveFunc.slice(0, 32))
+      const nova: any = await navigator.credentials.create({
         publicKey: {
           challenge,
+          rp: { name: 'PREVIX SST', id: window.location.hostname },
+          user: { id: userId, name: funcSelecionado.nome || 'funcionario', displayName: funcSelecionado.nome || 'Funcionario' },
+          pubKeyCredParams: [{ alg: -7, type: 'public-key' }, { alg: -257, type: 'public-key' }],
+          authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', requireResidentKey: true },
           timeout: 60000,
-          userVerification: 'required',
-          allowCredentials: []
+          attestation: 'none'
         }
       } as any)
-      if (cred) {
+
+      if (nova) {
+        salvas[chaveFunc] = bufParaBase64(nova.rawId)
+        localStorage.setItem('previx_digital', JSON.stringify(salvas))
         setDigitalOk(true)
-        setDigitalMsg('✅ Digital confirmada! Pode salvar sem PIN e sem assinatura.')
+        setDigitalMsg('✅ Digital cadastrada e confirmada! Da próxima vez já vai direto.')
         setPinErro('')
       } else {
         setDigitalMsg('❌ Não confirmou. Tenta de novo.')
@@ -155,6 +198,7 @@ export default function Home() {
       console.log(err)
       if (err?.name === 'NotAllowedError') setDigitalMsg('❌ Cancelado / tempo acabou. Tenta de novo ou usa PIN / assinatura.')
       else if (err?.name === 'NotSupportedError') setDigitalMsg('❌ Aparelho sem biometria. Usa PIN ou assinatura.')
+      else if (err?.name === 'InvalidStateError') setDigitalMsg('⚠️ Essa digital já tá cadastrada. Tenta de novo.')
       else setDigitalMsg('❌ Não deu pra ler a digital. Tenta de novo ou usa PIN / assinatura.')
     }
     setDigitalCarregando(false)
@@ -320,7 +364,6 @@ export default function Home() {
       if (!formFinal.data_entrega) formFinal.data_entrega = new Date().toISOString().split('T')[0]
       if (!editando) {
         const funcReal = (dados.funcionarios||[]).find((f:any)=> f.nome === formFinal.funcionario) || funcSelecionado
-        // PIN OU ASSINATURA OU DIGITAL - basta um dos três
         const pinOk = !funcReal?.pin || (pinDigitado && pinDigitado === funcReal.pin)
         const assinaturaOk = temAssinatura || !!assinatura
         const digitalOkFinal = digitalOk
@@ -334,7 +377,6 @@ export default function Home() {
         }
         formFinal.assinatura = assinatura || formFinal.assinatura || ''
         formFinal.pinConfirmado = true
-        // Salva qual método foi usado - aparece no PDF
         if (digitalOkFinal) formFinal.metodo = 'Digital'
         else if (assinaturaOk) formFinal.metodo = 'Assinatura'
         else if (pinOk) formFinal.metodo = 'PIN'
@@ -500,7 +542,6 @@ export default function Home() {
                 <div style={{position:'relative'}}><label style={{fontSize:13, fontWeight:800}}>👷 Funcionário - digita nome OU CPF</label><input value={buscaFunc} onChange={e=>{setBuscaFunc(e.target.value); setForm({...form, funcionario: e.target.value}); setMostrarSugestoesFunc(true); setFuncSelecionado(null); setPinDigitado(''); setPinErro('')}} onFocus={()=>setMostrarSugestoesFunc(true)} placeholder="Ex: Maria ou 123.456..." style={{...input, marginTop:4}} />{mostrarSugestoesFunc && (<div style={{border:'1px solid #ccfbf1', borderRadius:12, marginTop:6, overflow:'hidden', background:'white', boxShadow:'0 8px 20px rgba(0,0,0,0.08)'}}><div style={{padding:'8px 12px', fontSize:11, fontWeight:800, color:'#0f766e', background:'#f0fdfa'}}>{funcsFiltrados.length} FUNCIONÁRIO(S) - CLICA</div>{funcsFiltrados.map((f:any)=>(<button key={f.id||f.cpf} type="button" onClick={()=>{setBuscaFunc(f.nome); setForm({...form, funcionario: f.nome, funcionarioCpf: f.cpf, funcionarioCargo: f.cargo, empresa: f.empresa || form.empresa}); setFuncSelecionado(f); setMostrarSugestoesFunc(false); setPinDigitado(''); setPinErro('')}} style={{display:'block', width:'100%', textAlign:'left', padding:'10px 12px', background:'white', border:'none', borderBottom:'1px solid #f0fdfa', cursor:'pointer'}}><div style={{fontWeight:800}}>👷 {f.nome}</div><div style={{fontSize:12, color:'#64748b'}}>CPF: {f.cpf||'-'} • {f.cargo||''} • 🔑 PIN: {f.pin||'----'}</div></button>))}</div>)} {funcSelecionado && <div style={{fontSize:12, color:'#15803d', fontWeight:700, marginTop:6}}>✅ {funcSelecionado.nome} • CPF: {funcSelecionado.cpf}</div>}</div>
                 <div><label style={{fontSize:13, fontWeight:800}}>📅 Data da Entrega</label><div style={{display:'flex', gap:8, marginTop:4}}><input type="date" value={form.data_entrega||''} onChange={e=>setForm({...form, data_entrega: e.target.value})} style={{...input, flex:1}} /><button type="button" onClick={()=>setForm({...form, data_entrega: new Date().toISOString().split('T')[0]})} style={{...btn, background:'#dcfce7', color:'#15803d', whiteSpace:'nowrap'}}>📅 Hoje</button></div></div>
                 {funcSelecionado && (<div style={{background:'#fef9c3', border:'2px solid #facc15', borderRadius:16, padding:16}}><label style={{fontSize:14, fontWeight:900, color:'#854d0e'}}>🔑 PIN de {funcSelecionado.nome.split(' ')[0]} - OU digital OU assinatura</label><p style={{fontSize:12, color:'#854d0e', margin:'4px 0 10px'}}>Escolhe UM: digita o PIN, OU encosta o dedo, OU assina embaixo.</p><div style={{display:'flex', gap:8}}><input type="password" inputMode="numeric" maxLength={4} value={pinDigitado} onChange={e=>{setPinDigitado(e.target.value.replace(/\D/g,'').slice(0,4)); setPinErro('')}} placeholder="• • • •" style={{...input, flex:1, textAlign:'center', fontSize:22, fontWeight:900, letterSpacing:8}} /><button type="button" onClick={()=>{ if (pinDigitado === (funcSelecionado.pin||'')) { setPinErro('✅ PIN correto! Pode salvar.'); } else { setPinErro('❌ PIN incorreto! Tenta de novo OU usa digital / assinatura.'); } }} style={{...btn, background:'#854d0e', color:'white', whiteSpace:'nowrap', padding:'12px 16px'}}>Verificar PIN</button></div>{pinErro && <div style={{fontSize:13, fontWeight:800, marginTop:8, color: pinErro.includes('✅') ? '#15803d' : '#b91c1c'}}>{pinErro}</div>}<div style={{display:'flex', gap:6, marginTop:10}}>{['1','2','3','4','5','6','7','8','9','0'].map(n=>(<button key={n} type="button" onClick={()=>setPinDigitado((pinDigitado+n).slice(0,4))} style={{flex:1, padding:'8px 0', borderRadius:10, border:'1px solid #facc15', background:'white', fontWeight:900, cursor:'pointer'}}>{n}</button>))}<button type="button" onClick={()=>setPinDigitado('')} style={{padding:'8px 12px', borderRadius:10, border:'1px solid #facc15', background:'#fee2e2', fontWeight:900, cursor:'pointer'}}>⌫</button></div></div>)}
-                {/* DIGITAL */}
                 {funcSelecionado && (
                   <div style={{background:'#e0f2fe', border:'2px solid #2563eb', borderRadius:16, padding:16, textAlign:'center'}}>
                     <label style={{fontSize:14, fontWeight:900, color:'#1e40af'}}>👆 Digital de {funcSelecionado.nome.split(' ')[0]}</label>
@@ -512,7 +553,6 @@ export default function Home() {
                     <div style={{fontSize:11, color:'#64748b', marginTop:8}}>Funciona no celular com digital ou Face ID • Precisa estar no site com HTTPS (Vercel já é)</div>
                   </div>
                 )}
-                {/* ASSINATURA */}
                 {funcSelecionado && (
                   <div style={{background:'#f0fdfa', border:'2px dashed #0d9488', borderRadius:16, padding:16}}>
                     <label style={{fontSize:14, fontWeight:900, color:'#0f766e'}}>✍️ Assinatura de {funcSelecionado.nome.split(' ')[0]} - SÓ SE NÃO USAR PIN NEM DIGITAL</label>

@@ -12,7 +12,6 @@ const CAMPOS: any = {
 }
 const EPIS_PRONTOS = ['Capacete de Segurança','Capacete com Jugular','Óculos de Proteção','Óculos de Proteção Incolor','Protetor Auricular Tipo Concha','Protetor Auricular Tipo Plug','Máscara PFF2','Respirador PFF2','Luva de Vaqueta','Luva de Borracha','Luva de Raspa','Luva Nitrílica','Bota de Segurança','Botina de Segurança','Sapato de Segurança','Cinto de Segurança Paraquedista','Talabarte','Trava Quedas','Colete Refletivo','Uniforme / Fardamento','Capa de Chuva','Protetor Solar','Creme de Proteção','Avental de Raspa','Perneira de Raspa','Mangote','Abafador de Ruído']
 const PASTAS = [{ id:'PGR', nome:'PGR', icone:'📁', cor:'#0d9488' },{ id:'PCMSO', nome:'PCMSO', icone:'📁', cor:'#2563eb' },{ id:'ASO', nome:'ASO / Exames', icone:'🩺', cor:'#22c55e' },{ id:'Laudos', nome:'Laudos', icone:'📋', cor:'#f59e0b' },{ id:'Treinamentos', nome:'Treinamentos', icone:'🎓', cor:'#8b5cf6' },{ id:'Outros', nome:'Outros', icone:'📦', cor:'#64748b' },]
-const CORES_CARDS: any = { funcionarios: 'linear-gradient(135deg,#14b8a6,#06b6d4)', epis: 'linear-gradient(135deg,#22c55e,#84cc16)', extintores: 'linear-gradient(135deg,#3b82f6,#06b6d4)', inspecoes: 'linear-gradient(135deg,#10b981,#14b8a6)', documentos: 'linear-gradient(135deg,#2563eb,#22d3ee)', }
 const TIPOS_EXAME = [
   { nome:'Admissional', desc:'Exame de admissão', tag:'Obrigatório', cor:'#0d9488' },
   { nome:'Periódico', desc:'Acompanhamento anual', tag:'Obrigatório', cor:'#0d9488' },
@@ -32,7 +31,6 @@ function gerarPIN() { return Math.floor(1000 + Math.random()*9000).toString() }
 const ADMIN = { login: 'cristiano', senha: 'previx123', nome: 'Cristiano', tipo: 'admin', empresa: 'Todas' }
 function limparDataExame(v:any) { if (!v) return ''; v=String(v).trim(); if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v; const m=v.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; if (v.includes('T')) return v.split('T')[0]; try { const d=new Date(v); if (!isNaN(d.getTime())) return d.toISOString().split('T')[0] } catch {}; return '' }
 function formatarDataExame(v:any) { const l=limparDataExame(v); if (!l) return '-'; return l.split('-').reverse().join('/') }
-// CORRIGIDO: Se já tem resultado Apto/Inapto, é REALIZADO, não vencido. Só é vencido se ainda está Aguardando e a data passou.
 function statusExameCorrigido(item:any) {
   const d = limparDataExame(item?.data); const res = (item?.resultado||'').toLowerCase()
   if (['apto','inapto','apto com restrição','apto com restricao'].includes(res)) return 'realizado'
@@ -148,7 +146,26 @@ export default function Home() {
   const btn = { padding:'8px 14px', borderRadius:10, border:'none', cursor:'pointer', fontWeight:700, fontSize:13 } as any
   const input = { width:'100%', padding:'12px', borderRadius:12, border:'1px solid #cbd5e1', fontSize:14, boxSizing:'border-box' as any }
   if (carregando) return <div style={{padding:40, textAlign:'center'}}>Carregando PREVIX...</div>
-  if (!usuario) { return (<div style={{minHeight:'100vh', background:'linear-gradient(135deg,#0d9488,#2563eb)', display:'flex', alignItems:'center', justifyContent:'center', padding:16}}><div style={{background:'white', borderRadius:24, padding:32, width:'100%', maxWidth:420}}><div style={{textAlign:'center'}}<img src="/logo.png" alt="PREVIX" style={{width:80,height:80,objectFit:'contain',background:'white',borderRadius:16,padding:8, border:'1px solid #e2e8f0'}} />><h1 style={{fontSize:32, fontWeight:900}}>PREVIX</h1><p style={{color:'#0d9488', fontWeight:800, fontSize:11, letterSpacing:2}}>PREVENÇÃO QUE PROTEGE</p></div><div style={{display:'flex', flexDirection:'column', gap:12, marginTop:20}}><input value={loginForm.login} onChange={e=>setLoginForm({...loginForm, login:e.target.value})} placeholder="Login" style={input} /><input type="password" value={loginForm.senha} onChange={e=>setLoginForm({...loginForm, senha:e.target.value})} onKeyDown={e=>{if(e.key==='Enter') fazerLogin()}} placeholder="Senha" style={input} />{erroLogin && <div style={{background:'#fee2e2', padding:10, borderRadius:10}}>{erroLogin}</div>}<button onClick={fazerLogin} style={{...btn, background:'linear-gradient(90deg,#0d9488,#2563eb)', color:'white', padding:14, borderRadius:12}}>Entrar →</button></div></div></div>) }
+  if (!usuario) {
+    return (
+      <div style={{minHeight:'100vh', background:'linear-gradient(135deg,#0d9488,#2563eb)', display:'flex', alignItems:'center', justifyContent:'center', padding:16, fontFamily:'Arial, sans-serif'}}>
+        <div style={{background:'white', borderRadius:24, padding:32, width:'100%', maxWidth:420, boxShadow:'0 20px 50px rgba(0,0,0,0.3)'}}>
+          <div style={{textAlign:'center'}}>
+            <img src="/logo.png" alt="PREVIX" style={{width:90,height:90,objectFit:'contain',background:'white',borderRadius:16,padding:8, border:'1px solid #e2e8f0'}} />
+            <h1 style={{fontSize:32, fontWeight:900, margin:'12px 0 0', letterSpacing:1, color:'#0f172a'}}>PREVIX</h1>
+            <p style={{color:'#0d9488', fontWeight:800, fontSize:11, letterSpacing:2, margin:'4px 0 0'}}>PREVENÇÃO QUE PROTEGE</p>
+            <p style={{color:'#64748b', marginTop:16}}>Acesse seu painel SST</p>
+          </div>
+          <div style={{display:'flex', flexDirection:'column', gap:12, marginTop:20}}>
+            <input value={loginForm.login} onChange={e=>setLoginForm({...loginForm, login:e.target.value})} placeholder="Login" style={input} />
+            <input type="password" value={loginForm.senha} onChange={e=>setLoginForm({...loginForm, senha:e.target.value})} onKeyDown={e=>{if(e.key==='Enter') fazerLogin()}} placeholder="Senha" style={input} />
+            {erroLogin && <div style={{background:'#fee2e2', padding:10, borderRadius:10, fontSize:13, fontWeight:700, color:'#b91c1c'}}>{erroLogin}</div>}
+            <button onClick={fazerLogin} style={{...btn, background:'linear-gradient(90deg,#0d9488,#2563eb)', color:'white', padding:14, borderRadius:12, fontSize:15}}>Entrar →</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
   const isAdmin = usuario.tipo === 'admin'
   const menuBase = [{id:'inicio',label:'Início',icone:'🏠'},{id:'funcionarios',label:'Funcionários',icone:'👷'},{id:'epis',label:"EPI's",icone:'🦺'},{id:'extintores',label:'Extintores',icone:'🧯'},{id:'inspecoes',label:'Inspeções',icone:'📋'},{id:'documentos',label:'Documentos',icone:'📄'},{id:'exames',label:'Exames',icone:'🩺'},{id:'clinicas',label:'Clínicas',icone:'🏥'}]
   const menu = isAdmin ? [...menuBase, {id:'empresas',label:'Empresas',icone:'🏢'}] : menuBase

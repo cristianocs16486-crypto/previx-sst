@@ -24,7 +24,6 @@ const CAMPOS: any = {
 }
 const PASTAS = [{ id: 'PGR', nome: 'PGR' }, { id: 'PCMSO', nome: 'PCMSO' }, { id: 'ASO', nome: 'ASO / Exames' }, { id: 'Laudos', nome: 'Laudos' }, { id: 'Treinamentos', nome: 'Treinamentos' }, { id: 'Outros', nome: 'Outros' }]
 const TIPOS_EXAME = ['Admissional', 'Periódico', 'Demissional', 'Audiometria', 'Espirometria', 'Raio-X', 'Exame de Sangue', 'Eletrocardiograma', 'Retorno ao Trabalho', 'Mudança de Função', 'Acuidade Visual', 'Exame Clínico']
-// Ícone bonito por tipo de EPI
 function iconeEpi(nome: any) {
   const n = String(nome || '').toLowerCase()
   if (n.includes('capacete') || n.includes('capacet')) return '🪖'
@@ -39,6 +38,7 @@ function iconeEpi(nome: any) {
   if (n.includes('creme')) return '🧴'
   return '🦺'
 }
+const EPIS_PADRAO = ['Capacete', 'Luva', 'Bota', 'Óculos', 'Máscara', 'Protetor Auricular', 'Colete', 'Cinto de Segurança', 'Avental', 'Creme de Proteção']
 function gerarPIN() { return String(Math.floor(1000 + Math.random() * 9000)) }
 function gerarSenha() { return 'Previx' + Math.floor(1000 + Math.random() * 9000) + '@' }
 function limparData(v: any) {
@@ -147,19 +147,19 @@ export default function Home() {
     if (funcs.length === 0) linhasF = '<tr><td colspan="4" style="text-align:center">Nenhum funcionário</td></tr>'
     else funcs.slice(0, 12).forEach((f: any) => { linhasF += '<tr><td>' + (f.nome || '-') + '</td><td>' + (f.cargo || '-') + '</td><td>' + (f.setor || '-') + '</td><td>' + (f.cpf || '-') + '</td></tr>' })
     const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + titulo + '</title><style>body{font-family:Arial,sans-serif;color:#0f172a;margin:0;padding:28px;font-size:13px;line-height:1.55}.topo{display:flex;justify-content:space-between;border-bottom:3px solid #0d9488;padding-bottom:14px}.logo{font-size:28px;font-weight:900}.logo span{color:#0d9488}h1{font-size:22px;text-align:center}h2{font-size:14px;background:#0f172a;color:#fff;padding:8px 12px;border-radius:8px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#0d9488;color:#fff;padding:8px;text-align:left}td{padding:7px;border-bottom:1px solid #e2e8f0}.card{border:1px solid #e2e8f0;border-radius:10px;padding:12px;background:#f8fafc}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.btnprint{text-align:center;margin:18px 0}.btnprint button{background:#0d9488;color:#fff;border:none;padding:13px 26px;border-radius:20px;font-weight:800}@media print{.btnprint{display:none}}</style></head><body>'
-      + '<div class="topo"><div><div class="logo">PREVIX <span>SST</span></div><div>PREVENÇÃO QUE PROTEGE</div></div><div style="text-align:right"><b>' + num + '</b><div>Emitido: ' + hoje + '</div><div>Validade: ' + validade + '</div></div></div>'
-      + '<h1>' + titulo + '</h1><div style="text-align:center;color:#0d9488;font-weight:800">' + sub + '</div>'
-      + '<div class="grid"><div class="card"><h3>Empresa</h3><p><b>Razão Social:</b> ' + empNome + '</p><p><b>CNPJ:</b> ' + (empObj.cnpj || 'Não informado') + '</p><p><b>Responsável:</b> ' + (empObj.responsavel || usuario?.nome || '-') + '</p><p><b>Telefone:</b> ' + (empObj.telefone || '-') + '</p></div>'
-      + '<div class="card"><h3>Responsável Técnico</h3><p><b>Nome:</b> ' + (usuario?.nome || 'Cristiano') + '</p><p><b>Função:</b> Técnico / Engenheiro de Segurança do Trabalho</p><p><b>Registro:</b> CREA / MTE - A preencher</p><p><b>Elaborado por:</b> PREVIX SST</p></div></div>'
-      + '<h2>1. OBJETIVO</h2><p>' + objetivo + '</p><p>Este documento atende às exigências legais, subsidia o eSocial (S-2240), o PPP e a gestão de SST da empresa.</p>'
-      + '<h2>2. BASE LEGAL E NORMAS</h2><ul>' + base + '</ul><p><b>Atenção:</b> Este laudo deve ser validado e assinado pelo responsável técnico habilitado.</p>'
-      + '<h2>3. INVENTÁRIO DE RISCOS / GHE</h2><table><thead><tr><th>#</th><th>GHE / Setor</th><th>Risco</th><th>Tipo</th><th>Agente</th><th>Limite</th><th>EPI</th><th>Ação</th></tr></thead><tbody>' + linhasR + '</tbody></table>'
-      + '<h2>4. MEDIDAS DE CONTROLE</h2><p><b>Hierarquia:</b> 1. Eliminação, 2. Engenharia, 3. Administrativo, 4. EPI com CA válido e treinamento. <b>Treinamentos:</b> NR-01, NR-06, NR-17, NR-35, NR-10.</p>'
-      + '<h2>5. PLANO DE AÇÃO</h2><table><thead><tr><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr></thead><tbody><tr><td>Revisar inventário</td><td>Resp. Técnico</td><td>30 dias</td><td>Pendente</td></tr><tr><td>Entregar EPIs</td><td>Empresa</td><td>Imediato</td><td>Contínuo</td></tr><tr><td>Exames periódicos</td><td>Clínica</td><td>Conforme PCMSO</td><td>Agendado</td></tr><tr><td>Revisão anual</td><td>Resp. Técnico</td><td>' + validade + '</td><td>Programado</td></tr></tbody></table>'
-      + '<h2>6. FUNCIONÁRIOS</h2><table><thead><tr><th>Nome</th><th>Cargo</th><th>Setor</th><th>CPF</th></tr></thead><tbody>' + linhasF + '</tbody></table>'
-      + '<h2>7. CONCLUSÃO</h2><p>Manter inventário atualizado, garantir entrega e uso correto dos EPIs, realizar exames conforme PCMSO e promover treinamentos periódicos.</p>'
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:40px;text-align:center"><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (usuario?.nome || 'Cristiano') + '</b><div>Responsável Técnico</div></div><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (empObj.responsavel || empNome) + '</b><div>Responsável pela Empresa - ' + hoje + '</div></div></div>'
-      + '<div class="btnprint"><button onclick="window.print()">Imprimir / Salvar como PDF</button></div></body></html>'
+            + '<div class="topo"><div><div class="logo">PREVIX <span>SST</span></div><div>PREVENÇÃO QUE PROTEGE</div></div><div style="text-align:right"><b>' + num + '</b><div>Emitido: ' + hoje + '</div><div>Validade: ' + validade + '</div></div></div>'
+            + '<h1>' + titulo + '</h1><div style="text-align:center;color:#0d9488;font-weight:800">' + sub + '</div>'
+            + '<div class="grid"><div class="card"><h3>Empresa</h3><p><b>Razão Social:</b> ' + empNome + '</p><p><b>CNPJ:</b> ' + (empObj.cnpj || 'Não informado') + '</p><p><b>Responsável:</b> ' + (empObj.responsavel || usuario?.nome || '-') + '</p><p><b>Telefone:</b> ' + (empObj.telefone || '-') + '</p></div>'
+            + '<div class="card"><h3>Responsável Técnico</h3><p><b>Nome:</b> ' + (usuario?.nome || 'Cristiano') + '</p><p><b>Função:</b> Técnico / Engenheiro de Segurança do Trabalho</p><p><b>Registro:</b> CREA / MTE - A preencher</p><p><b>Elaborado por:</b> PREVIX SST</p></div></div>'
+            + '<h2>1. OBJETIVO</h2><p>' + objetivo + '</p><p>Este documento atende às exigências legais, subsidia o eSocial (S-2240), o PPP e a gestão de SST da empresa.</p>'
+            + '<h2>2. BASE LEGAL E NORMAS</h2><ul>' + base + '</ul><p><b>Atenção:</b> Este laudo deve ser validado e assinado pelo responsável técnico habilitado.</p>'
+            + '<h2>3. INVENTÁRIO DE RISCOS / GHE</h2><table><thead><tr><th>#</th><th>GHE / Setor</th><th>Risco</th><th>Tipo</th><th>Agente</th><th>Limite</th><th>EPI</th><th>Ação</th></tr></thead><tbody>' + linhasR + '</tbody></table>'
+            + '<h2>4. MEDIDAS DE CONTROLE</h2><p><b>Hierarquia:</b> 1. Eliminação, 2. Engenharia, 3. Administrativo, 4. EPI com CA válido e treinamento. <b>Treinamentos:</b> NR-01, NR-06, NR-17, NR-35, NR-10.</p>'
+            + '<h2>5. PLANO DE AÇÃO</h2><table><thead><tr><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr></thead><tbody><tr><td>Revisar inventário</td><td>Resp. Técnico</td><td>30 dias</td><td>Pendente</td></tr><tr><td>Entregar EPIs</td><td>Empresa</td><td>Imediato</td><td>Contínuo</td></tr><tr><td>Exames periódicos</td><td>Clínica</td><td>Conforme PCMSO</td><td>Agendado</td></tr><tr><td>Revisão anual</td><td>Resp. Técnico</td><td>' + validade + '</td><td>Programado</td></tr></tbody></table>'
+            + '<h2>6. FUNCIONÁRIOS</h2><table><thead><tr><th>Nome</th><th>Cargo</th><th>Setor</th><th>CPF</th></tr></thead><tbody>' + linhasF + '</tbody></table>'
+            + '<h2>7. CONCLUSÃO</h2><p>Manter inventário atualizado, garantir entrega e uso correto dos EPIs, realizar exames conforme PCMSO e promover treinamentos periódicos.</p>'
+            + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:40px;text-align:center"><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (usuario?.nome || 'Cristiano') + '</b><div>Responsável Técnico</div></div><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (empObj.responsavel || empNome) + '</b><div>Responsável pela Empresa - ' + hoje + '</div></div></div>'
+            + '<div class="btnprint"><button onclick="window.print()">Imprimir / Salvar como PDF</button></div></body></html>'
     const w = window.open('', '_blank')
     if (w) { w.document.write(html); w.document.close() }
   }
@@ -280,8 +280,10 @@ export default function Home() {
   const exReal = examesF.filter((e: any) => statusExame(e) === 'realizado').length
   const clinicaAtual = (dados.clinicas || []).find((c: any) => c.nome === clinicaSel) || (dados.clinicas || [])[0] || { nome: 'Sol Nascente' }
   const funcSelEpi = (dados.funcionarios || []).find((f: any) => f.nome === form.funcionario) || (dados.funcionarios || []).find((f: any) => (f.cpf || '') === form.funcionario) || null
-  // Lista única de EPIs para o modal - sem repetir nome
   const episUnicos = Array.from(new Map(episF.map((e: any) => [String(e.nome || '').toLowerCase(), e])).values())
+  // LISTA EM LINHA - filtra pelo que digitou no Nome do EPI
+  const textoEpi = String(form.nome || '').toLowerCase()
+  const listaEpiModal = (episUnicos.length > 0 ? episUnicos : EPIS_PADRAO.map(n => ({ nome: n, ca: '' }))).filter((e: any) => !textoEpi || String(e.nome || '').toLowerCase().includes(textoEpi))
   return <div style={{ minHeight: '100vh', background: '#ecfeff', fontFamily: 'Arial,sans-serif' }}>
     <header style={{ background: 'linear-gradient(90deg,#0d9488,#2563eb)', color: 'white', padding: '12px 16px', position: 'sticky', top: 0, zIndex: 50 }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><div style={{ fontWeight: 900, fontSize: 20 }}>PREVIX <span style={{ fontSize: 12, background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: 20 }}>SST</span></div><div style={{ display: 'flex', gap: 8 }}><span style={{ fontSize: 12, background: isAdmin ? '#f97316' : '#22c55e', padding: '6px 12px', borderRadius: 20, fontWeight: 700 }}>{isAdmin ? 'SUPER ADMIN' : usuario.empresa}</span><button onClick={exportarCSV} style={{ ...btn, background: 'white', color: '#0f172a', borderRadius: 20 }}>Exportar CSV</button><button onClick={sair} style={{ ...btn, background: 'white', color: '#0f172a', borderRadius: 20 }}>Sair</button></div></div>
@@ -321,8 +323,9 @@ export default function Home() {
         <div><label>Nome do EPI</label><input value={form.nome || ''} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Ex: capaçete, luva, bota..." style={{ ...input, marginTop: 4 }} />
           <div style={{ background: '#f8fafc', borderRadius: 14, padding: 10, marginTop: 8 }}>
             <b style={{ fontSize: 13 }}>🦺 Todos os EPIs já listados - clica pra usar:</b>
-            {episUnicos.length === 0 ? <p style={{ fontSize: 12, color: '#64748b', margin: '6px 0 0' }}>Nenhum EPI ainda. Digita o primeiro aqui em cima.</p> : <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>{episUnicos.map((e: any) => <button key={e.id} type="button" onClick={() => setForm({ ...form, nome: e.nome, tipo: e.tipo || e.modelo || '', ca: e.ca || '' })} style={{ padding: '8px 10px', borderRadius: 20, border: (form.nome || '') === e.nome ? '2px solid #0d9488' : '1px solid #e2e8f0', background: (form.nome || '') === e.nome ? '#ccfbf1' : 'white', fontWeight: 700, fontSize: 13 }}>{iconeEpi(e.nome)} {e.nome} {e.ca ? '• CA ' + e.ca : ''}</button>)}</div>}
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>{['Capacete', 'Luva', 'Bota', 'Óculos', 'Máscara', 'Protetor Auricular', 'Colete', 'Cinto de Segurança', 'Avental', 'Creme de Proteção'].map(n => <button key={n} type="button" onClick={() => setForm({ ...form, nome: n })} style={{ padding: '6px 10px', borderRadius: 20, background: '#e0f2fe', border: 'none', fontSize: 12, fontWeight: 700 }}>+ {iconeEpi(n)} {n}</button>)}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+              {listaEpiModal.length === 0 ? <p style={{ fontSize: 12, color: '#64748b' }}>Nenhum EPI com esse nome. Pode cadastrar novo aqui em cima.</p> : listaEpiModal.map((e: any, idx: number) => <button key={(e.id || e.nome) + idx} type="button" onClick={() => setForm({ ...form, nome: e.nome, tipo: e.tipo || e.modelo || form.tipo || '', ca: e.ca || form.ca || '' })} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: 12, border: (form.nome || '') === e.nome ? '2px solid #0d9488' : '1px solid #e2e8f0', background: (form.nome || '') === e.nome ? '#ccfbf1' : 'white', fontWeight: 700, fontSize: 14 }}><span style={{ fontSize: 20 }}>{iconeEpi(e.nome)}</span><span style={{ flex: 1 }}>{e.nome}</span>{e.ca ? <span style={{ fontSize: 12, color: '#64748b' }}>CA {e.ca}</span> : <span style={{ fontSize: 12, color: '#0d9488' }}>+ usar</span>}</button>)}
+            </div>
           </div>
         </div>
         <div><label>Tipo / Modelo</label><input value={form.tipo || ''} onChange={e => setForm({ ...form, tipo: e.target.value, modelo: e.target.value })} placeholder="Ex: 12545" style={{ ...input, marginTop: 4 }} /></div>

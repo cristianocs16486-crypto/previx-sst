@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 const SETORES=['Vendas','Caixa','Estoque','Limpeza','Gerência','Entrega','Administrativo','Produção','Manutenção','Segurança','Almoxarifado','RH','Outro']
-const TIPOS_INSPECAO=[{id:'Visita Técnica Geral',itens:['Sinalização','EPIs em uso','Extintores válidos','Saídas livres','Elétrica','Organização']},{id:'NR-10 - Elétrica',itens:['Quadro sinalizado','Aterramento','EPI isolante','Bloqueio','Cabos']},{id:'NR-35 - Altura',itens:['Cinto','Talabarte','Ancoragem','Treinamento NR-35','Plano resgate']},{id:'EPI - NR-06',itens:['CA válido','Entrega registrada','Bom estado','Orientado']},{id:'Extintores - NR-23',itens:['Validade','Lacre','Sinalização','Desobstruído']},{id:'Outros',itens:['Item 1','Item 2','Item 3']}]
+const TIPOS_INSPECAO=[{id:'Visita Técnica Geral',itens:['Sinalização','EPIs em uso','Extintores válidos','Saídas livres','Elétrica']},{id:'NR-10 - Elétrica',itens:['Quadro sinalizado','Aterramento','EPI isolante','Bloqueio']},{id:'NR-35 - Altura',itens:['Cinto','Talabarte','Ancoragem','Treinamento NR-35']},{id:'EPI - NR-06',itens:['CA válido','Entrega registrada','Bom estado']},{id:'Extintores - NR-23',itens:['Validade','Lacre','Sinalização']},{id:'Outros',itens:['Item 1','Item 2']}]
 const MOTIVOS=['Rotina Periódica','Denúncia','Adequação a Nova Norma','Pós-Acidente','Fiscalização / Auditoria','Solicitação da Empresa']
 const CATALOGO_EPI=[{nome:'Capacete de Segurança',ca:'',tipo:'Classe A'},{nome:'Cinto Paraquedista',ca:'',tipo:''},{nome:'Colete Refletivo',ca:'',tipo:''},{nome:'Calçado de Segurança',ca:'',tipo:'Bico de Aço'},{nome:'Luva Borracha',ca:'',tipo:'Isolante'},{nome:'Luva Látex',ca:'',tipo:'Descartável'},{nome:'Luva Raspa',ca:'',tipo:'Cano Longo'},{nome:'Máscara PFF2',ca:'',tipo:'Com Válvula'},{nome:'Óculos de Segurança',ca:'',tipo:'Incolor'},{nome:'Protetor Auricular Concha',ca:'',tipo:''}]
 const TIPOS_EXAME_DET=[{nome:'Admissional',desc:'Admissão',obrig:true},{nome:'Periódico',desc:'Anual',obrig:true},{nome:'Demissional',desc:'Desligamento',obrig:false},{nome:'Audiometria',desc:'Auditiva',obrig:false},{nome:'Espirometria',desc:'Pulmonar',obrig:false},{nome:'Raio-X',desc:'Tórax',obrig:false},{nome:'Exame de Sangue',desc:'Hemograma',obrig:false},{nome:'Retorno ao Trabalho',desc:'Pós afastamento',obrig:true},{nome:'Mudança de Função',desc:'Nova função',obrig:true},{nome:'Exame Clínico',desc:'Geral',obrig:true}]
@@ -19,7 +19,6 @@ function statusExtintor(it:any){const v=limparData(it?.vencimento);if(!v)return{
 function iconeArquivo(n:string){const s=String(n||'').toLowerCase();if(s.endsWith('.pdf'))return'📕';if(s.endsWith('.doc')||s.endsWith('.docx'))return'📘';if(s.endsWith('.xls')||s.endsWith('.xlsx'))return'📗';if(s.endsWith('.jpg')||s.endsWith('.jpeg')||s.endsWith('.png'))return'🖼️';return'📄'}
 const ADMIN_PADRAO={login:'cristiano',senha:'previx123',nome:'Cristiano',tipo:'admin',empresa:'Todas'}
 function getAdmin(){try{const s=localStorage.getItem('previx_admin');if(s)return JSON.parse(s)}catch{}return ADMIN_PADRAO}
-const ADMIN=ADMIN_PADRAO
 const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 export default function Home(){
 const [dados,setDados]=useState<any>({funcionarios:[],epis:[],extintores:[],inspecoes:[],documentos:[],exames:[],empresas:[],clinicas:[],riscos:[],financeiro:[]})
@@ -57,19 +56,19 @@ useEffect(()=>{const s=localStorage.getItem('previx_session');if(s){try{setUsuar
 function salvarTecnico(){localStorage.setItem('previx_tecnico',JSON.stringify(tecnico));alert('✅ Dados salvos!')}
 function carregar(){
 try{
-const ld=JSON.parse(localStorage.getItem('previx_dados')||'{}');
-const le=JSON.parse(localStorage.getItem('previx_empresas')||'[]');
-const res:any={funcionarios:[],epis:[],extintores:[],inspecoes:[],documentos:[],exames:[],empresas:[],clinicas:[],riscos:[],financeiro:[]};
-Object.keys(res).forEach(k=>{if(ld[k])res[k]=ld[k]});
-if(le.length)res.empresas=le;
-if(!res.empresas.find((e:any)=>e.login==='solnascente'))res.empresas.push({id:'sol1',nome:'Solnascente LTDA',cnpj:'',responsavel:'Ronaldo',telefone:'82994145622',email:'Lojas.cs16486@gmail.com',login:'solnascente',senha:'12345678',dicaSenha:'Loja do Ronaldo',status:'Ativa'});
-if(!res.clinicas.length)res.clinicas=[{id:'clin1',nome:'Sol Nascente',cnpj:'',telefone:'(82) 99999-0000',endereco:'Maceió - AL',convenio:'Vigente',status:'Ativa'}];
-res.funcionarios=res.funcionarios.map((f:any)=>f.pin?f:{...f,pin:gerarPIN()});
-res.exames=res.exames.map((e:any)=>({...e,data:limparData(e.data)||e.data}));
-res.extintores=res.extintores.map((e:any)=>({...e,vencimento:limparData(e.vencimento)||e.vencimento,ultima_recarga:limparData(e.ultima_recarga)||e.ultima_recarga}));
-res.documentos=res.documentos.map((d:any)=>({...d,vencimento:limparData(d.vencimento)||d.vencimento}));
-res.inspecoes=res.inspecoes.map((i:any)=>({...i,data:limparData(i.data)||i.data}));
-setDados(res);
+const ld=JSON.parse(localStorage.getItem('previx_dados')||'{}')
+const le=JSON.parse(localStorage.getItem('previx_empresas')||'[]')
+const res:any={funcionarios:[],epis:[],extintores:[],inspecoes:[],documentos:[],exames:[],empresas:[],clinicas:[],riscos:[],financeiro:[]}
+Object.keys(res).forEach(k=>{if(ld[k])res[k]=ld[k]})
+if(le.length)res.empresas=le
+if(!res.empresas.find((e:any)=>e.login==='solnascente'))res.empresas.push({id:'sol1',nome:'Solnascente LTDA',cnpj:'',responsavel:'Ronaldo',telefone:'82994145622',email:'Lojas.cs16486@gmail.com',login:'solnascente',senha:'12345678',dicaSenha:'Loja do Ronaldo',status:'Ativa'})
+if(!res.clinicas.length)res.clinicas=[{id:'clin1',nome:'Sol Nascente',cnpj:'',telefone:'(82) 99999-0000',endereco:'Maceió - AL',convenio:'Vigente',status:'Ativa'}]
+res.funcionarios=res.funcionarios.map((f:any)=>f.pin?f:{...f,pin:gerarPIN()})
+res.exames=res.exames.map((e:any)=>({...e,data:limparData(e.data)||e.data}))
+res.extintores=res.extintores.map((e:any)=>({...e,vencimento:limparData(e.vencimento)||e.vencimento,ultima_recarga:limparData(e.ultima_recarga)||e.ultima_recarga}))
+res.documentos=res.documentos.map((d:any)=>({...d,vencimento:limparData(d.vencimento)||d.vencimento}))
+res.inspecoes=res.inspecoes.map((i:any)=>({...i,data:limparData(i.data)||i.data}))
+setDados(res)
 }catch{}
 }
 function salvarNav(nd:any){try{localStorage.setItem('previx_empresas',JSON.stringify(nd.empresas||[]));localStorage.setItem('previx_dados',JSON.stringify(nd))}catch{}}
@@ -77,24 +76,79 @@ function dadosFiltrados(lista:any[]){if(!usuario)return[];if(usuario.tipo==='adm
 function exportarCSV(){const funcs=dadosFiltrados(dados.funcionarios||[]);let csv='nome;cpf;cargo;setor;empresa;telefone;pin\n';funcs.forEach((f:any)=>{csv+=(f.nome||'')+';'+(f.cpf||'')+';'+(f.cargo||'')+';'+(f.setor||'')+';'+(f.empresa||'')+';'+(f.telefone||'')+';'+(f.pin||'')+'\n'});const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='previx-export.csv';a.click()}
 function abrirLaudo(html:string){const w=window.open('','_blank');if(w){w.document.write(html);w.document.close()}}
 function gerarLaudo(tipo:string){
-const riscos=dadosFiltrados(dados.riscos||[]);const funcs=dadosFiltrados(dados.funcionarios||[]);const empObj=(dados.empresas||[]).find((e:any)=>e.nome===usuario?.empresa)||{};const empNome=usuario?.empresa&&usuario.empresa!=='Todas'?usuario.empresa:tecnico.empresaLaudo||empObj.nome||'Empresa';const hoje=new Date().toLocaleDateString('pt-BR');const titulo=tipo.includes('PGR')?'PGR':tipo.includes('LTCAT')?'LTCAT':tipo.includes('LIP')?'LIP':tipo;let lr=riscos.length?riscos.map((r:any,i:number)=>'<tr><td>'+(i+1)+'</td><td>'+(r.ghe||'-')+'</td><td>'+(r.nome||'-')+'</td><td>'+(r.tipo||'-')+'</td><td>'+(r.agente||'-')+'</td><td>'+(r.epi||'-')+'</td></tr>').join(''):'<tr><td colspan="6">Nenhum risco</td></tr>';let lf=funcs.length?funcs.slice(0,12).map((f:any)=>'<tr><td>'+(f.nome||'-')+'</td><td>'+(f.cargo||'-')+'</td><td>'+(f.setor||'-')+'</td><td>'+(f.cpf||'-')+'</td></tr>').join(''):'<tr><td colspan="4">Nenhum funcionário</td></tr>';abrirLaudo('<html><head><meta charset="utf-8"><style>body{font-family:Arial;padding:28px}table{width:100%;border-collapse:collapse}th{background:#0d9488;color:#fff;padding:8px;text-align:left}td{padding:7px;border-bottom:1px solid #eee}</style></head><body><h1 style="text-align:center">'+titulo+'</h1><p style="text-align:center">PREVIX SST - '+empNome+' - '+hoje+'</p><p><b>Responsável:</b> '+tecnico.nome+' - '+tecnico.formacao+' - CREA: '+(tecnico.crea||'-')+' - CRM: '+(tecnico.crm||'-')+' - ART: '+(tecnico.art||'-')+' - MTE: '+(tecnico.mte||'-')+'</p><p><b>CNPJ:</b> '+(empObj.cnpj||tecnico.cnpj||'-')+'</p><h2>Inventário</h2><table><tr><th>#</th><th>GHE</th><th>Risco</th><th>Tipo</th><th>Agente</th><th>EPI</th></tr>'+lr+'</table><h2>Funcionários</h2><table><tr><th>Nome</th><th>Cargo</th><th>Setor</th><th>CPF</th></tr>'+lf+'</table><br><br><div style="display:flex;justify-content:space-between;text-align:center"><div>____________________<br>'+tecnico.nome+'</div><div>____________________<br>'+empNome+'</div></div><div style="text-align:center;margin:16px"><button onclick="window.print()">Imprimir / PDF</button></div></body></html>')
+const riscos=dadosFiltrados(dados.riscos||[])
+const funcs=dadosFiltrados(dados.funcionarios||[])
+const empObj=(dados.empresas||[]).find((e:any)=>e.nome===usuario?.empresa)||{}
+const empNome=usuario?.empresa&&usuario.empresa!=='Todas'?usuario.empresa:tecnico.empresaLaudo||empObj.nome||'Empresa'
+const hoje=new Date().toLocaleDateString('pt-BR')
+const titulo=tipo.includes('PGR')?'PGR':tipo.includes('LTCAT')?'LTCAT':tipo.includes('LIP')?'LIP':tipo
+let lr=riscos.length?riscos.map((r:any,i:number)=>'<tr><td>'+(i+1)+'</td><td>'+(r.ghe||'-')+'</td><td>'+(r.nome||'-')+'</td><td>'+(r.tipo||'-')+'</td><td>'+(r.agente||'-')+'</td><td>'+(r.epi||'-')+'</td></tr>').join(''):'<tr><td colspan="6">Nenhum risco</td></tr>'
+let lf=funcs.length?funcs.slice(0,12).map((f:any)=>'<tr><td>'+(f.nome||'-')+'</td><td>'+(f.cargo||'-')+'</td><td>'+(f.setor||'-')+'</td><td>'+(f.cpf||'-')+'</td></tr>').join(''):'<tr><td colspan="4">Nenhum funcionario</td></tr>'
+abrirLaudo('<html><head><meta charset="utf-8"><style>body{font-family:Arial;padding:28px}table{width:100%;border-collapse:collapse}th{background:#0d9488;color:#fff;padding:8px;text-align:left}td{padding:7px;border-bottom:1px solid #eee}</style></head><body><h1 style="text-align:center">'+titulo+'</h1><p style="text-align:center">PREVIX SST - '+empNome+' - '+hoje+'</p><p><b>Responsavel:</b> '+tecnico.nome+' - '+tecnico.formacao+' - CREA: '+(tecnico.crea||'-')+' - CRM: '+(tecnico.crm||'-')+' - ART: '+(tecnico.art||'-')+' - MTE: '+(tecnico.mte||'-')+'</p><p><b>CNPJ:</b> '+(empObj.cnpj||tecnico.cnpj||'-')+'</p><h2>Inventario</h2><table><tr><th>#</th><th>GHE</th><th>Risco</th><th>Tipo</th><th>Agente</th><th>EPI</th></tr>'+lr+'</table><h2>Funcionarios</h2><table><tr><th>Nome</th><th>Cargo</th><th>Setor</th><th>CPF</th></tr>'+lf+'</table><br><br><div style="display:flex;justify-content:space-between;text-align:center"><div>____________________<br>'+tecnico.nome+'</div><div>____________________<br>'+empNome+'</div></div><div style="text-align:center;margin:16px"><button onclick="window.print()">Imprimir / PDF</button></div></body></html>')
 }
-function gerarRelatorioExtintores(){const exts=dadosFiltrados(dados.extintores||[]);const empNome=usuario?.empresa||tecnico.empresaLaudo||'Empresa';const hoje=new Date().toLocaleDateString('pt-BR');let linhas=exts.length?exts.map((e:any,i:number)=>{const st=statusExtintor(e);return '<tr><td>'+(i+1)+'</td><td>'+(e.localizacao||'-')+' '+(e.tipo||'-')+'</td><td>'+fmtData(e.vencimento)+'</td><td>'+fmtData(e.ultima_recarga)+'</td><td>'+st.emoji+' '+st.label+'</td></tr>'}).join(''):'<tr><td colspan="5">Nenhum extintor</td></tr>';abrirLaudo('<html><head><meta charset="utf-8"><style>body{font-family:Arial;padding:28px}table{width:100%;border-collapse:collapse}th{background:#dc2626;color:#fff;padding:10px;text-align:left}td{padding:10px;border-bottom:1px solid #eee}</style></head><body><h1 style="text-align:center">Relatório de Extintores</h1><p style="text-align:center">PREVIX SST - '+empNome+' - '+hoje+' - Resp: '+tecnico.nome+' CREA: '+(tecnico.crea||'-')+'</p><table><tr><th>#</th><th>Local</th><th>Vencimento</th><th>Recarga</th><th>Status</th></tr>'+linhas+'</table><div style="text-align:center;margin:16px"><button onclick="window.print()">Imprimir</button></div></body></html>')}
-function gerarRelatorioInspecao(item:any){const empNome=item.empresa||usuario?.empresa||'Empresa';const hoje=new Date().toLocaleDateString('pt-BR');const checklist=item.checklist||[];let lc=checklist.length?checklist.map((c:any,i:number)=>'<tr><td>'+(i+1)+'</td><td>'+c.item+(c.obs?'<div>'+c.obs+'</div>':'')+'</td><td>'+(c.status||'N/A')+'</td></tr>').join(''):'<tr><td colspan="3">Sem itens</td></tr>';let fh=(item.fotos||[]).length?(item.fotos||[]).map((f:string)=>'<img src="'+f+'" style="width:200px;height:140px;object-fit:cover;margin:6px;border-radius:8px" />').join(''):'Sem fotos';abrirLaudo('<html><head><meta charset="utf-8"><style>body{font-family:Arial;padding:28px}table{width:100%;border-collapse:collapse}th{background:#0f172a;color:#fff;padding:10px;text-align:left}td{padding:10px;border-bottom:1px solid #eee}</style></head><body><h1 style="text-align:center">LAUDO DE INSPEÇÃO</h1><p style="text-align:center">PREVIX SST - '+hoje+'</p><p><b>Empresa:</b> '+empNome+' - CNPJ: '+(item.cnpjEmpresa||tecnico.cnpj||'-')+' - Endereço: '+(item.enderecoEmpresa||tecnico.enderecoEmpresa||'-')+'</p><p><b>Local:</b> '+(item.local||'-')+' - <b>Data:</b> '+fmtData(item.data)+' - <b>Resp:</b> '+(item.responsavel||'-')+'</p><p><b>Técnico:</b> '+tecnico.nome+' - CREA: '+(tecnico.crea||'-')+' - ART: '+(tecnico.art||'-')+' - MTE: '+(tecnico.mte||'-')+'</p><p><b>Motivo:</b> '+(item.motivo||'-')+' - <b>Título:</b> '+(item.titulo||'-')+' - <b>Tipo:</b> '+(item.tipoInspecao||item.tipo||'-')+'</p><p><b>Objetivo:</b> '+(item.objetivo||'Verificar condições de segurança')+'</p><p><b>Achados:</b> '+(item.observacoes||'Sem observações')+'</p><table><tr><th>#</th><th>Item</th><th>Resultado</th></tr>'+lc+'</table><p><b>Não Conformidades:</b> '+(item.naoConformidades||'-')+'</p><p><b>Ação Imediata:</b> '+(item.acaoImediata||'-')+'</p><p><b>Ação Longo Prazo:</b> '+(item.acaoLongoPrazo||'-')+'</p><p><b>Conclusão:</b> '+(item.conclusao||'-')+'</p><h3>Fotos</h3><div>'+fh+'</div><br><br><div style="display:flex;justify-content:space-between;text-align:center"><div>____________________<br>'+tecnico.nome+'</div><div>____________________<br>'+empNome+'</div></div><div style="text-align:center;margin:16px"><button onclick="window.print()">Imprimir</button></div></body></html>')}
-function gerarTermo(e:any){const func=(dados.funcionarios||[]).find((f:any)=>f.nome===e.funcionario)||{};const empNome=e.empresa||func.empresa||usuario?.empresa||'PREVIX SST';const dataFmt=e.data_entrega?e.data_entrega.split('-').reverse().join('/'):new Date().toLocaleDateString('pt-BR');const formas=[];if(e.pinVerificado)formas.push('PIN ✅');if(e.biometria)formas.push('Digital ✅');if(e.assinaturaImg)formas.push('Assinatura ✅');abrirLaudo('<html><head><meta charset="utf-8"><style>body{font-family:Arial;padding:28px;max-width:820px;margin:0 auto}</style></head><body><h1 style="text-align:center">Termo de Entrega de EPI - NR-06</h1><p><b>Empresa:</b> '+empNome+'</p><p><b>Funcionário:</b> '+(e.funcionario||'-')+' - CPF: '+(func.cpf||'-')+'</p><p><b>EPI:</b> '+iconeEpi(e.nome)+' '+(e.nome||'-')+' - CA: '+(e.ca||'-')+' - Data: '+dataFmt+'</p><p><b>Confirmação:</b> '+(formas.length?formas.join(' • '):'Verbal')+'</p>'+(e.assinaturaImg?'<p style="text-align:center"><img src="'+e.assinaturaImg+'" style="max-width:300px;border:1px solid #ccc" /></p>':'')+'<div style="text-align:center"><button onclick="window.print()">Imprimir</button></div></body></html>')}
-function fazerLogin(){setErroLogin('');const login=loginForm.login.trim().toLowerCase();const senha=loginForm.senha.trim();const adm=getAdmin();if(login===adm.login&&senha===adm.senha){setUsuario(adm);localStorage.setItem('previx_session',JSON.stringify(adm));setAba('inicio');return}if(login==='admin'&&senha==='admin'){setUsuario(adm);localStorage.setItem('previx_session',JSON.stringify(adm));setAba('inicio');return}const emp=(dados.empresas||[]).find((e:any)=>(e.login||'').toLowerCase()===login&&(e.senha||'')===senha);if(emp){const u={login:emp.login,nome:emp.responsavel||emp.nome,tipo:'empresa',empresa:emp.nome};setUsuario(u);localStorage.setItem('previx_session',JSON.stringify(u));setAba('inicio');return}setErroLogin('Login ou senha incorretos!')}
+function gerarRelatorioExtintores(){
+const exts=dadosFiltrados(dados.extintores||[])
+const empNome=usuario?.empresa||tecnico.empresaLaudo||'Empresa'
+const hoje=new Date().toLocaleDateString('pt-BR')
+let linhas=exts.length?exts.map((e:any,i:number)=>{const st=statusExtintor(e);return '<tr><td>'+(i+1)+'</td><td>'+(e.localizacao||'-')+' '+(e.tipo||'-')+'</td><td>'+fmtData(e.vencimento)+'</td><td>'+fmtData(e.ultima_recarga)+'</td><td>'+st.emoji+' '+st.label+'</td></tr>'}).join(''):'<tr><td colspan="5">Nenhum extintor</td></tr>'
+abrirLaudo('<html><head><meta charset="utf-8"><style>body{font-family:Arial;padding:28px}table{width:100%;border-collapse:collapse}th{background:#dc2626;color:#fff;padding:10px;text-align:left}td{padding:10px;border-bottom:1px solid #eee}</style></head><body><h1 style="text-align:center">Relatorio de Extintores</h1><p style="text-align:center">PREVIX SST - '+empNome+' - '+hoje+' - Resp: '+tecnico.nome+' CREA: '+(tecnico.crea||'-')+'</p><table><tr><th>#</th><th>Local</th><th>Vencimento</th><th>Recarga</th><th>Status</th></tr>'+linhas+'</table><div style="text-align:center;margin:16px"><button onclick="window.print()">Imprimir</button></div></body></html>')
+}
+function gerarRelatorioInspecao(item:any){
+const empNome=item.empresa||usuario?.empresa||'Empresa'
+const hoje=new Date().toLocaleDateString('pt-BR')
+const checklist=item.checklist||[]
+let lc=checklist.length?checklist.map((c:any,i:number)=>'<tr><td>'+(i+1)+'</td><td>'+c.item+(c.obs?'<div>'+c.obs+'</div>':'')+'</td><td>'+(c.status||'N/A')+'</td></tr>').join(''):'<tr><td colspan="3">Sem itens</td></tr>'
+let fh=(item.fotos||[]).length?(item.fotos||[]).map((f:string)=>'<img src="'+f+'" style="width:200px;height:140px;object-fit:cover;margin:6px;border-radius:8px" />').join(''):'Sem fotos'
+abrirLaudo('<html><head><meta charset="utf-8"><style>body{font-family:Arial;padding:28px}table{width:100%;border-collapse:collapse}th{background:#0f172a;color:#fff;padding:10px;text-align:left}td{padding:10px;border-bottom:1px solid #eee}</style></head><body><h1 style="text-align:center">LAUDO DE INSPECAO</h1><p style="text-align:center">PREVIX SST - '+hoje+'</p><p><b>Empresa:</b> '+empNome+' - CNPJ: '+(item.cnpjEmpresa||tecnico.cnpj||'-')+' - Endereco: '+(item.enderecoEmpresa||tecnico.enderecoEmpresa||'-')+'</p><p><b>Local:</b> '+(item.local||'-')+' - <b>Data:</b> '+fmtData(item.data)+' - <b>Resp:</b> '+(item.responsavel||'-')+'</p><p><b>Tecnico:</b> '+tecnico.nome+' - CREA: '+(tecnico.crea||'-')+' - ART: '+(tecnico.art||'-')+' - MTE: '+(tecnico.mte||'-')+'</p><p><b>Motivo:</b> '+(item.motivo||'-')+' - <b>Titulo:</b> '+(item.titulo||'-')+' - <b>Tipo:</b> '+(item.tipoInspecao||item.tipo||'-')+'</p><p><b>Objetivo:</b> '+(item.objetivo||'Verificar condicoes de seguranca')+'</p><p><b>Achados:</b> '+(item.observacoes||'Sem observacoes')+'</p><table><tr><th>#</th><th>Item</th><th>Resultado</th></tr>'+lc+'</table><p><b>Nao Conformidades:</b> '+(item.naoConformidades||'-')+'</p><p><b>Acao Imediata:</b> '+(item.acaoImediata||'-')+'</p><p><b>Acao Longo Prazo:</b> '+(item.acaoLongoPrazo||'-')+'</p><p><b>Conclusao:</b> '+(item.conclusao||'-')+'</p><h3>Fotos</h3><div>'+fh+'</div><br><br><div style="display:flex;justify-content:space-between;text-align:center"><div>____________________<br>'+tecnico.nome+'</div><div>____________________<br>'+empNome+'</div></div><div style="text-align:center;margin:16px"><button onclick="window.print()">Imprimir</button></div></body></html>')
+}
+function gerarTermo(e:any){
+const func=(dados.funcionarios||[]).find((f:any)=>f.nome===e.funcionario)||{}
+const empNome=e.empresa||func.empresa||usuario?.empresa||'PREVIX SST'
+const dataFmt=e.data_entrega?e.data_entrega.split('-').reverse().join('/'):new Date().toLocaleDateString('pt-BR')
+const formas=[];if(e.pinVerificado)formas.push('PIN OK');if(e.biometria)formas.push('Digital OK');if(e.assinaturaImg)formas.push('Assinatura OK')
+abrirLaudo('<html><head><meta charset="utf-8"><style>body{font-family:Arial;padding:28px;max-width:820px;margin:0 auto}</style></head><body><h1 style="text-align:center">Termo de Entrega de EPI - NR-06</h1><p><b>Empresa:</b> '+empNome+'</p><p><b>Funcionario:</b> '+(e.funcionario||'-')+' - CPF: '+(func.cpf||'-')+'</p><p><b>EPI:</b> '+iconeEpi(e.nome)+' '+(e.nome||'-')+' - CA: '+(e.ca||'-')+' - Data: '+dataFmt+'</p><p><b>Confirmacao:</b> '+(formas.length?formas.join(' - '):'Verbal')+'</p>'+(e.assinaturaImg?'<p style="text-align:center"><img src="'+e.assinaturaImg+'" style="max-width:300px;border:1px solid #ccc" /></p>':'')+'<div style="text-align:center"><button onclick="window.print()">Imprimir</button></div></body></html>')
+}
+function fazerLogin(){
+setErroLogin('')
+const login=loginForm.login.trim().toLowerCase()
+const senha=loginForm.senha.trim()
+const adm=getAdmin()
+if(login===adm.login&&senha===adm.senha){setUsuario(adm);localStorage.setItem('previx_session',JSON.stringify(adm));setAba('inicio');return}
+if(login==='admin'&&senha==='admin'){setUsuario(adm);localStorage.setItem('previx_session',JSON.stringify(adm));setAba('inicio');return}
+const emp=(dados.empresas||[]).find((e:any)=>(e.login||'').toLowerCase()===login&&(e.senha||'')===senha)
+if(emp){const u={login:emp.login,nome:emp.responsavel||emp.nome,tipo:'empresa',empresa:emp.nome};setUsuario(u);localStorage.setItem('previx_session',JSON.stringify(u));setAba('inicio');return}
+setErroLogin('Login ou senha incorretos!')
+}
 function sair(){setUsuario(null);localStorage.removeItem('previx_session');setLoginForm({login:'',senha:''});setAba('inicio')}
 function abrirNovo(){
-setEditando(null);setForm({});
-if(aba==='empresas')setForm({senha:gerarSenha(),status:'Ativa',dicaSenha:''});
-if(aba==='funcionarios')setForm({empresa:usuario?.tipo==='empresa'?usuario.empresa:'',pin:gerarPIN(),setor:'Vendas'});
-if(aba==='epis'){setForm({empresa:usuario?.tipo==='empresa'?usuario.empresa:'',data_entrega:new Date().toISOString().split('T')[0],quantidade:1,tipo:'',modelo:''});setPinDigitado('');setPinVerificado(false);setAssinaturaFeita(false);setBioStatus('aguardando');setBioMsg('');setTimeout(()=>{const c=canvasRef.current;if(c){const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height)}},100)}
-if(aba==='exames')setForm({data:diaSel,[STRIPPED]
-if(aba==='inspecoes'){const tipo0='Visita Técnica Geral';const itens0=TIPOS_INSPECAO.find(t=>t.id===tipo0)?.itens||[];setForm({empresa:usuario?.tipo==='empresa'?usuario.empresa:'',status:'Realizada',data:new Date().toISOString().split('T')[0],tipoInspecao:tipo0,tipo:tipo0,motivo:'Rotina Periódica',metodologias:['Visita in loco','Checklist','Fotografias'],checklist:itens0.map(it=>({item:it,status:'Conforme',obs:''})),observacoes:'',naoConformidades:'',acaoImediata:'',acaoLongoPrazo:'',conclusao:'',objetivo:'',fotos:[],legendas:[],setorArea:'Vendas',cnpjEmpresa:'',enderecoEmpresa:'',art:tecnico.art||''})}
-if(aba==='riscos')setForm({ghe:'Vendas',tipo:'Físico'});
-if(aba==='financeiro')setForm({status:'Pendente',vencimento:new Date().toISOString().split('T')[0]});
-if(aba==='clinicas')setForm({status:'Ativa',convenio:'Vigente',cnpj:''});
-if(aba==='extintores')setForm({empresa:usuario?.tipo==='empresa'?usuario.empresa:'',tipo:'PQS 6kg',vencimento:new Date().toISOString().split('T')[0]});
+setEditando(null)
+setForm({})
+if(aba==='empresas')setForm({senha:gerarSenha(),status:'Ativa',dicaSenha:''})
+if(aba==='funcionarios')setForm({empresa:usuario?.tipo==='empresa'?usuario.empresa:'',pin:gerarPIN(),setor:'Vendas'})
+if(aba==='epis'){
+setForm({empresa:usuario?.tipo==='empresa'?usuario.empresa:'',data_entrega:new Date().toISOString().split('T')[0],quantidade:1,tipo:'',modelo:''})
+setPinDigitado('');setPinVerificado(false);setAssinaturaFeita(false);setBioStatus('aguardando');setBioMsg('')
+setTimeout(()=>{const c=canvasRef.current;if(c){const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height)}},100)
+}
+if(aba==='exames'){
+setForm({
+data:diaSel,
+clinica:clinicaSel,
+tipo:'Periódico',
+resultado:'Pendente',
+empresa:usuario?.tipo==='empresa'?usuario.empresa:'',
+nome:''
+})
+}
+if(aba==='inspecoes'){
+const tipo0='Visita Técnica Geral'
+const itens0=TIPOS_INSPECAO.find(t=>t.id===tipo0)?.itens||[]
+setForm({empresa:usuario?.tipo==='empresa'?usuario.empresa:'',status:'Realizada',data:new Date().toISOString().split('T')[0],tipoInspecao:tipo0,tipo:tipo0,motivo:'Rotina Periódica',metodologias:['Visita in loco','Checklist','Fotografias'],checklist:itens0.map(it=>({item:it,status:'Conforme',obs:''})),observacoes:'',naoConformidades:'',acaoImediata:'',acaoLongoPrazo:'',conclusao:'',objetivo:'',fotos:[],legendas:[],setorArea:'Vendas',cnpjEmpresa:'',enderecoEmpresa:'',art:tecnico.art||''})
+}
+if(aba==='riscos')setForm({ghe:'Vendas',tipo:'Físico'})
+if(aba==='financeiro')setForm({status:'Pendente',vencimento:new Date().toISOString().split('T')[0]})
+if(aba==='clinicas')setForm({status:'Ativa',convenio:'Vigente',cnpj:''})
+if(aba==='extintores')setForm({empresa:usuario?.tipo==='empresa'?usuario.empresa:'',tipo:'PQS 6kg',vencimento:new Date().toISOString().split('T')[0]})
 setModal(true)
 }
 function abrirEditar(item:any){setEditando(item);setForm({...item});setPinDigitado('');setPinVerificado(!!item.pinVerificado);setAssinaturaFeita(!!item.assinaturaImg);setBioStatus(item.biometria?'ok':'aguardando');setBioMsg(item.biometria||'');setModal(true)}
@@ -107,8 +161,8 @@ function subirDoc(e:any){const file=e.target.files?.[0];if(!file)return;const re
 function subirFotoInspecao(e:any){const files=Array.from(e.target.files||[]);files.forEach((file:any)=>{const reader=new FileReader();reader.onload=()=>setForm((prev:any)=>({...prev,fotos:[...(prev.fotos||[]),reader.result],legendas:[...(prev.legendas||[]),'']}));reader.readAsDataURL(file)})}
 function baixarDoc(item:any){if(!item.arquivo){alert('Sem arquivo.');return}const a=document.createElement('a');a.href=item.arquivo;a.download=item.nomeArquivo||(item.titulo+'.pdf');a.click()}
 function salvar(){
-if(!aba||aba==='inicio')return;
-const f={...form};
+if(!aba||aba==='inicio')return
+const f={...form}
 if(aba==='funcionarios'){if(!f.pin)f.pin=gerarPIN();if(!f.nome){alert('Coloca o nome!');return}if(!f.setor)f.setor='Vendas'}
 if(aba==='exames'){if(!f.nome){alert('Escolhe o funcionário!');return}f.data=limparData(f.data)||new Date().toISOString().split('T')[0];f.funcionario=f.nome;if(!f.clinica)f.clinica=clinicaSel}
 if(aba==='epis'){if(!f.nome){alert('Escolhe o EPI!');return}if(!f.funcionario){alert('Digita nome OU CPF!');return}if(!podeSalvarEpi){alert('Escolhe 1 forma: PIN OU Digital OU Assinatura');return}const c=canvasRef.current;f.assinaturaImg=assinaturaFeita&&c?c.toDataURL():f.assinaturaImg||'';f.pinVerificado=pinVerificado;f.biometria=bioStatus==='ok'?(bioMsg||'Biometria OK'):'';f.quantidade=f.quantidade||1;f.formaConfirmacao=(pinVerificado?'PIN ':'')+(bioStatus==='ok'?'Digital ':'')+(assinaturaFeita?'Assinatura':'')}
@@ -119,8 +173,8 @@ if(aba==='clinicas'){if(!f.nome){alert('Coloca o nome!');return}if(f.cnpj)f.cnpj
 if(aba==='empresas'){if(!f.login&&f.nome)f.login=f.nome.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,12);if(!f.senha)f.senha=gerarSenha();if(f.cnpj)f.cnpj=mascaraCNPJ(f.cnpj)}
 if(aba==='riscos'&&!f.nome){alert('Coloca o risco!');return}
 if(aba==='financeiro'&&!f.descricao){alert('Descrição!');return}
-if(usuario?.tipo==='empresa')f.empresa=usuario.empresa;
-const lista=[...(dados[aba]||[])];
+if(usuario?.tipo==='empresa')f.empresa=usuario.empresa
+const lista=[...(dados[aba]||[])]
 if(editando){const id=editando.id||editando._id;const idx=lista.findIndex((x:any)=>(x.id||x._id)===id);if(idx>=0)lista[idx]={...lista[idx],...f};const nd={...dados,[aba]:lista};setDados(nd);salvarNav(nd)}
 else{const novo={...f,id:Date.now().toString(),status:f.status||'Ativa'};lista.push(novo);const nd={...dados,[aba]:lista};setDados(nd);salvarNav(nd);if(aba==='funcionarios')alert('✅ '+novo.nome+' • PIN: '+novo.pin);if(aba==='epis')alert('✅ Entrega confirmada')}
 setModal(false);setForm({});setEditando(null)
@@ -129,30 +183,42 @@ function excluir(item:any){if(!confirm('Excluir '+(item.nome||item.titulo||item.
 function confirmarAgendamento(){
 if(!funcAgend){alert('Escolhe o funcionário!');return}
 if(tiposSel.length===0){alert('Marca 1 tipo!');return}
-const novos=tiposSel.map(t=>({id:Date.now().toString()+Math.random().toString().slice(2,6),nome:funcAgend,funcionario:funcAgend,tipo:t,data:diaSel,[STRIPPED]
-const nd={...dados,exames:[...(dados.exames||[]),...novos]};setDados(nd);salvarNav(nd);alert('✅ Agendado! '+funcAgend+' • '+clinicaSel+' • '+fmtData(diaSel));setTiposSel([]);setFuncAgend('')
+const novos=tiposSel.map(t=>{
+return {
+id:Date.now().toString()+Math.random().toString().slice(2,6),
+nome:funcAgend,
+funcionario:funcAgend,
+tipo:t,
+data:diaSel,
+clinica:clinicaSel,
+empresa:usuario?.tipo==='empresa'?usuario.empresa:'',
+resultado:'Pendente'
+}
+})
+const nd={...dados,exames:[...(dados.exames||[]),...novos]}
+setDados(nd);salvarNav(nd);alert('✅ Agendado! '+funcAgend+' • '+clinicaSel+' • '+fmtData(diaSel));setTiposSel([]);setFuncAgend('')
 }
 function mudarMes(delta:number){const [y,m]=diaSel.split('-').map(Number);const dt=new Date(y,m-1+delta,1);setDiaSel(dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-01')}
 function salvarSenhaCliente(emp:any,nova:string,dica:string){
 if(!nova||nova.length<4){alert('❌ Senha do cliente tem que ter no mínimo 4 caracteres!');return}
-const lista=(dados.empresas||[]).map((e:any)=>e.id===emp.id?{...e,senha:nova,dicaSenha:dica}:e);
+const lista=(dados.empresas||[]).map((e:any)=>e.id===emp.id?{...e,senha:nova,dicaSenha:dica}:e)
 const nd={...dados,empresas:lista};setDados(nd);salvarNav(nd);alert('✅ Senha de '+emp.nome+' trocada! Nova senha: '+nova);setSenhaClienteTemp({})
 }
 function salvarMinhaSenhaCliente(){
-const emp=(dados.empresas||[]).find((e:any)=>e.login===usuario.login);
+const emp=(dados.empresas||[]).find((e:any)=>e.login===usuario.login)
 if(!emp){alert('Empresa não encontrada');return}
 if((form.senhaAtual||'')!==emp.senha){alert('❌ Senha atual incorreta!');return}
 if(!form.novaSenha||form.novaSenha.length<4){alert('❌ Nova senha mínimo 4 caracteres');return}
 if(form.novaSenha!==form.confirmaSenha){alert('❌ Senhas não batem');return}
-const lista=(dados.empresas||[]).map((e:any)=>e.id===emp.id?{...e,senha:form.novaSenha,dicaSenha:form.dicaSenha||e.dicaSenha||''}:e);
+const lista=(dados.empresas||[]).map((e:any)=>e.id===emp.id?{...e,senha:form.novaSenha,dicaSenha:form.dicaSenha||e.dicaSenha||''}:e)
 const nd={...dados,empresas:lista};setDados(nd);salvarNav(nd);setForm({});alert('✅ Sua senha foi trocada! Faça login de novo com a nova senha.');sair()
 }
 function salvarSenhaAdm(){
-const adm=getAdmin();
+const adm=getAdmin()
 if((form.senhaAtual||'')!==adm.senha){alert('❌ Senha atual incorreta!');return}
 if(!form.novaSenha||form.novaSenha.length<6){alert('❌ Nova senha mínimo 6 caracteres');return}
 if(form.novaSenha!==form.confirmaSenha){alert('❌ Senhas não batem');return}
-const novo={...adm,login:(form.loginAdm||adm.login).toLowerCase().trim(),senha:form.novaSenha};
+const novo={...adm,login:(form.loginAdm||adm.login).toLowerCase().trim(),senha:form.novaSenha}
 localStorage.setItem('previx_admin',JSON.stringify(novo));setForm({});alert('✅ Senha do ADM trocada! Login: '+novo.login);sair()
 }
 const btn={padding:'8px 14px',borderRadius:10,border:'none',cursor:'pointer',fontWeight:700,fontSize:13} as any
@@ -285,16 +351,16 @@ return (
 <div><label style={{fontSize:12,fontWeight:800}}>Senha atual</label><input type="password" value={form.senhaAtual||''} onChange={e=>setForm({...form,senhaAtual:e.target.value})} placeholder="Senha atual" style={{...input,marginTop:4}} /></div>
 <div><label style={{fontSize:12,fontWeight:800}}>Nova senha</label><input type="password" value={form.novaSenha||''} onChange={e=>setForm({...form,novaSenha:e.target.value})} placeholder="Nova senha" style={{...input,marginTop:4}} /></div>
 <div><label style={{fontSize:12,fontWeight:800}}>Confirma nova senha</label><input type="password" value={form.confirmaSenha||''} onChange={e=>setForm({...form,confirmaSenha:e.target.value})} placeholder="Repete" style={{...input,marginTop:4}} /></div>
-<div><label style={{fontSize:12,fontWeight:800}}>💡 Dica da senha (ex: nome do pet)</label><input value={form.dicaSenha||minhaEmpresa?.dicaSenha||''} onChange={e=>setForm({...form,dicaSenha:e.target.value})} placeholder="Ex: Minha cidade + ano" style={{...input,marginTop:4}} /></div>
+<div><label style={{fontSize:12,fontWeight:800}}>💡 Dica da senha</label><input value={form.dicaSenha||minhaEmpresa?.dicaSenha||''} onChange={e=>setForm({...form,dicaSenha:e.target.value})} placeholder="Ex: Minha cidade + ano" style={{...input,marginTop:4}} /></div>
 </div>
 <button onClick={salvarMinhaSenhaCliente} style={{...btn,background:'linear-gradient(90deg,#0d9488,#2563eb)',color:'white',padding:'12px 20px',borderRadius:14,marginTop:10}}>💾 Salvar minha senha + dica</button>
-<p style={{fontSize:12,color:'#92400e'}}>A dica não é a senha, é só uma lembrança. Ex: “nome do meu cachorro”.</p></div>
+<p style={{fontSize:12,color:'#92400e'}}>A dica não é a senha, é só uma lembrança.</p></div>
 )}
 </div>
 {isAdmin && (
 <div style={{background:'white',borderRadius:24,padding:24,marginTop:16}}>
 <h3 style={{margin:0}}>👥 Alterar / Recuperar senha do cliente</h3>
-<p style={{fontSize:13,color:'#64748b'}}>Você vê a dica do cliente e pode resetar a senha dele na hora, sem precisar do login.</p>
+<p style={{fontSize:13,color:'#64748b'}}>Você vê a dica do cliente e pode resetar a senha dele na hora.</p>
 <input placeholder="Buscar cliente..." value={busca} onChange={e=>setBusca(e.target.value)} style={{...input,marginTop:12}} />
 <div style={{display:'flex',flexDirection:'column',gap:12,marginTop:12}}>{(dados.empresas||[]).filter((e:any)=>JSON.stringify(e).toLowerCase().includes(busca.toLowerCase())).map((emp:any)=>{const tmp=senhaClienteTemp[emp.id]||{nova:'',dica:emp.dicaSenha||''};return (<div key={emp.id} style={{border:'1px solid #e2e8f0',borderRadius:16,padding:16}}><div style={{display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:8}}><div><b>🏢 {emp.nome}</b><div style={{fontSize:13,color:'#64748b'}}>Login: <b>{emp.login}</b> • Responsável: {emp.responsavel||'-'}</div><div style={{fontSize:13}}>💡 Dica atual: <b>{emp.dicaSenha||'Sem dica cadastrada'}</b></div></div><button onClick={()=>{const nova=gerarSenha();salvarSenhaCliente(emp,nova,tmp.dica)}} style={{...btn,background:'#f59e0b',color:'white'}}>🔄 Gerar senha automática</button></div><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:10,marginTop:12}}><div><label style={{fontSize:12,fontWeight:800}}>Nova senha do cliente</label><input value={tmp.nova} onChange={e=>setSenhaClienteTemp({...senhaClienteTemp,[emp.id]:{...tmp,nova:e.target.value}})} placeholder="Digita a nova senha" style={{...input,marginTop:4}} /></div><div><label style={{fontSize:12,fontWeight:800}}>💡 Dica da senha</label><input value={tmp.dica} onChange={e=>setSenhaClienteTemp({...senhaClienteTemp,[emp.id]:{...tmp,dica:e.target.value}})} placeholder="Ex: nome da loja + ano" style={{...input,marginTop:4}} /></div></div><button onClick={()=>salvarSenhaCliente(emp,tmp.nova,tmp.dica)} style={{...btn,background:'#0d9488',color:'white',padding:'12px 20px',borderRadius:14,marginTop:10}}>💾 Salvar nova senha + dica</button></div>)})}</div>
 </div>

@@ -103,8 +103,7 @@ return (
 )
 }
 const isAdmin=usuario.tipo==='admin'
-const menuBase=[{id:'inicio',label:'Início',icone:'🏠'},{id:'funcionarios',label:'Funcionários',icone:'👷'},{id:'epis',label:"EPI's",icone:'🦺'},{id:'extintores',label:'Extintores',icone:'🧯'},{id:'inspecoes',label:'Inspeções',icone:'📋'},{id:'documentos',label:'Documentos',icone:'📄'},{id:'exames',label:'Exames',icone:'🩺'},{id:'clinicas',label:'Clínicas',icone:'🏥'},{id:'riscos',label:'PGR / Riscos',icone:'⚠️'},{id:'financeiro',label:'Financeiro',icone:'💰'}]
-const menu=isAdmin?[...menuBase,{id:'empresas',label:'Empresas',icone:'🏢'}]:menuBase
+const menuBase=[{id:'inicio',label:'Início',icone:'🏠'},{id:'funcionarios',label:'Funcionários',icone:'👷'},{id:'epis',label:"EPI's",icone:'🦺'},{id:'extintores',label:'Extintores',icone:'🧯'},{id:'inspecoes',label:'Inspeções',icone:'📋'},{id:'documentos',label:'Documentos',icone:'📄'},{id:'exames',label:'Exames',icone:'🩺'},{id:'clinicas',label:'Clínicas',icone:'🏥'},{id:'riscos',label:'PGR / Riscos',icone:'⚠️'}]const menu=isAdmin?[...menuBase,{id:'financeiro',label:'Financeiro',icone:'💰'},{id:'empresas',label:'Empresas',icone:'🏢'}]:menuBase
 const funcs=dadosFiltrados(dados.funcionarios||[])
 const episF=dadosFiltrados(dados.epis||[])
 const examesF=dadosFiltrados(dados.exames||[])
@@ -178,7 +177,11 @@ return (
 <div style={{background:'white',borderRadius:24,padding:20,marginTop:20}}><h3>Financeiro</h3><p>Total: R$ {totalFin.toFixed(2)} - Recebido: R$ {totalRec.toFixed(2)} - A receber: R$ {(totalFin-totalRec).toFixed(2)}</p><p>Exames vencidos: {exVenc} - Realizados: {exReal}</p></div>
 </div>
 )}
-{aba==='exames' && (
+{aba==='financeiro' && !isAdmin && (
+<div style={{background:'white',borderRadius:24,padding:40,textAlign:'center',marginTop:16}}>
+<h2>🔒 Acesso restrito</h2><p>Só o Administrador tem acesso ao Financeiro.</p><button onClick={()=>setAba('inicio')} style={{...btn,background:'#0d9488',color:'white',padding:'12px 20px',borderRadius:20}}>Voltar para Início</button>
+</div>
+)}{aba==='exames' && (
 <div>
 <div style={{background:'linear-gradient(90deg,#bae6fd,#a7f3d0)',borderRadius:20,padding:16,display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:12,alignItems:'center'}}>
 <div style={{display:'flex',gap:12,alignItems:'center'}}><div style={{width:56,height:56,background:'#fda4af',borderRadius:14,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28}}>🏥</div><div><div style={{fontSize:12,color:'#475569'}}>Clínica parceira</div><div style={{fontSize:20,fontWeight:900}}>{clinicaAtual.nome}</div><div style={{fontSize:12,color:'#475569'}}>{clinicaAtual.telefone||''} - {clinicaAtual.endereco||''}</div><div style={{fontSize:12,fontWeight:800}}>CNPJ: {clinicaAtual.cnpj||'Não cadastrado'}</div></div></div>

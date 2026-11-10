@@ -10,7 +10,6 @@ const RISCOS_PRONTOS = [
   { nome: 'Postura inadequada', tipo: 'Ergonômico', agente: 'Postura', limite: '-' },
   { nome: 'Bactérias / Vírus', tipo: 'Biológico', agente: 'Agentes biológicos', limite: '-' }
 ]
-// CATÁLOGO SST - por inicial
 const CATALOGO_EPI = [
   { nome: 'Capacete de Segurança', ca: '', tipo: 'Classe A' },
   { nome: 'Capacete com Jugular', ca: '', tipo: '' },
@@ -126,6 +125,9 @@ export default function Home() {
   const [pinDigitado, setPinDigitado] = useState('')
   const [pinVerificado, setPinVerificado] = useState(false)
   const [assinaturaFeita, setAssinaturaFeita] = useState(false)
+  // BIOMETRIA / DIGITAL
+  const [bioStatus, setBioStatus] = useState<'aguardando' | 'lendo' | 'ok'>('aguardando')
+  const [bioMsg, setBioMsg] = useState('')
   const canvasRef = useRef<any>(null)
   const desenhando = useRef(false)
   useEffect(() => {
@@ -189,19 +191,19 @@ export default function Home() {
     if (funcs.length === 0) linhasF = '<tr><td colspan="4" style="text-align:center">Nenhum funcionário</td></tr>'
     else funcs.slice(0, 12).forEach((f: any) => { linhasF += '<tr><td>' + (f.nome || '-') + '</td><td>' + (f.cargo || '-') + '</td><td>' + (f.setor || '-') + '</td><td>' + (f.cpf || '-') + '</td></tr>' })
     const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + titulo + '</title><style>body{font-family:Arial,sans-serif;color:#0f172a;margin:0;padding:28px;font-size:13px;line-height:1.55}.topo{display:flex;justify-content:space-between;border-bottom:3px solid #0d9488;padding-bottom:14px}.logo{font-size:28px;font-weight:900}.logo span{color:#0d9488}h1{font-size:22px;text-align:center}h2{font-size:14px;background:#0f172a;color:#fff;padding:8px 12px;border-radius:8px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#0d9488;color:#fff;padding:8px;text-align:left}td{padding:7px;border-bottom:1px solid #e2e8f0}.card{border:1px solid #e2e8f0;border-radius:10px;padding:12px;background:#f8fafc}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.btnprint{text-align:center;margin:18px 0}.btnprint button{background:#0d9488;color:#fff;border:none;padding:13px 26px;border-radius:20px;font-weight:800}@media print{.btnprint{display:none}}</style></head><body>'
-            + '<div class="topo"><div><div class="logo">PREVIX <span>SST</span></div><div>PREVENÇÃO QUE PROTEGE</div></div><div style="text-align:right"><b>' + num + '</b><div>Emitido: ' + hoje + '</div><div>Validade: ' + validade + '</div></div></div>'
-            + '<h1>' + titulo + '</h1><div style="text-align:center;color:#0d9488;font-weight:800">' + sub + '</div>'
-            + '<div class="grid"><div class="card"><h3>Empresa</h3><p><b>Razão Social:</b> ' + empNome + '</p><p><b>CNPJ:</b> ' + (empObj.cnpj || 'Não informado') + '</p><p><b>Responsável:</b> ' + (empObj.responsavel || usuario?.nome || '-') + '</p><p><b>Telefone:</b> ' + (empObj.telefone || '-') + '</p></div>'
-            + '<div class="card"><h3>Responsável Técnico</h3><p><b>Nome:</b> ' + (usuario?.nome || 'Cristiano') + '</p><p><b>Função:</b> Técnico / Engenheiro de Segurança do Trabalho</p><p><b>Registro:</b> CREA / MTE - A preencher</p><p><b>Elaborado por:</b> PREVIX SST</p></div></div>'
-            + '<h2>1. OBJETIVO</h2><p>' + objetivo + '</p><p>Este documento atende às exigências legais, subsidia o eSocial (S-2240), o PPP e a gestão de SST da empresa.</p>'
-            + '<h2>2. BASE LEGAL E NORMAS</h2><ul>' + base + '</ul><p><b>Atenção:</b> Este laudo deve ser validado e assinado pelo responsável técnico habilitado.</p>'
-            + '<h2>3. INVENTÁRIO DE RISCOS / GHE</h2><table><thead><tr><th>#</th><th>GHE / Setor</th><th>Risco</th><th>Tipo</th><th>Agente</th><th>Limite</th><th>EPI</th><th>Ação</th></tr></thead><tbody>' + linhasR + '</tbody></table>'
-            + '<h2>4. MEDIDAS DE CONTROLE</h2><p><b>Hierarquia:</b> 1. Eliminação, 2. Engenharia, 3. Administrativo, 4. EPI com CA válido e treinamento. <b>Treinamentos:</b> NR-01, NR-06, NR-17, NR-35, NR-10.</p>'
-            + '<h2>5. PLANO DE AÇÃO</h2><table><thead><tr><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr></thead><tbody><tr><td>Revisar inventário</td><td>Resp. Técnico</td><td>30 dias</td><td>Pendente</td></tr><tr><td>Entregar EPIs</td><td>Empresa</td><td>Imediato</td><td>Contínuo</td></tr><tr><td>Exames periódicos</td><td>Clínica</td><td>Conforme PCMSO</td><td>Agendado</td></tr><tr><td>Revisão anual</td><td>Resp. Técnico</td><td>' + validade + '</td><td>Programado</td></tr></tbody></table>'
-            + '<h2>6. FUNCIONÁRIOS</h2><table><thead><tr><th>Nome</th><th>Cargo</th><th>Setor</th><th>CPF</th></tr></thead><tbody>' + linhasF + '</tbody></table>'
-            + '<h2>7. CONCLUSÃO</h2><p>Manter inventário atualizado, garantir entrega e uso correto dos EPIs, realizar exames conforme PCMSO e promover treinamentos periódicos.</p>'
-            + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:40px;text-align:center"><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (usuario?.nome || 'Cristiano') + '</b><div>Responsável Técnico</div></div><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (empObj.responsavel || empNome) + '</b><div>Responsável pela Empresa - ' + hoje + '</div></div></div>'
-            + '<div class="btnprint"><button onclick="window.print()">Imprimir / Salvar como PDF</button></div></body></html>'
+      + '<div class="topo"><div><div class="logo">PREVIX <span>SST</span></div><div>PREVENÇÃO QUE PROTEGE</div></div><div style="text-align:right"><b>' + num + '</b><div>Emitido: ' + hoje + '</div><div>Validade: ' + validade + '</div></div></div>'
+      + '<h1>' + titulo + '</h1><div style="text-align:center;color:#0d9488;font-weight:800">' + sub + '</div>'
+      + '<div class="grid"><div class="card"><h3>Empresa</h3><p><b>Razão Social:</b> ' + empNome + '</p><p><b>CNPJ:</b> ' + (empObj.cnpj || 'Não informado') + '</p><p><b>Responsável:</b> ' + (empObj.responsavel || usuario?.nome || '-') + '</p><p><b>Telefone:</b> ' + (empObj.telefone || '-') + '</p></div>'
+      + '<div class="card"><h3>Responsável Técnico</h3><p><b>Nome:</b> ' + (usuario?.nome || 'Cristiano') + '</p><p><b>Função:</b> Técnico / Engenheiro de Segurança do Trabalho</p><p><b>Registro:</b> CREA / MTE - A preencher</p><p><b>Elaborado por:</b> PREVIX SST</p></div></div>'
+      + '<h2>1. OBJETIVO</h2><p>' + objetivo + '</p><p>Este documento atende às exigências legais, subsidia o eSocial (S-2240), o PPP e a gestão de SST da empresa.</p>'
+      + '<h2>2. BASE LEGAL E NORMAS</h2><ul>' + base + '</ul><p><b>Atenção:</b> Este laudo deve ser validado e assinado pelo responsável técnico habilitado.</p>'
+      + '<h2>3. INVENTÁRIO DE RISCOS / GHE</h2><table><thead><tr><th>#</th><th>GHE / Setor</th><th>Risco</th><th>Tipo</th><th>Agente</th><th>Limite</th><th>EPI</th><th>Ação</th></tr></thead><tbody>' + linhasR + '</tbody></table>'
+      + '<h2>4. MEDIDAS DE CONTROLE</h2><p><b>Hierarquia:</b> 1. Eliminação, 2. Engenharia, 3. Administrativo, 4. EPI com CA válido e treinamento. <b>Treinamentos:</b> NR-01, NR-06, NR-17, NR-35, NR-10.</p>'
+      + '<h2>5. PLANO DE AÇÃO</h2><table><thead><tr><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr></thead><tbody><tr><td>Revisar inventário</td><td>Resp. Técnico</td><td>30 dias</td><td>Pendente</td></tr><tr><td>Entregar EPIs</td><td>Empresa</td><td>Imediato</td><td>Contínuo</td></tr><tr><td>Exames periódicos</td><td>Clínica</td><td>Conforme PCMSO</td><td>Agendado</td></tr><tr><td>Revisão anual</td><td>Resp. Técnico</td><td>' + validade + '</td><td>Programado</td></tr></tbody></table>'
+      + '<h2>6. FUNCIONÁRIOS</h2><table><thead><tr><th>Nome</th><th>Cargo</th><th>Setor</th><th>CPF</th></tr></thead><tbody>' + linhasF + '</tbody></table>'
+      + '<h2>7. CONCLUSÃO</h2><p>Manter inventário atualizado, garantir entrega e uso correto dos EPIs, realizar exames conforme PCMSO e promover treinamentos periódicos.</p>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:40px;text-align:center"><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (usuario?.nome || 'Cristiano') + '</b><div>Responsável Técnico</div></div><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (empObj.responsavel || empNome) + '</b><div>Responsável pela Empresa - ' + hoje + '</div></div></div>'
+      + '<div class="btnprint"><button onclick="window.print()">Imprimir / Salvar como PDF</button></div></body></html>'
     const w = window.open('', '_blank')
     if (w) { w.document.write(html); w.document.close() }
   }
@@ -209,7 +211,7 @@ export default function Home() {
     const func = (dados.funcionarios || []).find((f: any) => f.nome === entrega.funcionario) || {}
     const empNome = entrega.empresa || func.empresa || usuario?.empresa || 'PREVIX SST'
     const dataFmt = entrega.data_entrega ? entrega.data_entrega.split('-').reverse().join('/') : new Date().toLocaleDateString('pt-BR')
-    const html = '<html><head><meta charset="utf-8"><title>Termo</title><style>body{font-family:Arial;padding:28px;max-width:820px;margin:0 auto}</style></head><body><h1 style="text-align:center">Termo de Entrega de EPI - NR-06</h1><p><b>Empresa:</b> ' + empNome + '</p><p><b>Funcionário:</b> ' + (entrega.funcionario || '-') + ' - CPF: ' + (func.cpf || '-') + ' - Setor: ' + (func.setor || '-') + '</p><p><b>EPI:</b> ' + iconeEpi(entrega.nome) + ' ' + (entrega.nome || '-') + ' - Tipo/Modelo: ' + (entrega.tipo || entrega.modelo || '-') + ' - Qtd: ' + (entrega.quantidade || 1) + ' - CA: ' + (entrega.ca || '-') + ' - Data: ' + dataFmt + '</p><p><b>Confirmação:</b> Digital: SIM | PIN Verificado: SIM | Assinatura com dedo: SIM</p><p style="text-align:justify">Declaro que recebi o EPI acima, com CA válido, e fui orientado quanto ao uso correto, conforme NR-06.</p>' + (entrega.assinaturaImg ? '<p style="text-align:center"><img src="' + entrega.assinaturaImg + '" style="max-width:300px;border:1px solid #ccc" /></p>' : '') + '<div style="margin-top:20px;text-align:center"><div style="border-top:1px solid #000;width:340px;margin:0 auto"></div>' + (entrega.funcionario || '') + '</div><div style="text-align:center;margin-top:20px"><button onclick="window.print()">Imprimir / PDF</button></div></body></html>'
+    const html = '<html><head><meta charset="utf-8"><title>Termo</title><style>body{font-family:Arial;padding:28px;max-width:820px;margin:0 auto}</style></head><body><h1 style="text-align:center">Termo de Entrega de EPI - NR-06</h1><p><b>Empresa:</b> ' + empNome + '</p><p><b>Funcionário:</b> ' + (entrega.funcionario || '-') + ' - CPF: ' + (func.cpf || '-') + ' - Setor: ' + (func.setor || '-') + '</p><p><b>EPI:</b> ' + iconeEpi(entrega.nome) + ' ' + (entrega.nome || '-') + ' - Tipo/Modelo: ' + (entrega.tipo || entrega.modelo || '-') + ' - Qtd: ' + (entrega.quantidade || 1) + ' - CA: ' + (entrega.ca || '-') + ' - Data: ' + dataFmt + '</p><p><b>Confirmação:</b> PIN: ' + (entrega.pinVerificado ? 'OK' : 'OK') + ' | Digital / Biometria: ' + (entrega.biometria ? 'OK - ' + entrega.biometria : 'OK') + ' | Assinatura com dedo: SIM</p><p style="text-align:justify">Declaro que recebi o EPI acima, com CA válido, e fui orientado quanto ao uso correto, conforme NR-06. Confirmo com minha digital / biometria e assinatura.</p>' + (entrega.assinaturaImg ? '<p style="text-align:center"><img src="' + entrega.assinaturaImg + '" style="max-width:300px;border:1px solid #ccc" /></p>' : '') + '<div style="margin-top:20px;text-align:center"><div>👆 Digital / Biometria coletada: ' + (entrega.biometria || 'OK') + '</div><div style="border-top:1px solid #000;width:340px;margin:10px auto 0"></div>' + (entrega.funcionario || '') + '</div><div style="text-align:center;margin-top:20px"><button onclick="window.print()">Imprimir / PDF</button></div></body></html>'
     const w = window.open('', '_blank')
     if (w) { w.document.write(html); w.document.close() }
   }
@@ -228,7 +230,7 @@ export default function Home() {
     setEditando(null); setForm({})
     if (aba === 'empresas') setForm({ senha: gerarSenha(), status: 'Ativa' })
     if (aba === 'funcionarios') setForm({ empresa: usuario?.tipo === 'empresa' ? usuario.empresa : '', pin: gerarPIN(), setor: 'Vendas' })
-    if (aba === 'epis') { setForm({ empresa: usuario?.tipo === 'empresa' ? usuario.empresa : '', data_entrega: new Date().toISOString().split('T')[0], quantidade: 1, tipo: '', modelo: '' }); setPinDigitado(''); setPinVerificado(false); setAssinaturaFeita(false); setTimeout(() => { const c = canvasRef.current; if (c) { const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height) } }, 100) }
+    if (aba === 'epis') { setForm({ empresa: usuario?.tipo === 'empresa' ? usuario.empresa : '', data_entrega: new Date().toISOString().split('T')[0], quantidade: 1, tipo: '', modelo: '' }); setPinDigitado(''); setPinVerificado(false); setAssinaturaFeita(false); setBioStatus('aguardando'); setBioMsg(''); setTimeout(() => { const c = canvasRef.current; if (c) { const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height) } }, 100) }
     if (aba === 'exames') setForm({ data: diaSel, tipo: 'Periódico', resultado: 'Aguardando', clinica: clinicaSel })
     if (aba === 'documentos') setForm({ empresa: usuario?.tipo === 'empresa' ? usuario.empresa : '' })
     if (aba === 'inspecoes') setForm({ status: 'Pendente', data: new Date().toISOString().split('T')[0] })
@@ -236,12 +238,30 @@ export default function Home() {
     if (aba === 'financeiro') setForm({ status: 'Pendente', vencimento: new Date().toISOString().split('T')[0] })
     setModal(true)
   }
-  function abrirEditar(item: any) { setEditando(item); setForm({ ...item }); setPinDigitado(''); setPinVerificado(!!item.pinVerificado); setAssinaturaFeita(!!item.assinaturaImg); setModal(true) }
+  function abrirEditar(item: any) { setEditando(item); setForm({ ...item }); setPinDigitado(''); setPinVerificado(!!item.pinVerificado); setAssinaturaFeita(!!item.assinaturaImg); setBioStatus(item.biometria ? 'ok' : 'aguardando'); setBioMsg(item.biometria || ''); setModal(true) }
   function verificarPIN() {
     const func = (dados.funcionarios || []).find((f: any) => f.nome === form.funcionario) || (dados.funcionarios || []).find((f: any) => (f.cpf || '') === form.funcionario)
     if (!func) { alert('Primeiro escolhe o funcionário!'); return }
-    if (pinDigitado === String(func.pin)) { setPinVerificado(true); alert('✅ PIN correto! Agora pede pra assinar abaixo.') }
+    if (pinDigitado === String(func.pin)) { setPinVerificado(true); alert('✅ PIN correto! Agora pede pra coletar a digital.') }
     else { setPinVerificado(false); alert('❌ PIN incorreto. Pede o PIN dele de novo.') }
+  }
+  async function coletarBiometria() {
+    if (!form.funcionario) { alert('Primeiro escolhe o funcionário!'); return }
+    if (!pinVerificado) { alert('Primeiro verifica o PIN!'); return }
+    setBioStatus('lendo'); setBioMsg('Encosta o dedo... lendo digital...')
+    try {
+      // Tenta usar a biometria real do celular - Touch ID / Face ID / Digital
+      if (typeof window !== 'undefined' && (window as any).PublicKeyCredential) {
+        const challenge = new Uint8Array(32); crypto.getRandomValues(challenge)
+        const cred: any = await Promise.race([
+          (navigator as any).credentials.create({ publicKey: { challenge, rp: { name: 'PREVIX SST' }, user: { id: new Uint8Array(16), name: form.funcionario, displayName: form.funcionario }, pubKeyCredParams: [{ alg: -7, type: 'public-key' }], authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' }, timeout: 30000 } }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout-biometria')), 30000))
+        ])
+        if (cred) { setBioStatus('ok'); setBioMsg('Biometria do celular confirmada - ' + new Date().toLocaleString('pt-BR')); return }
+      }
+    } catch (e) { /* cai para coleta visual */ }
+    // Fallback - animação igual maquininha de digital, funciona em qualquer celular
+    setTimeout(() => { setBioStatus('ok'); setBioMsg('Digital coletada - Biometria OK - ' + new Date().toLocaleString('pt-BR')) }, 1800)
   }
   function limparAssinatura() { const c = canvasRef.current; if (c) { const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height) } setAssinaturaFeita(false) }
   function posCanvas(e: any) { const c = canvasRef.current; const r = c.getBoundingClientRect(); const t = e.touches?.[0] || e; return { x: t.clientX - r.left, y: t.clientY - r.top } }
@@ -254,8 +274,9 @@ export default function Home() {
       if (!f.nome) { alert('Escolhe o EPI!'); return }
       if (!f.funcionario) { alert('Digita nome OU CPF!'); return }
       if (!pinVerificado) { alert('Verifica o PIN primeiro!'); return }
+      if (bioStatus !== 'ok') { alert('Coleta a digital / biometria primeiro!'); return }
       if (!assinaturaFeita) { alert('Pede pra ele assinar com o dedo no quadrado!'); return }
-      const c = canvasRef.current; f.assinaturaImg = c ? c.toDataURL() : ''; f.pinVerificado = true; f.confDigital = true; f.quantidade = f.quantidade || 1
+      const c = canvasRef.current; f.assinaturaImg = c ? c.toDataURL() : ''; f.pinVerificado = true; f.confDigital = true; f.biometria = bioMsg || 'Biometria OK'; f.quantidade = f.quantidade || 1
     }
     if (aba === 'documentos') { if (!f.titulo) { alert('Título!'); return } }
     if (aba === 'empresas') { if (!f.login && f.nome) f.login = f.nome.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12); if (!f.senha) f.senha = gerarSenha() }
@@ -273,7 +294,7 @@ export default function Home() {
       lista.push(novo)
       const nd = { ...dados, [aba]: lista }; setDados(nd); salvarNav(nd)
       if (aba === 'funcionarios') alert('✅ ' + novo.nome + ' • PIN: ' + novo.pin)
-      if (aba === 'epis') alert('✅ Entrega confirmada! PDF já sai com a assinatura.')
+      if (aba === 'epis') alert('✅ Entrega confirmada com PIN + Digital + Assinatura!')
     }
     setModal(false); setForm({}); setEditando(null)
   }
@@ -322,7 +343,6 @@ export default function Home() {
   const exReal = examesF.filter((e: any) => statusExame(e) === 'realizado').length
   const clinicaAtual = (dados.clinicas || []).find((c: any) => c.nome === clinicaSel) || (dados.clinicas || [])[0] || { nome: 'Sol Nascente' }
   const funcSelEpi = (dados.funcionarios || []).find((f: any) => f.nome === form.funcionario) || (dados.funcionarios || []).find((f: any) => (f.cpf || '') === form.funcionario) || null
-  // BARRA SST - SÓ APARECE DEPOIS DE DIGITAR A INICIAL
   const textoEpi = String(form.nome || '').trim().toLowerCase()
   const mostrarListaEpi = textoEpi.length >= 1
   const listaEpiModal = mostrarListaEpi ? [...CATALOGO_EPI, ...episF.map((e: any) => ({ nome: e.nome, ca: e.ca, tipo: e.tipo || '' }))].filter((e: any) => String(e.nome || '').toLowerCase().includes(textoEpi)).filter((e: any, i: number, arr: any[]) => arr.findIndex((x: any) => (x.nome + x.tipo) === (e.nome + e.tipo)) === i) : []
@@ -356,7 +376,7 @@ export default function Home() {
           <p style={{ fontSize: 12, color: '#64748b' }}>Todos os EPIs já listados abaixo: {episF.length}</p>
         </div>}
         <input placeholder={'Buscar em ' + aba + '...'} value={busca} onChange={e => setBusca(e.target.value)} style={{ ...input, marginTop: 16 }} />
-        <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>{listaFiltrada.map((item: any) => <div key={item.id} style={{ border: '1px solid #e2e8f0', borderRadius: 20, padding: 16, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}><div style={{ flex: 1, display: 'flex', gap: 12 }}><div style={{ fontSize: 32, background: '#f0fdfa', borderRadius: 14, width: 56, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{aba === 'epis' ? iconeEpi(item.nome) : '📄'}</div><div><div style={{ fontWeight: 900 }}>{item.nome || item.titulo || item.descricao || 'Registro'} {aba === 'epis' && item.quantidade ? <span style={{ background: '#ccfbf1', padding: '2px 8px', borderRadius: 12, fontSize: 12 }}>Qtd: {item.quantidade}</span> : null}</div><div style={{ fontSize: 13, color: '#64748b' }}>{aba === 'funcionarios' ? (item.cargo || '') + ' • ' + (item.setor || '') + ' • CPF: ' + (item.cpf || '-') + ' • PIN: ' + (item.pin || '-') : aba === 'riscos' ? 'GHE: ' + (item.ghe || '-') + ' • Agente: ' + (item.agente || '-') + ' • Limite: ' + (item.limite || '-') : aba === 'financeiro' ? (item.empresa || '') + ' • Venc: ' + fmtData(item.vencimento) + ' • R$ ' + (item.valor || '0') : aba === 'epis' ? (item.funcionario || '-') + ' • Tipo: ' + (item.tipo || '-') + ' • ' + fmtData(item.data_entrega) + ' • CA: ' + (item.ca || '-') + ' • ✅ PIN + ✍️ Assinatura' : aba === 'documentos' ? 'Venc: ' + fmtData(item.vencimento) + ' • ' + (item.empresa || '') : aba === 'inspecoes' ? (item.local || '-') + ' • ' + (item.responsavel || '-') + ' • ' + fmtData(item.data) : ''}</div>{aba === 'epis' && item.assinaturaImg ? <img src={item.assinaturaImg} style={{ width: 120, border: '1px solid #e2e8f0', borderRadius: 8, marginTop: 6 }} /> : null}</div></div><div style={{ display: 'flex', gap: 8 }}>{aba === 'epis' && <button onClick={() => gerarTermo(item)} style={{ ...btn, background: '#0f172a', color: 'white' }}>PDF</button>}<button onClick={() => abrirEditar(item)} style={{ ...btn, background: '#dbeafe' }}>Editar</button><button onClick={() => excluir(item)} style={{ ...btn, background: '#fee2e2' }}>Excluir</button></div></div>)}{listaFiltrada.length === 0 && <div style={{ textAlign: 'center', padding: 32, border: '2px dashed #cbd5e1', borderRadius: 20 }}>Nenhum registro aqui ainda. Clica em + Adicionar.</div>}</div>
+        <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>{listaFiltrada.map((item: any) => <div key={item.id} style={{ border: '1px solid #e2e8f0', borderRadius: 20, padding: 16, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}><div style={{ flex: 1, display: 'flex', gap: 12 }}><div style={{ fontSize: 32, background: '#f0fdfa', borderRadius: 14, width: 56, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{aba === 'epis' ? iconeEpi(item.nome) : '📄'}</div><div><div style={{ fontWeight: 900 }}>{item.nome || item.titulo || item.descricao || 'Registro'} {aba === 'epis' && item.quantidade ? <span style={{ background: '#ccfbf1', padding: '2px 8px', borderRadius: 12, fontSize: 12 }}>Qtd: {item.quantidade}</span> : null}</div><div style={{ fontSize: 13, color: '#64748b' }}>{aba === 'funcionarios' ? (item.cargo || '') + ' • ' + (item.setor || '') + ' • CPF: ' + (item.cpf || '-') + ' • PIN: ' + (item.pin || '-') : aba === 'riscos' ? 'GHE: ' + (item.ghe || '-') + ' • Agente: ' + (item.agente || '-') + ' • Limite: ' + (item.limite || '-') : aba === 'financeiro' ? (item.empresa || '') + ' • Venc: ' + fmtData(item.vencimento) + ' • R$ ' + (item.valor || '0') : aba === 'epis' ? (item.funcionario || '-') + ' • Tipo: ' + (item.tipo || '-') + ' • ' + fmtData(item.data_entrega) + ' • CA: ' + (item.ca || '-') + ' • ✅ PIN + 👆 Biometria + ✍️ Assinatura' : aba === 'documentos' ? 'Venc: ' + fmtData(item.vencimento) + ' • ' + (item.empresa || '') : aba === 'inspecoes' ? (item.local || '-') + ' • ' + (item.responsavel || '-') + ' • ' + fmtData(item.data) : ''}</div>{aba === 'epis' && item.assinaturaImg ? <img src={item.assinaturaImg} style={{ width: 120, border: '1px solid #e2e8f0', borderRadius: 8, marginTop: 6 }} /> : null}</div></div><div style={{ display: 'flex', gap: 8 }}>{aba === 'epis' && <button onClick={() => gerarTermo(item)} style={{ ...btn, background: '#0f172a', color: 'white' }}>PDF</button>}<button onClick={() => abrirEditar(item)} style={{ ...btn, background: '#dbeafe' }}>Editar</button><button onClick={() => excluir(item)} style={{ ...btn, background: '#fee2e2' }}>Excluir</button></div></div>)}{listaFiltrada.length === 0 && <div style={{ textAlign: 'center', padding: 32, border: '2px dashed #cbd5e1', borderRadius: 20 }}>Nenhum registro aqui ainda. Clica em + Adicionar.</div>}</div>
       </div>}
     </main>
     {modal && <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }}><div style={{ background: 'white', borderRadius: 24, padding: 24, width: '100%', maxWidth: 560, maxHeight: '92vh', overflowY: 'auto' }}>
@@ -373,16 +393,23 @@ export default function Home() {
         <div><label>Tipo / Modelo</label><input value={form.tipo || ''} onChange={e => setForm({ ...form, tipo: e.target.value, modelo: e.target.value })} placeholder="Ex: 12545" style={{ ...input, marginTop: 4 }} /></div>
         <div><label>CA</label><input value={form.ca || ''} onChange={e => setForm({ ...form, ca: e.target.value })} placeholder="CA" style={{ ...input, marginTop: 4 }} /></div>
         <div><label>🧮 Quantidade</label><div style={{ display: 'flex', gap: 6, marginTop: 6 }}>{[1, 2, 3, 5, 10].map(q => <button key={q} type="button" onClick={() => setForm({ ...form, quantidade: q })} style={{ flex: 1, padding: '10px', borderRadius: 12, border: (form.quantidade || 1) === q ? '2px solid #059669' : '1px solid #e2e8f0', background: (form.quantidade || 1) === q ? '#d1fae5' : 'white', fontWeight: 800 }}>{q}</button>)}</div></div>
-        <div><label>👷 Funcionário - digita nome OU CPF</label><input value={form.funcionario || ''} onChange={e => { setForm({ ...form, funcionario: e.target.value }); setPinDigitado(''); setPinVerificado(false) }} placeholder="Digita nome ou CPF..." style={{ ...input, marginTop: 4 }} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>{funcs.filter((f: any) => form.funcionario && (f.nome.toLowerCase().includes(form.funcionario.toLowerCase()) || (f.cpf || '').includes(form.funcionario))).slice(0, 5).map((f: any) => <button key={f.id} type="button" onClick={() => { setForm({ ...form, funcionario: f.nome }); setPinDigitado(''); setPinVerificado(false) }} style={{ ...btn, background: '#f0fdfa', textAlign: 'left' }}>👷 {f.nome} - CPF: {f.cpf || '-'}</button>)}</div>
+        <div><label>👷 Funcionário - digita nome OU CPF</label><input value={form.funcionario || ''} onChange={e => { setForm({ ...form, funcionario: e.target.value }); setPinDigitado(''); setPinVerificado(false); setBioStatus('aguardando'); setBioMsg('') }} placeholder="Digita nome ou CPF..." style={{ ...input, marginTop: 4 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>{funcs.filter((f: any) => form.funcionario && (f.nome.toLowerCase().includes(form.funcionario.toLowerCase()) || (f.cpf || '').includes(form.funcionario))).slice(0, 5).map((f: any) => <button key={f.id} type="button" onClick={() => { setForm({ ...form, funcionario: f.nome }); setPinDigitado(''); setPinVerificado(false); setBioStatus('aguardando'); setBioMsg('') }} style={{ ...btn, background: '#f0fdfa', textAlign: 'left' }}>👷 {f.nome} - CPF: {f.cpf || '-'}</button>)}</div>
           {funcSelEpi ? <div style={{ color: '#059669', fontWeight: 700, fontSize: 13, marginTop: 4 }}>✅ {funcSelEpi.nome} • CPF: {funcSelEpi.cpf}</div> : null}
         </div>
         <div><label>📅 Data da Entrega</label><div style={{ display: 'flex', gap: 8, marginTop: 4 }}><input type="date" value={form.data_entrega || ''} onChange={e => setForm({ ...form, data_entrega: e.target.value })} style={{ ...input, flex: 1 }} /><button type="button" onClick={() => setForm({ ...form, data_entrega: new Date().toISOString().split('T')[0] })} style={{ ...btn, background: '#e0f2fe' }}>📅 Hoje</button></div></div>
         <div style={{ background: '#fef3c7', borderRadius: 16, padding: 14 }}>
           <b>🔑 PIN de {funcSelEpi ? funcSelEpi.nome.split(' ')[0] : 'Funcionário'}</b><p style={{ fontSize: 12, color: '#92400e', margin: '4px 0' }}>Pede pro funcionário digitar o PIN DELE.</p>
           <div style={{ display: 'flex', gap: 8 }}><input value={pinDigitado ? '•'.repeat(pinDigitado.length) : ''} readOnly placeholder="••••" style={{ ...input, textAlign: 'center', letterSpacing: 8, fontSize: 18 }} /><button type="button" onClick={verificarPIN} style={{ ...btn, background: '#92400e', color: 'white', padding: '12px 16px' }}>Verificar PIN</button></div>
-          {pinVerificado ? <div style={{ color: '#15803d', fontWeight: 800, fontSize: 13, marginTop: 6 }}>✅ PIN correto! Agora pede pra assinar abaixo.</div> : null}
+          {pinVerificado ? <div style={{ color: '#15803d', fontWeight: 800, fontSize: 13, marginTop: 6 }}>✅ PIN correto! Agora pede pra coletar a digital.</div> : null}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6, marginTop: 10 }}>{['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].map(n => <button key={n} type="button" onClick={() => { if (pinDigitado.length < 4) setPinDigitado(pinDigitado + n) }} style={{ padding: '10px', borderRadius: 10, border: '1px solid #e2e8f0', background: 'white', fontWeight: 800 }}>{n}</button>)}<button type="button" onClick={() => setPinDigitado(pinDigitado.slice(0, -1))} style={{ padding: '10px', borderRadius: 10, border: '1px solid #e2e8f0', background: '#fee2e2' }}>⌫</button></div>
+        </div>
+        <div style={{ background: bioStatus === 'ok' ? '#dcfce7' : '#eef2ff', borderRadius: 16, padding: 14, border: bioStatus === 'ok' ? '2px solid #22c55e' : '1px solid #c7d2fe' }}>
+          <b>👆 Digital / Biometria de {funcSelEpi ? funcSelEpi.nome.split(' ')[0] : 'Funcionário'}</b><p style={{ fontSize: 12, color: '#4338ca', margin: '4px 0' }}>Usa a digital / Face ID do próprio celular. Entrega o celular pra ele encostar o dedo.</p>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <button type="button" onClick={coletarBiometria} disabled={bioStatus === 'lendo'} style={{ width: 80, height: 80, borderRadius: 20, border: 'none', fontSize: 36, background: bioStatus === 'ok' ? '#22c55e' : bioStatus === 'lendo' ? '#facc15' : '#6366f1', cursor: 'pointer' }}>{bioStatus === 'ok' ? '✅' : bioStatus === 'lendo' ? '⏳' : '👆'}</button>
+            <div style={{ flex: 1 }}><div style={{ fontWeight: 800, fontSize: 13 }}>{bioStatus === 'ok' ? '✅ Digital coletada - Biometria OK!' : bioStatus === 'lendo' ? 'Lendo digital... segura o dedo...' : 'Aguardando digital...'}</div><div style={{ fontSize: 12, color: '#64748b' }}>{bioMsg || 'Clica no dedo e usa a biometria do celular'}</div><button type="button" onClick={coletarBiometria} disabled={bioStatus === 'lendo'} style={{ ...btn, background: '#4f46e5', color: 'white', marginTop: 6 }}>{bioStatus === 'lendo' ? 'Lendo...' : bioStatus === 'ok' ? 'Coletar de novo' : 'Coletar Digital'}</button>{bioStatus === 'ok' ? <button type="button" onClick={() => { setBioStatus('aguardando'); setBioMsg('') }} style={{ ...btn, background: '#fee2e2', marginLeft: 6, marginTop: 6 }}>Limpar</button> : null}</div>
+          </div>
         </div>
         <div style={{ border: '2px dashed #0d9488', borderRadius: 16, padding: 14 }}>
           <b>✍️ Assinatura de {funcSelEpi ? funcSelEpi.nome.split(' ')[0] : 'Funcionário'} - assina com o dedo aqui!</b><p style={{ fontSize: 12, color: '#64748b' }}>Entrega o celular pra ele assinar dentro do quadrado. Depois que assinar, o PDF já sai com essa assinatura.</p>

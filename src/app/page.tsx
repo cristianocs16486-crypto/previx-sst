@@ -52,7 +52,7 @@ const [pinVerificado,setPinVerificado]=useState(false)
 const [assinaturaFeita,setAssinaturaFeita]=useState(false)
 const [bioStatus,setBioStatus]=useState<'aguardando'|'lendo'|'ok'>('aguardando')
 const [bioMsg,setBioMsg]=useState('')
-const [tecnico,setTecnico]=useState({nome:'Cristiano Vicente',funcao:'Técnico de Segurança do Trabalho',formacao:'Técnico de Segurança do Trabalho',crea:'',crm:'',art:'',cnpj:'',telefone:'',email:'',empresaLaudo:'',enderecoEmpresa:''})
+const [tecnico,setTecnico]=useState({nome:'Cristiano Vicente',funcao:'Técnico de Segurança do Trabalho',formacao:'Técnico de Segurança do Trabalho',crea:'',crm:'',art:'',mte:'',cnpj:'',telefone:'',email:'',empresaLaudo:'',enderecoEmpresa:''})
 const [filtroExt,setFiltroExt]=useState('Todos')
 const [filtroDoc,setFiltroDoc]=useState('Todos')
 const [filtroInsp,setFiltroInsp]=useState('Todos')
@@ -60,7 +60,7 @@ const canvasRef=useRef<any>(null)
 const desenhando=useRef(false)
 const formasConfirmadas=(pinVerificado?1:0)+(bioStatus==='ok'?1:0)+(assinaturaFeita?1:0)
 const podeSalvarEpi=formasConfirmadas>=1
-useEffect(()=>{const s=localStorage.getItem('previx_session');if(s){try{setUsuario(JSON.parse(s))}catch{}}const t=localStorage.getItem('previx_tecnico');if(t){try{setTecnico({nome:'Cristiano Vicente',funcao:'Técnico de Segurança do Trabalho',formacao:'Técnico de Segurança do Trabalho',crea:'',crm:'',art:'',cnpj:'',telefone:'',email:'',empresaLaudo:'',enderecoEmpresa:'',...JSON.parse(t)})}catch{}}carregar();setCarregando(false)},[])
+useEffect(()=>{const s=localStorage.getItem('previx_session');if(s){try{setUsuario(JSON.parse(s))}catch{}}const t=localStorage.getItem('previx_tecnico');if(t){try{setTecnico({nome:'Cristiano Vicente',funcao:'Técnico de Segurança do Trabalho',formacao:'Técnico de Segurança do Trabalho',crea:'',crm:'',art:'',mte:'',cnpj:'',telefone:'',email:'',empresaLaudo:'',enderecoEmpresa:'',...JSON.parse(t)})}catch{}}carregar();setCarregando(false)},[])
 function salvarTecnico(){localStorage.setItem('previx_tecnico',JSON.stringify(tecnico));alert('✅ Dados do Responsável Técnico salvos!')}
 function carregar(){try{const ld=JSON.parse(localStorage.getItem('previx_dados')||'{}');const le=JSON.parse(localStorage.getItem('previx_empresas')||'[]');const res:any={funcionarios:[],epis:[],extintores:[],inspecoes:[],documentos:[],exames:[],empresas:[],clinicas:[],riscos:[],financeiro:[]};Object.keys(res).forEach(k=>{if(ld[k])res[k]=ld[k]});if(le.length)res.empresas=le;if(!res.empresas.find((e:any)=>e.login==='solnascente')){res.empresas.push({id:'sol1',nome:'Solnascente LTDA',cnpj:'',responsavel:'Ronaldo',telefone:'82994145622',email:'Lojas.cs16486@gmail.com',login:'solnascente',senha:'12345678',status:'Ativa'})}if(!res.clinicas.length)res.clinicas=[{id:'clin1',nome:'Sol Nascente',cnpj:'',telefone:'(82) 99999-0000',endereco:'Maceió - AL',convenio:'Vigente',status:'Ativa'}];res.funcionarios=res.funcionarios.map((f:any)=>f.pin?f:{...f,pin:gerarPIN()});res.exames=res.exames.map((e:any)=>({...e,data:limparData(e.data)||e.data,nome:e.nome||e.funcionario||'Registro'}));setDados(res);if(res.clinicas[0])setClinicaSel(res.clinicas[0].nome)}catch{}}
 function salvarNav(nd:any){try{localStorage.setItem('previx_empresas',JSON.stringify(nd.empresas||[]));localStorage.setItem('previx_dados',JSON.stringify(nd))}catch{}}
@@ -158,7 +158,7 @@ return (
 <div>
 <div style={{background:'white',borderRadius:24,padding:24}}><h2 style={{fontSize:32,fontWeight:900,margin:0}}>Olá, {usuario.nome}! 👋</h2><p style={{color:'#64748b'}}>{usuario.empresa}</p></div>
 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:16,marginTop:20}}>{cards.map(c=>(<button key={c.titulo} onClick={()=>setAba(c.aba)} style={{background:c.cor,borderRadius:24,padding:20,textAlign:'left',border:'none',cursor:'pointer',color:'white'}}><div style={{fontSize:24}}>{c.icone}</div><div style={{marginTop:12,fontWeight:700}}>{c.titulo}</div><div style={{fontSize:32,fontWeight:900}}>{c.valor}</div></button>))}</div>
-<div style={{background:'white',borderRadius:24,padding:20,marginTop:20}}><h3 style={{margin:'0 0 6px'}}>👨‍🔧 Responsável Técnico - Dados do Laudo</h3><p style={{fontSize:12,color:'#64748b'}}>Preenche aqui que já sai em Inspeção, PGR, LTCAT, LIP. Inclui Formação + CREA / CRM + ART.</p>
+<div style={{background:'white',borderRadius:24,padding:20,marginTop:20}}><h3 style={{margin:'0 0 6px'}}>👨‍🔧 Responsável Técnico - Dados do Laudo</h3><p style={{fontSize:12,color:'#64748b'}}>Preenche aqui que já sai em Inspeção, PGR, LTCAT, LIP. Inclui Formação + CREA / CRM + ART + MTE.</p>
 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:10,marginTop:10}}>
 <div><label style={{fontSize:12,fontWeight:800}}>Nome</label><input value={tecnico.nome} onChange={e=>setTecnico({...tecnico,nome:e.target.value})} style={{...input,marginTop:4}} /></div>
 <div><label style={{fontSize:12,fontWeight:800}}>Formação</label><select value={tecnico.formacao} onChange={e=>setTecnico({...tecnico,formacao:e.target.value,funcao:e.target.value})} style={{...input,marginTop:4}}><option>Técnico de Segurança do Trabalho</option><option>Engenheiro de Segurança do Trabalho</option><option>Médico do Trabalho</option><option>Engenheiro Civil</option><option>Outro</option></select></div>

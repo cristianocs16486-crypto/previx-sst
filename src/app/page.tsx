@@ -1,25 +1,34 @@
 "use client";
 import { useState, useEffect } from "react";
 
-type AnyItem = any;
+// ESTILOS FIXOS - NÃO DEPENDE DE TAILWIND, POR ISSO NÃO QUEBRA
+const S = {
+  page: { minHeight: "100vh", background: "#EAFcff", fontFamily: "Arial, sans-serif" } as any,
+  center: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, background: "#EAFcff", fontFamily: "Arial, sans-serif" } as any,
+  loginCard: { background: "white", width: "100%", maxWidth: 420, borderRadius: 24, padding: 32, boxShadow: "0 10px 30px rgba(0,0,0,0.1)" } as any,
+  logoBox: { width: 72, height: 72, margin: "0 auto", background: "#DC2626", borderRadius: 18, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 20px rgba(220,38,38,0.3)" } as any,
+  input: { width: "100%", border: "1px solid #D1D5DB", borderRadius: 12, padding: "12px", marginTop: 6, fontSize: 14, boxSizing: "border-box" as any } as any,
+  btnRed: { width: "100%", background: "#DC2626", color: "white", padding: "14px", borderRadius: 12, fontWeight: 800, border: "none", cursor: "pointer", marginTop: 16 } as any,
+  header: { position: "sticky" as any, top: 0, zIndex: 40, background: "linear-gradient(90deg,#0D9488,#2563EB)", padding: 8 } as any,
+  tabBar: { display: "flex", gap: 8, overflowX: "auto" as any, padding: "2px 4px" } as any,
+  card: { background: "white", borderRadius: 20, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.05)" } as any,
+  btnAdd: { background: "linear-gradient(135deg,#0D9488,#2563EB)", color: "white", padding: "12px 16px", borderRadius: 14, fontWeight: 700, border: "none", cursor: "pointer", fontSize: 14 } as any,
+  item: { border: "1px solid #E5E7EB", borderRadius: 16, padding: 14, display: "flex", justifyContent: "space-between", alignItems: "center" } as any,
+  modalBg: { position: "fixed" as any, inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 50 } as any,
+  modal: { background: "white", width: "100%", maxWidth: 420, borderRadius: 20, padding: 24 } as any,
+};
 
 export default function Page() {
   const [logged, setLogged] = useState(false);
   const [tab, setTab] = useState("extintores");
   const [showModal, setShowModal] = useState("");
+
+  const [funcionarios, setFuncionarios] = useState<any[]>([]);
+  const [extintores, setExtintores] = useState<any[]>([]);
+  const [epis, setEpis] = useState<any[]>([]);
+  const [exames, setExames] = useState<any[]>([]);
   const [searchExt, setSearchExt] = useState("");
 
-  // DADOS - TUDO SALVO COM A MESMA CHAVE
-  const [funcionarios, setFuncionarios] = useState<AnyItem[]>([]);
-  const [extintores, setExtintores] = useState<AnyItem[]>([]);
-  const [epis, setEpis] = useState<AnyItem[]>([]);
-  const [inspecoes, setInspecoes] = useState<AnyItem[]>([]);
-  const [exames, setExames] = useState<AnyItem[]>([]);
-  const [clinicas, setClinicas] = useState<AnyItem[]>([{ nome: "Bio Proteção", cidade: "Maceió - AL" }]);
-  const [pgr, setPgr] = useState<AnyItem[]>([]);
-  const [financeiro, setFinanceiro] = useState<AnyItem[]>([]);
-
-  // FORMULARIOS
   const [fNome, setFNome] = useState("");
   const [fCargo, setFCargo] = useState("");
   const [eLocal, setELocal] = useState("");
@@ -29,104 +38,71 @@ export default function Page() {
   const [epiFunc, setEpiFunc] = useState("");
   const [epiItem, setEpiItem] = useState("");
   const [exFunc, setExFunc] = useState("");
-  const [exTipo, setExTipo] = useState("Periódico");
-  const [inspLocal, setInspLocal] = useState("");
 
-  // CARREGAR DO NAVEGADOR - SÓ DEPOIS QUE ABRIR A PÁGINA
   useEffect(() => {
-    const load = (key: string, setter: any) => {
-      try {
-        const v = localStorage.getItem(key);
-        if (v) setter(JSON.parse(v));
-      } catch {}
-    };
-    load("previx_func", setFuncionarios);
-    load("previx_extintores", setExtintores);
-    load("previx_epis", setEpis);
-    load("previx_inspecoes", setInspecoes);
-    load("previx_exames", setExames);
-    load("previx_pgr", setPgr);
-    load("previx_fin", setFinanceiro);
+    try {
+      const f = localStorage.getItem("previx_func"); if (f) setFuncionarios(JSON.parse(f));
+      const e = localStorage.getItem("previx_extintores"); if (e) setExtintores(JSON.parse(e));
+      const ep = localStorage.getItem("previx_epis"); if (ep) setEpis(JSON.parse(ep));
+      const ex = localStorage.getItem("previx_exames"); if (ex) setExames(JSON.parse(ex));
+    } catch {}
   }, []);
 
-  const save = (key: string, arr: AnyItem[], setter: any) => {
-    setter(arr);
-    localStorage.setItem(key, JSON.stringify(arr));
-  };
+  const save = (key: string, arr: any[], setter: any) => { setter(arr); localStorage.setItem(key, JSON.stringify(arr)); };
 
-  // ===== SALVAR EXTINTOR - CORRIGIDO =====
+  // ===== CORREÇÃO 1: EXTINTOR AGORA SALVA DE VERDADE =====
   const saveExtintor = () => {
     if (!eLocal.trim()) { alert("Preencha o local"); return; }
-    const novo = { local: eLocal, tipo: eTipo, validade: eValidade, codigo: eCodigo };
-    const novoArr = [...extintores, novo];
+    const novoArr = [...extintores, { local: eLocal, tipo: eTipo, validade: eValidade, codigo: eCodigo }];
     save("previx_extintores", novoArr, setExtintores);
     setELocal(""); setECodigo(""); setEValidade("");
-    setShowModal("");
-    alert("Extintor salvo com sucesso!");
+    setShowModal(""); alert("Extintor salvo com sucesso!");
   };
 
   const saveFunc = () => {
     if (!fNome.trim()) { alert("Preencha o nome"); return; }
-    const novoArr = [...funcionarios, { nome: fNome, cargo: fCargo }];
-    save("previx_func", novoArr, setFuncionarios);
-    setFNome(""); setFCargo(""); setShowModal("");
-    alert("Funcionário salvo!");
+    save("previx_func", [...funcionarios, { nome: fNome, cargo: fCargo }], setFuncionarios);
+    setFNome(""); setFCargo(""); setShowModal(""); alert("Funcionário salvo!");
   };
 
   const saveEpi = () => {
     if (!epiFunc.trim()) { alert("Preencha o funcionário"); return; }
-    const novoArr = [...epis, { func: epiFunc, item: epiItem }];
-    save("previx_epis", novoArr, setEpis);
-    setEpiFunc(""); setEpiItem(""); setShowModal("");
-    alert("EPI salvo!");
+    save("previx_epis", [...epis, { func: epiFunc, item: epiItem }], setEpis);
+    setEpiFunc(""); setEpiItem(""); setShowModal(""); alert("EPI salvo!");
   };
 
   const saveExame = () => {
     if (!exFunc.trim()) { alert("Preencha o funcionário"); return; }
-    const novoArr = [...exames, { func: exFunc, tipo: exTipo }];
-    save("previx_exames", novoArr, setExames);
-    setExFunc(""); setShowModal("");
-    alert("Exame salvo!");
+    save("previx_exames", [...exames, { func: exFunc, tipo: "Periódico" }], setExames);
+    setExFunc(""); setShowModal(""); alert("Exame salvo!");
   };
 
-  const saveInsp = () => {
-    if (!inspLocal.trim()) { alert("Preencha o local"); return; }
-    const novoArr = [...inspecoes, { local: inspLocal }];
-    save("previx_inspecoes", novoArr, setInspecoes);
-    setInspLocal(""); setShowModal("");
-    alert("Inspeção salva!");
-  };
-
-  const del = (key: string, arr: AnyItem[], setter: any, idx: number) => {
+  const del = (key: string, arr: any[], setter: any, idx: number) => {
     const novo = arr.filter((_, i) => i !== idx);
     save(key, novo, setter);
   };
 
-  // ===== TELA DE LOGIN - LOGO VERMELHA =====
+  // ===== CORREÇÃO 2: LOGIN COM LOGO VERMELHA - SEM IMAGEM EXTERNA =====
   if (!logged) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "#EAFcff" }}>
-        <div className="bg-white w-full max-w-md rounded-[24px] shadow-xl p-8">
-          <div className="text-center">
-            <div className="w-[72px] h-[72px] mx-auto bg-red-600 rounded-[18px] flex items-center justify-center shadow-lg">
-              <span className="text-white text-[32px] font-black">P</span>
-            </div>
-            <h1 className="text-[44px] leading-none font-black tracking-tight mt-4">
-              <span className="text-red-600">PRE</span><span className="text-slate-900">VIX</span>
+      <div style={S.center}>
+        <div style={S.loginCard}>
+          <div style={{ textAlign: "center" }}>
+            <div style={S.logoBox}><span style={{ color: "white", fontSize: 32, fontWeight: 900 }}>P</span></div>
+            <h1 style={{ fontSize: 44, margin: "16px 0 0", fontWeight: 900, letterSpacing: -1 }}>
+              <span style={{ color: "#DC2626" }}>PRE</span><span style={{ color: "#0F172A" }}>VIX</span>
             </h1>
-            <p className="text-slate-500 text-sm mt-1">Gestão Completa de SST • PGR • PCMSO • eSocial</p>
-            <div className="inline-flex bg-red-50 text-red-700 text-xs font-bold px-3 py-1.5 rounded-full mt-3">
+            <p style={{ color: "#64748B", fontSize: 14, marginTop: 4 }}>Gestão Completa de SST • PGR • PCMSO • eSocial</p>
+            <div style={{ display: "inline-block", background: "#FEF2F2", color: "#B91C1C", fontSize: 12, fontWeight: 700, padding: "6px 12px", borderRadius: 999, marginTop: 12 }}>
               Empresa Ativa: Norte Vidros • Parceiro: Bio Proteção
             </div>
           </div>
-          <label className="text-sm font-bold mt-6 block">E-mail</label>
-          <input defaultValue="admin@nortevidros.com.br" className="mt-1 w-full border rounded-xl p-3" />
-          <label className="text-sm font-bold mt-3 block">Senha</label>
-          <input type="password" defaultValue="123456" className="mt-1 w-full border rounded-xl p-3" />
-          <button onClick={() => setLogged(true)} className="w-full py-3.5 rounded-xl font-bold mt-5 text-white" style={{ background: "#DC2626" }}>
-            Entrar no Painel →
-          </button>
-          <p className="text-center text-xs text-slate-400 mt-3">Demo: admin@nortevidros.com.br / 123456</p>
+          <label style={{ fontSize: 14, fontWeight: 700, marginTop: 20, display: "block" }}>E-mail</label>
+          <input defaultValue="admin@nortevidros.com.br" style={S.input} />
+          <label style={{ fontSize: 14, fontWeight: 700, marginTop: 12, display: "block" }}>Senha</label>
+          <input type="password" defaultValue="123456" style={S.input} />
+          <button onClick={() => setLogged(true)} style={S.btnRed}>Entrar no Painel →</button>
+          <p style={{ textAlign: "center", fontSize: 12, color: "#94A3B8", marginTop: 12 }}>Demo: admin@nortevidros.com.br / 123456</p>
         </div>
       </div>
     );
@@ -137,207 +113,139 @@ export default function Page() {
     { id: "funcionarios", label: "👷 Funcionários" },
     { id: "epis", label: "🎒 EPI's" },
     { id: "extintores", label: "🧯 Extintores" },
-    { id: "inspecoes", label: "📋 Inspeções" },
-    { id: "documentos", label: "📄 Documentos" },
     { id: "exames", label: "🩺 Exames" },
+    { id: "documentos", label: "📄 Documentos" },
     { id: "clinicas", label: "🏥 Clínicas" },
-    { id: "pgr", label: "⚠️ PGR / Riscos" },
-    { id: "financeiro", label: "💰 Financeiro" },
   ];
 
-  const filteredExt = extintores.filter((e: any) =>
-    (e.local + " " + e.tipo).toLowerCase().includes(searchExt.toLowerCase())
-  );
+  const filteredExt = extintores.filter((e) => (e.local + " " + e.tipo).toLowerCase().includes(searchExt.toLowerCase()));
+
+  const tabStyle = (active: boolean) => ({
+    whiteSpace: "nowrap" as any, padding: "8px 14px", borderRadius: 999, fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer",
+    background: active ? "white" : "rgba(255,255,255,0.15)", color: active ? "#0F766E" : "white"
+  });
 
   return (
-    <div className="min-h-screen" style={{ background: "#EAFcff" }}>
-      {/* BARRA SUPERIOR IGUAL DA TUA FOTO */}
-      <header className="sticky top-0 z-40" style={{ background: "linear-gradient(90deg,#0D9488,#2563EB)" }}>
-        <div className="flex gap-2 overflow-x-auto p-2 px-3">
+    <div style={S.page}>
+      <header style={S.header}>
+        <div style={S.tabBar}>
           {tabs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className="whitespace-nowrap px-3 py-2 rounded-full text-[13px] font-bold"
-              style={tab === t.id ? { background: "white", color: "#0F766E" } : { background: "rgba(255,255,255,.15)", color: "white" }}
-            >
-              {t.label}
-            </button>
+            <button key={t.id} onClick={() => setTab(t.id)} style={tabStyle(tab === t.id)}>{t.label}</button>
           ))}
         </div>
       </header>
 
-      <main className="p-3 md:p-6 max-w-[1100px] mx-auto">
-        {/* INICIO */}
+      <main style={{ padding: 12, maxWidth: 1100, margin: "0 auto" }}>
         {tab === "inicio" && (
-          <div className="bg-white rounded-[20px] p-6 shadow-sm">
-            <h1 className="text-2xl font-black">Olá, Norte Vidros 👋</h1>
-            <p className="text-slate-500 text-sm">Painel geral • Parceiro: Bio Proteção</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
-              <div className="border rounded-2xl p-4"><p className="text-xs text-slate-500">Funcionários</p><p className="text-2xl font-black">{funcionarios.length}</p></div>
-              <div className="border rounded-2xl p-4"><p className="text-xs text-slate-500">Extintores</p><p className="text-2xl font-black text-red-600">{extintores.length}</p></div>
-              <div className="border rounded-2xl p-4"><p className="text-xs text-slate-500">EPI&apos;s</p><p className="text-2xl font-black">{epis.length}</p></div>
-              <div className="border rounded-2xl p-4"><p className="text-xs text-slate-500">Exames</p><p className="text-2xl font-black">{exames.length}</p></div>
+          <div style={S.card}>
+            <h1 style={{ fontSize: 24, fontWeight: 900, margin: 0 }}>Olá, Norte Vidros 👋</h1>
+            <p style={{ color: "#64748B", fontSize: 14 }}>Painel geral • Parceiro: Bio Proteção</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 16 }}>
+              <div style={{ border: "1px solid #E5E7EB", borderRadius: 16, padding: 16 }}><p style={{ fontSize: 12, color: "#64748B", margin: 0 }}>Funcionários</p><p style={{ fontSize: 24, fontWeight: 900, margin: 0 }}>{funcionarios.length}</p></div>
+              <div style={{ border: "1px solid #E5E7EB", borderRadius: 16, padding: 16 }}><p style={{ fontSize: 12, color: "#64748B", margin: 0 }}>Extintores</p><p style={{ fontSize: 24, fontWeight: 900, margin: 0, color: "#DC2626" }}>{extintores.length}</p></div>
+              <div style={{ border: "1px solid #E5E7EB", borderRadius: 16, padding: 16 }}><p style={{ fontSize: 12, color: "#64748B", margin: 0 }}>EPI&apos;s</p><p style={{ fontSize: 24, fontWeight: 900, margin: 0 }}>{epis.length}</p></div>
+              <div style={{ border: "1px solid #E5E7EB", borderRadius: 16, padding: 16 }}><p style={{ fontSize: 12, color: "#64748B", margin: 0 }}>Exames</p><p style={{ fontSize: 24, fontWeight: 900, margin: 0 }}>{exames.length}</p></div>
             </div>
           </div>
         )}
 
-        {/* EXTINTORES - A TELA DA FOTO */}
         {tab === "extintores" && (
-          <div className="bg-white rounded-[20px] p-5 md:p-6 shadow-sm">
-            <div className="flex justify-between items-start">
-              <div>
-                <h2 className="text-[22px] font-black">Extintores</h2>
-                <p className="text-sm text-slate-500 mt-1">Total: {extintores.length}</p>
-              </div>
-              <button onClick={() => setShowModal("ext")} className="text-white px-4 py-3 rounded-[14px] font-bold text-sm" style={{ background: "linear-gradient(135deg,#0D9488,#2563EB)" }}>+ Adicionar</button>
+          <div style={S.card}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div><h2 style={{ fontSize: 22, fontWeight: 900, margin: 0 }}>Extintores</h2><p style={{ fontSize: 14, color: "#64748B", marginTop: 4 }}>Total: {extintores.length}</p></div>
+              <button onClick={() => setShowModal("ext")} style={S.btnAdd}>+ Adicionar</button>
             </div>
-            <input value={searchExt} onChange={(e) => setSearchExt(e.target.value)} placeholder="Buscar em extintores..." className="mt-4 w-full border rounded-xl p-3" />
-            <div className="mt-4 space-y-3">
+            <input value={searchExt} onChange={(e) => setSearchExt(e.target.value)} placeholder="Buscar em extintores..." style={{ ...S.input, marginTop: 16 }} />
+            <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
               {filteredExt.length === 0 ? (
-                <div className="border-2 border-dashed rounded-2xl p-6 text-center text-sm">Nenhum registro aqui ainda. Clica em + Adicionar.</div>
-              ) : (
-                filteredExt.map((e: any, i: number) => (
-                  <div key={i} className="border rounded-2xl p-4 flex justify-between items-center">
-                    <div>
-                      <p className="font-bold">🧯 {e.tipo} - {e.local}</p>
-                      <p className="text-xs text-slate-500">Código: {e.codigo || "-"} • Venc: {e.validade || "-"}</p>
-                    </div>
-                    <button onClick={() => del("previx_extintores", extintores, setExtintores, extintores.indexOf(e))} className="text-red-500 text-sm font-bold">Excluir</button>
-                  </div>
-                ))
-              )}
+                <div style={{ border: "2px dashed #CBD5E1", borderRadius: 16, padding: 24, textAlign: "center", fontSize: 14 }}>Nenhum registro aqui ainda. Clica em + Adicionar.</div>
+              ) : filteredExt.map((e, i) => (
+                <div key={i} style={S.item}>
+                  <div><p style={{ fontWeight: 800, margin: 0 }}>🧯 {e.tipo} - {e.local}</p><p style={{ fontSize: 12, color: "#64748B", margin: 0 }}>Código: {e.codigo || "-"} • Venc: {e.validade || "-"}</p></div>
+                  <button onClick={() => del("previx_extintores", extintores, setExtintores, extintores.indexOf(e))} style={{ color: "#EF4444", fontWeight: 700, border: "none", background: "none", cursor: "pointer" }}>Excluir</button>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* FUNCIONARIOS */}
         {tab === "funcionarios" && (
-          <div className="bg-white rounded-[20px] p-6">
-            <div className="flex justify-between"><h2 className="text-[22px] font-black">Funcionários - Total: {funcionarios.length}</h2><button onClick={() => setShowModal("func")} className="text-white px-4 py-2 rounded-xl font-bold text-sm" style={{ background: "linear-gradient(135deg,#0D9488,#2563EB)" }}>+ Adicionar</button></div>
-            <div className="mt-4 space-y-3">{funcionarios.length === 0 ? <div className="border-2 border-dashed rounded-2xl p-6 text-center text-sm">Nenhum registro ainda.</div> : funcionarios.map((f: any, i: number) => (<div key={i} className="border rounded-2xl p-4 flex justify-between"><p className="font-bold">{f.nome} <span className="text-xs text-slate-500 font-normal">• {f.cargo}</span></p><button onClick={() => del("previx_func", funcionarios, setFuncionarios, i)} className="text-red-500 text-sm font-bold">Excluir</button></div>))}</div>
-          </div>
-        )}
-
-        {/* EPIS */}
-        {tab === "epis" && (
-          <div className="bg-white rounded-[20px] p-6">
-            <div className="flex justify-between"><h2 className="text-[22px] font-black">EPI&apos;s - Total: {epis.length}</h2><button onClick={() => setShowModal("epi")} className="text-white px-4 py-2 rounded-xl font-bold text-sm" style={{ background: "linear-gradient(135deg,#0D9488,#2563EB)" }}>+ Adicionar</button></div>
-            <div className="mt-4 space-y-3">{epis.length === 0 ? <div className="border-2 border-dashed rounded-2xl p-6 text-center text-sm">Nenhum registro ainda.</div> : epis.map((e: any, i: number) => (<div key={i} className="border rounded-2xl p-4 flex justify-between"><p className="font-bold">{e.item} - {e.func}</p><button onClick={() => del("previx_epis", epis, setEpis, i)} className="text-red-500 text-sm font-bold">Excluir</button></div>))}</div>
-          </div>
-        )}
-
-        {/* INSPECOES */}
-        {tab === "inspecoes" && (
-          <div className="bg-white rounded-[20px] p-6">
-            <div className="flex justify-between"><h2 className="text-[22px] font-black">Inspeções - Total: {inspecoes.length}</h2><button onClick={() => setShowModal("insp")} className="text-white px-4 py-2 rounded-xl font-bold text-sm" style={{ background: "linear-gradient(135deg,#0D9488,#2563EB)" }}>+ Adicionar</button></div>
-            <div className="mt-4 space-y-3">{inspecoes.length === 0 ? <div className="border-2 border-dashed rounded-2xl p-6 text-center text-sm">Nenhum registro ainda.</div> : inspecoes.map((e: any, i: number) => (<div key={i} className="border rounded-2xl p-4 flex justify-between"><p className="font-bold">{e.local}</p><button onClick={() => del("previx_inspecoes", inspecoes, setInspecoes, i)} className="text-red-500 text-sm font-bold">Excluir</button></div>))}</div>
-          </div>
-        )}
-
-        {/* DOCUMENTOS */}
-        {tab === "documentos" && (
-          <div className="bg-white rounded-[20px] p-6">
-            <h2 className="text-[22px] font-black">Documentos - Norte Vidros</h2>
-            <div className="mt-4 space-y-3">
-              <div className="border rounded-2xl p-4"><p className="font-bold">📄 PGR - Programa de Gerenciamento de Riscos</p><p className="text-xs text-slate-500">Válido até 10/11/2027 • Bio Proteção</p></div>
-              <div className="border rounded-2xl p-4"><p className="font-bold">🩺 PCMSO</p><p className="text-xs text-slate-500">Parceiro: Bio Proteção • Maceió</p></div>
+          <div style={S.card}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}><h2 style={{ fontSize: 22, fontWeight: 900, margin: 0 }}>Funcionários - Total: {funcionarios.length}</h2><button onClick={() => setShowModal("func")} style={S.btnAdd}>+ Adicionar</button></div>
+            <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+              {funcionarios.length === 0 ? <div style={{ border: "2px dashed #CBD5E1", borderRadius: 16, padding: 24, textAlign: "center" }}>Nenhum registro ainda.</div> : funcionarios.map((f, i) => (
+                <div key={i} style={S.item}><p style={{ fontWeight: 700, margin: 0 }}>{f.nome} <span style={{ fontSize: 12, color: "#64748B", fontWeight: 400 }}>• {f.cargo}</span></p><button onClick={() => del("previx_func", funcionarios, setFuncionarios, i)} style={{ color: "#EF4444", fontWeight: 700, border: "none", background: "none", cursor: "pointer" }}>Excluir</button></div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* EXAMES */}
+        {tab === "epis" && (
+          <div style={S.card}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}><h2 style={{ fontSize: 22, fontWeight: 900, margin: 0 }}>EPI&apos;s - Total: {epis.length}</h2><button onClick={() => setShowModal("epi")} style={S.btnAdd}>+ Adicionar</button></div>
+            <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+              {epis.length === 0 ? <div style={{ border: "2px dashed #CBD5E1", borderRadius: 16, padding: 24, textAlign: "center" }}>Nenhum registro ainda.</div> : epis.map((e, i) => (
+                <div key={i} style={S.item}><p style={{ fontWeight: 700, margin: 0 }}>{e.item} - {e.func}</p><button onClick={() => del("previx_epis", epis, setEpis, i)} style={{ color: "#EF4444", fontWeight: 700, border: "none", background: "none", cursor: "pointer" }}>Excluir</button></div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {tab === "exames" && (
-          <div className="bg-white rounded-[20px] p-6">
-            <div className="flex justify-between"><h2 className="text-[22px] font-black">Exames - Total: {exames.length}</h2><button onClick={() => setShowModal("exame")} className="text-white px-4 py-2 rounded-xl font-bold text-sm" style={{ background: "linear-gradient(135deg,#0D9488,#2563EB)" }}>+ Adicionar</button></div>
-            <div className="mt-4 space-y-3">{exames.length === 0 ? <div className="border-2 border-dashed rounded-2xl p-6 text-center text-sm">Nenhum registro ainda.</div> : exames.map((e: any, i: number) => (<div key={i} className="border rounded-2xl p-4 flex justify-between"><p className="font-bold">{e.tipo} - {e.func}</p><button onClick={() => del("previx_exames", exames, setExames, i)} className="text-red-500 text-sm font-bold">Excluir</button></div>))}</div>
+          <div style={S.card}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}><h2 style={{ fontSize: 22, fontWeight: 900, margin: 0 }}>Exames - Total: {exames.length}</h2><button onClick={() => setShowModal("exame")} style={S.btnAdd}>+ Adicionar</button></div>
+            <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+              {exames.length === 0 ? <div style={{ border: "2px dashed #CBD5E1", borderRadius: 16, padding: 24, textAlign: "center" }}>Nenhum registro ainda.</div> : exames.map((e, i) => (
+                <div key={i} style={S.item}><p style={{ fontWeight: 700, margin: 0 }}>Periódico - {e.func}</p><button onClick={() => del("previx_exames", exames, setExames, i)} style={{ color: "#EF4444", fontWeight: 700, border: "none", background: "none", cursor: "pointer" }}>Excluir</button></div>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* CLINICAS */}
+        {tab === "documentos" && (
+          <div style={S.card}><h2 style={{ fontSize: 22, fontWeight: 900, margin: 0 }}>Documentos - Norte Vidros</h2><div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}><div style={S.item}><div><p style={{ fontWeight: 800, margin: 0 }}>📄 PGR</p><p style={{ fontSize: 12, color: "#64748B", margin: 0 }}>Válido até 10/11/2027 • Bio Proteção</p></div></div><div style={S.item}><div><p style={{ fontWeight: 800, margin: 0 }}>🩺 PCMSO</p><p style={{ fontSize: 12, color: "#64748B", margin: 0 }}>Parceiro: Bio Proteção</p></div></div></div></div>
+        )}
+
         {tab === "clinicas" && (
-          <div className="bg-white rounded-[20px] p-6">
-            <h2 className="text-[22px] font-black">Clínicas</h2>
-            <div className="mt-4 space-y-3">{clinicas.map((c: any, i: number) => (<div key={i} className="border rounded-2xl p-4"><p className="font-bold">🏥 {c.nome}</p><p className="text-xs text-slate-500">{c.cidade}</p></div>))}</div>
-          </div>
-        )}
-
-        {/* PGR */}
-        {tab === "pgr" && (
-          <div className="bg-white rounded-[20px] p-6">
-            <h2 className="text-[22px] font-black">PGR / Riscos</h2>
-            <p className="text-sm text-slate-500 mt-2">Gestão de riscos da Norte Vidros - Corte de Vidro, Instalação, etc.</p>
-          </div>
-        )}
-
-        {/* FINANCEIRO */}
-        {tab === "financeiro" && (
-          <div className="bg-white rounded-[20px] p-6">
-            <h2 className="text-[22px] font-black">Financeiro</h2>
-            <p className="text-sm text-slate-500 mt-2">Mensalidades e lançamentos da Norte Vidros.</p>
-          </div>
+          <div style={S.card}><h2 style={{ fontSize: 22, fontWeight: 900, margin: 0 }}>Clínicas</h2><div style={{ marginTop: 16 }}><div style={S.item}><div><p style={{ fontWeight: 800, margin: 0 }}>🏥 Bio Proteção - Maceió</p><p style={{ fontSize: 12, color: "#64748B", margin: 0 }}>Clínica parceira oficial</p></div></div></div></div>
         )}
       </main>
 
-      {/* MODAL EXTINTOR */}
       {showModal === "ext" && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white w-full max-w-md rounded-2xl p-6">
-            <h3 className="font-black text-lg">Novo Extintor</h3>
-            <input value={eLocal} onChange={(e) => setELocal(e.target.value)} placeholder="Local - ex: Oficina" className="mt-4 w-full border rounded-xl p-3" />
-            <select value={eTipo} onChange={(e) => setETipo(e.target.value)} className="mt-2 w-full border rounded-xl p-3"><option>PQS 6kg</option><option>CO2 6kg</option><option>Água 10L</option><option>PQS 4kg</option></select>
-            <input type="date" value={eValidade} onChange={(e) => setEValidade(e.target.value)} className="mt-2 w-full border rounded-xl p-3" />
-            <input value={eCodigo} onChange={(e) => setECodigo(e.target.value)} placeholder="Código / Nº" className="mt-2 w-full border rounded-xl p-3" />
-            <div className="flex gap-2 mt-4"><button onClick={saveExtintor} className="flex-1 py-3 rounded-xl font-bold text-white" style={{ background: "#DC2626" }}>Salvar Extintor</button><button onClick={() => setShowModal("")} className="bg-slate-100 flex-1 py-3 rounded-xl font-bold">Cancelar</button></div>
-          </div>
-        </div>
+        <div style={S.modalBg}><div style={S.modal}>
+          <h3 style={{ fontWeight: 900, fontSize: 18, margin: 0 }}>Novo Extintor</h3>
+          <input value={eLocal} onChange={(e) => setELocal(e.target.value)} placeholder="Local - ex: Oficina" style={{ ...S.input, marginTop: 16 }} />
+          <select value={eTipo} onChange={(e) => setETipo(e.target.value)} style={{ ...S.input, marginTop: 8 }}><option>PQS 6kg</option><option>CO2 6kg</option><option>Água 10L</option><option>PQS 4kg</option></select>
+          <input type="date" value={eValidade} onChange={(e) => setEValidade(e.target.value)} style={{ ...S.input, marginTop: 8 }} />
+          <input value={eCodigo} onChange={(e) => setECodigo(e.target.value)} placeholder="Código / Nº" style={{ ...S.input, marginTop: 8 }} />
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}><button onClick={saveExtintor} style={{ flex: 1, background: "#DC2626", color: "white", padding: 12, borderRadius: 12, fontWeight: 800, border: "none", cursor: "pointer" }}>Salvar Extintor</button><button onClick={() => setShowModal("")} style={{ flex: 1, background: "#F1F5F9", padding: 12, borderRadius: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>Cancelar</button></div>
+        </div></div>
       )}
 
-      {/* MODAL FUNC */}
       {showModal === "func" && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white w-full max-w-md rounded-2xl p-6">
-            <h3 className="font-black text-lg">Novo Funcionário</h3>
-            <input value={fNome} onChange={(e) => setFNome(e.target.value)} placeholder="Nome completo" className="mt-4 w-full border rounded-xl p-3" />
-            <input value={fCargo} onChange={(e) => setFCargo(e.target.value)} placeholder="Cargo - ex: Vidraceiro" className="mt-2 w-full border rounded-xl p-3" />
-            <div className="flex gap-2 mt-4"><button onClick={saveFunc} className="flex-1 py-3 rounded-xl font-bold text-white" style={{ background: "#DC2626" }}>Salvar</button><button onClick={() => setShowModal("")} className="bg-slate-100 flex-1 py-3 rounded-xl font-bold">Cancelar</button></div>
-          </div>
-        </div>
+        <div style={S.modalBg}><div style={S.modal}>
+          <h3 style={{ fontWeight: 900, fontSize: 18, margin: 0 }}>Novo Funcionário</h3>
+          <input value={fNome} onChange={(e) => setFNome(e.target.value)} placeholder="Nome completo" style={{ ...S.input, marginTop: 16 }} />
+          <input value={fCargo} onChange={(e) => setFCargo(e.target.value)} placeholder="Cargo - ex: Vidraceiro" style={{ ...S.input, marginTop: 8 }} />
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}><button onClick={saveFunc} style={{ flex: 1, background: "#DC2626", color: "white", padding: 12, borderRadius: 12, fontWeight: 800, border: "none", cursor: "pointer" }}>Salvar</button><button onClick={() => setShowModal("")} style={{ flex: 1, background: "#F1F5F9", padding: 12, borderRadius: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>Cancelar</button></div>
+        </div></div>
       )}
 
-      {/* MODAL EPI */}
       {showModal === "epi" && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white w-full max-w-md rounded-2xl p-6">
-            <h3 className="font-black text-lg">Novo EPI</h3>
-            <input value={epiFunc} onChange={(e) => setEpiFunc(e.target.value)} placeholder="Funcionário" className="mt-4 w-full border rounded-xl p-3" />
-            <input value={epiItem} onChange={(e) => setEpiItem(e.target.value)} placeholder="EPI - ex: Óculos, Luva" className="mt-2 w-full border rounded-xl p-3" />
-            <div className="flex gap-2 mt-4"><button onClick={saveEpi} className="flex-1 py-3 rounded-xl font-bold text-white" style={{ background: "#DC2626" }}>Salvar</button><button onClick={() => setShowModal("")} className="bg-slate-100 flex-1 py-3 rounded-xl font-bold">Cancelar</button></div>
-          </div>
-        </div>
+        <div style={S.modalBg}><div style={S.modal}>
+          <h3 style={{ fontWeight: 900, fontSize: 18, margin: 0 }}>Novo EPI</h3>
+          <input value={epiFunc} onChange={(e) => setEpiFunc(e.target.value)} placeholder="Funcionário" style={{ ...S.input, marginTop: 16 }} />
+          <input value={epiItem} onChange={(e) => setEpiItem(e.target.value)} placeholder="EPI - ex: Óculos" style={{ ...S.input, marginTop: 8 }} />
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}><button onClick={saveEpi} style={{ flex: 1, background: "#DC2626", color: "white", padding: 12, borderRadius: 12, fontWeight: 800, border: "none", cursor: "pointer" }}>Salvar</button><button onClick={() => setShowModal("")} style={{ flex: 1, background: "#F1F5F9", padding: 12, borderRadius: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>Cancelar</button></div>
+        </div></div>
       )}
 
-      {/* MODAL EXAME */}
       {showModal === "exame" && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white w-full max-w-md rounded-2xl p-6">
-            <h3 className="font-black text-lg">Novo Exame</h3>
-            <input value={exFunc} onChange={(e) => setExFunc(e.target.value)} placeholder="Funcionário" className="mt-4 w-full border rounded-xl p-3" />
-            <select value={exTipo} onChange={(e) => setExTipo(e.target.value)} className="mt-2 w-full border rounded-xl p-3"><option>Admissional</option><option>Periódico</option><option>Demissional</option></select>
-            <div className="flex gap-2 mt-4"><button onClick={saveExame} className="flex-1 py-3 rounded-xl font-bold text-white" style={{ background: "#DC2626" }}>Salvar</button><button onClick={() => setShowModal("")} className="bg-slate-100 flex-1 py-3 rounded-xl font-bold">Cancelar</button></div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL INSPECAO */}
-      {showModal === "insp" && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white w-full max-w-md rounded-2xl p-6">
-            <h3 className="font-black text-lg">Nova Inspeção</h3>
-            <input value={inspLocal} onChange={(e) => setInspLocal(e.target.value)} placeholder="Local inspecionado" className="mt-4 w-full border rounded-xl p-3" />
-            <div className="flex gap-2 mt-4"><button onClick={saveInsp} className="flex-1 py-3 rounded-xl font-bold text-white" style={{ background: "#DC2626" }}>Salvar</button><button onClick={() => setShowModal("")} className="bg-slate-100 flex-1 py-3 rounded-xl font-bold">Cancelar</button></div>
-          </div>
-        </div>
+        <div style={S.modalBg}><div style={S.modal}>
+          <h3 style={{ fontWeight: 900, fontSize: 18, margin: 0 }}>Novo Exame</h3>
+          <input value={exFunc} onChange={(e) => setExFunc(e.target.value)} placeholder="Funcionário" style={{ ...S.input, marginTop: 16 }} />
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}><button onClick={saveExame} style={{ flex: 1, background: "#DC2626", color: "white", padding: 12, borderRadius: 12, fontWeight: 800, border: "none", cursor: "pointer" }}>Salvar</button><button onClick={() => setShowModal("")} style={{ flex: 1, background: "#F1F5F9", padding: 12, borderRadius: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>Cancelar</button></div>
+        </div></div>
       )}
     </div>
   );

@@ -10,6 +10,49 @@ const RISCOS_PRONTOS = [
   { nome: 'Postura inadequada', tipo: 'Ergonômico', agente: 'Postura', limite: '-' },
   { nome: 'Bactérias / Vírus', tipo: 'Biológico', agente: 'Agentes biológicos', limite: '-' }
 ]
+// CATÁLOGO SST - por inicial
+const CATALOGO_EPI = [
+  { nome: 'Capacete de Segurança', ca: '', tipo: 'Classe A' },
+  { nome: 'Capacete com Jugular', ca: '', tipo: '' },
+  { nome: 'Cinto de Segurança Paraquedista', ca: '', tipo: '' },
+  { nome: 'Cinto de Segurança Abdominal', ca: '', tipo: '' },
+  { nome: 'Colete Refletivo', ca: '', tipo: '' },
+  { nome: 'Colete Salva-Vidas', ca: '', tipo: '' },
+  { nome: 'Creme de Proteção', ca: '', tipo: '' },
+  { nome: 'Calçado de Segurança', ca: '', tipo: 'Bico de Aço' },
+  { nome: 'Bota de Borracha', ca: '', tipo: '' },
+  { nome: 'Bota de PVC', ca: '', tipo: '' },
+  { nome: 'Botina de Segurança', ca: '', tipo: '' },
+  { nome: 'Luva Borracha', ca: '', tipo: 'Isolante' },
+  { nome: 'Luva Látex', ca: '', tipo: 'Descartável' },
+  { nome: 'Luva Nitrílica', ca: '', tipo: '' },
+  { nome: 'Luva Raspa', ca: '', tipo: 'Cano Longo' },
+  { nome: 'Luva Vaqueta', ca: '', tipo: '' },
+  { nome: 'Luva de Malha', ca: '', tipo: 'Pigmentada' },
+  { nome: 'Luva de PVC', ca: '', tipo: '' },
+  { nome: 'Luva Anticorte', ca: '', tipo: '' },
+  { nome: 'Máscara PFF1', ca: '', tipo: 'Sem Válvula' },
+  { nome: 'Máscara PFF2', ca: '', tipo: 'Com Válvula' },
+  { nome: 'Máscara PFF2', ca: '', tipo: 'Sem Válvula' },
+  { nome: 'Máscara PFF3', ca: '', tipo: '' },
+  { nome: 'Máscara Descartável', ca: '', tipo: '' },
+  { nome: 'Máscara Semifacial', ca: '', tipo: 'Com Filtro' },
+  { nome: 'Máscara Facial Completa', ca: '', tipo: '' },
+  { nome: 'Óculos de Segurança', ca: '', tipo: 'Incolor' },
+  { nome: 'Óculos de Segurança', ca: '', tipo: 'Escuro' },
+  { nome: 'Óculos Ampla Visão', ca: '', tipo: '' },
+  { nome: 'Protetor Auricular Tipo Concha', ca: '', tipo: '' },
+  { nome: 'Protetor Auricular Tipo Plug', ca: '', tipo: '' },
+  { nome: 'Protetor Facial', ca: '', tipo: '' },
+  { nome: 'Perneira de Segurança', ca: '', tipo: '' },
+  { nome: 'Avental de PVC', ca: '', tipo: '' },
+  { nome: 'Avental de Raspa', ca: '', tipo: '' },
+  { nome: 'Avental de Soldador', ca: '', tipo: '' },
+  { nome: 'Trava-Queda', ca: '', tipo: '' },
+  { nome: 'Talabarte', ca: '', tipo: '' },
+  { nome: 'Respirador Purificador', ca: '', tipo: '' },
+  { nome: 'Viseira de Proteção', ca: '', tipo: '' }
+]
 const CAMPOS: any = {
   funcionarios: [{ k: 'nome', l: 'Nome' }, { k: 'setor', l: 'Setor' }, { k: 'cargo', l: 'Cargo' }, { k: 'empresa', l: 'Empresa' }, { k: 'cpf', l: 'CPF' }, { k: 'telefone', l: 'Telefone' }],
   epis: [{ k: 'nome', l: 'Nome do EPI' }, { k: 'ca', l: 'CA' }, { k: 'funcionario', l: 'Funcionário' }, { k: 'data_entrega', l: 'Data Entrega' }],
@@ -26,19 +69,18 @@ const PASTAS = [{ id: 'PGR', nome: 'PGR' }, { id: 'PCMSO', nome: 'PCMSO' }, { id
 const TIPOS_EXAME = ['Admissional', 'Periódico', 'Demissional', 'Audiometria', 'Espirometria', 'Raio-X', 'Exame de Sangue', 'Eletrocardiograma', 'Retorno ao Trabalho', 'Mudança de Função', 'Acuidade Visual', 'Exame Clínico']
 function iconeEpi(nome: any) {
   const n = String(nome || '').toLowerCase()
-  if (n.includes('capacete') || n.includes('capacet')) return '🪖'
+  if (n.includes('capacete')) return '🪖'
   if (n.includes('luva')) return '🧤'
-  if (n.includes('bota') || n.includes('calçado') || n.includes('sapato')) return '👢'
+  if (n.includes('bota') || n.includes('calçado') || n.includes('botina')) return '👢'
   if (n.includes('óculos') || n.includes('oculos') || n.includes('viseira')) return '👓'
   if (n.includes('máscara') || n.includes('mascara') || n.includes('respirador')) return '😷'
-  if (n.includes('protetor') || n.includes('auricular') || n.includes('abafador')) return '🎧'
-  if (n.includes('colete') || n.includes('cinto') || n.includes('trava')) return '🦺'
+  if (n.includes('protetor')) return '🎧'
+  if (n.includes('colete') || n.includes('cinto')) return '🦺'
   if (n.includes('avental')) return '🥼'
   if (n.includes('perneira')) return '🦵'
   if (n.includes('creme')) return '🧴'
   return '🦺'
 }
-const EPIS_PADRAO = ['Capacete', 'Luva', 'Bota', 'Óculos', 'Máscara', 'Protetor Auricular', 'Colete', 'Cinto de Segurança', 'Avental', 'Creme de Proteção']
 function gerarPIN() { return String(Math.floor(1000 + Math.random() * 9000)) }
 function gerarSenha() { return 'Previx' + Math.floor(1000 + Math.random() * 9000) + '@' }
 function limparData(v: any) {
@@ -280,10 +322,10 @@ export default function Home() {
   const exReal = examesF.filter((e: any) => statusExame(e) === 'realizado').length
   const clinicaAtual = (dados.clinicas || []).find((c: any) => c.nome === clinicaSel) || (dados.clinicas || [])[0] || { nome: 'Sol Nascente' }
   const funcSelEpi = (dados.funcionarios || []).find((f: any) => f.nome === form.funcionario) || (dados.funcionarios || []).find((f: any) => (f.cpf || '') === form.funcionario) || null
-  const episUnicos = Array.from(new Map(episF.map((e: any) => [String(e.nome || '').toLowerCase(), e])).values())
-  // LISTA EM LINHA - filtra pelo que digitou no Nome do EPI
-  const textoEpi = String(form.nome || '').toLowerCase()
-  const listaEpiModal = (episUnicos.length > 0 ? episUnicos : EPIS_PADRAO.map(n => ({ nome: n, ca: '' }))).filter((e: any) => !textoEpi || String(e.nome || '').toLowerCase().includes(textoEpi))
+  // BARRA SST - SÓ APARECE DEPOIS DE DIGITAR A INICIAL
+  const textoEpi = String(form.nome || '').trim().toLowerCase()
+  const mostrarListaEpi = textoEpi.length >= 1
+  const listaEpiModal = mostrarListaEpi ? [...CATALOGO_EPI, ...episF.map((e: any) => ({ nome: e.nome, ca: e.ca, tipo: e.tipo || '' }))].filter((e: any) => String(e.nome || '').toLowerCase().includes(textoEpi)).filter((e: any, i: number, arr: any[]) => arr.findIndex((x: any) => (x.nome + x.tipo) === (e.nome + e.tipo)) === i) : []
   return <div style={{ minHeight: '100vh', background: '#ecfeff', fontFamily: 'Arial,sans-serif' }}>
     <header style={{ background: 'linear-gradient(90deg,#0d9488,#2563eb)', color: 'white', padding: '12px 16px', position: 'sticky', top: 0, zIndex: 50 }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><div style={{ fontWeight: 900, fontSize: 20 }}>PREVIX <span style={{ fontSize: 12, background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: 20 }}>SST</span></div><div style={{ display: 'flex', gap: 8 }}><span style={{ fontSize: 12, background: isAdmin ? '#f97316' : '#22c55e', padding: '6px 12px', borderRadius: 20, fontWeight: 700 }}>{isAdmin ? 'SUPER ADMIN' : usuario.empresa}</span><button onClick={exportarCSV} style={{ ...btn, background: 'white', color: '#0f172a', borderRadius: 20 }}>Exportar CSV</button><button onClick={sair} style={{ ...btn, background: 'white', color: '#0f172a', borderRadius: 20 }}>Sair</button></div></div>
@@ -320,13 +362,13 @@ export default function Home() {
     {modal && <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }}><div style={{ background: 'white', borderRadius: 24, padding: 24, width: '100%', maxWidth: 560, maxHeight: '92vh', overflowY: 'auto' }}>
       <h3 style={{ fontWeight: 900 }}>{editando ? 'Editar' : 'Adicionar'} - {aba}</h3>
       {aba === 'epis' ? <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
-        <div><label>Nome do EPI</label><input value={form.nome || ''} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Ex: capaçete, luva, bota..." style={{ ...input, marginTop: 4 }} />
-          <div style={{ background: '#f8fafc', borderRadius: 14, padding: 10, marginTop: 8 }}>
-            <b style={{ fontSize: 13 }}>🦺 Todos os EPIs já listados - clica pra usar:</b>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-              {listaEpiModal.length === 0 ? <p style={{ fontSize: 12, color: '#64748b' }}>Nenhum EPI com esse nome. Pode cadastrar novo aqui em cima.</p> : listaEpiModal.map((e: any, idx: number) => <button key={(e.id || e.nome) + idx} type="button" onClick={() => setForm({ ...form, nome: e.nome, tipo: e.tipo || e.modelo || form.tipo || '', ca: e.ca || form.ca || '' })} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: 12, border: (form.nome || '') === e.nome ? '2px solid #0d9488' : '1px solid #e2e8f0', background: (form.nome || '') === e.nome ? '#ccfbf1' : 'white', fontWeight: 700, fontSize: 14 }}><span style={{ fontSize: 20 }}>{iconeEpi(e.nome)}</span><span style={{ flex: 1 }}>{e.nome}</span>{e.ca ? <span style={{ fontSize: 12, color: '#64748b' }}>CA {e.ca}</span> : <span style={{ fontSize: 12, color: '#0d9488' }}>+ usar</span>}</button>)}
+        <div><label>🔍 Nome do EPI - digita a inicial</label><input value={form.nome || ''} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Ex: digita L p/ Luva, M p/ Máscara, C p/ Capacete..." style={{ ...input, marginTop: 4 }} />
+          {mostrarListaEpi ? <div style={{ background: '#f8fafc', borderRadius: 14, padding: 10, marginTop: 8, border: '1px solid #e2e8f0' }}>
+            <b style={{ fontSize: 13 }}>🦺 {listaEpiModal.length} EPIs com “{form.nome}” - clica na linha:</b>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8, maxHeight: 240, overflowY: 'auto' }}>
+              {listaEpiModal.length === 0 ? <p style={{ fontSize: 12, color: '#64748b' }}>Nenhum EPI com essa inicial. Pode cadastrar novo.</p> : listaEpiModal.map((e: any, idx: number) => <button key={(e.nome + e.tipo) + idx} type="button" onClick={() => setForm({ ...form, nome: e.nome, tipo: e.tipo || form.tipo || '', ca: e.ca || form.ca || '' })} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: 12, border: '1px solid #e2e8f0', background: 'white', fontWeight: 700, fontSize: 14 }}><span style={{ fontSize: 20 }}>{iconeEpi(e.nome)}</span><span style={{ flex: 1 }}>{e.nome}{e.tipo ? ' - ' + e.tipo : ''}</span>{e.ca ? <span style={{ fontSize: 12, color: '#64748b' }}>CA {e.ca}</span> : null}</button>)}
             </div>
-          </div>
+          </div> : <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 6 }}>💡 Digita a inicial: L = Luva, M = Máscara, C = Capacete, B = Bota...</p>}
         </div>
         <div><label>Tipo / Modelo</label><input value={form.tipo || ''} onChange={e => setForm({ ...form, tipo: e.target.value, modelo: e.target.value })} placeholder="Ex: 12545" style={{ ...input, marginTop: 4 }} /></div>
         <div><label>CA</label><input value={form.ca || ''} onChange={e => setForm({ ...form, ca: e.target.value })} placeholder="CA" style={{ ...input, marginTop: 4 }} /></div>

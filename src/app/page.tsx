@@ -66,11 +66,10 @@ const TIPOS_EXAME_DET = [
   { nome: 'Acuidade Visual', desc: 'Visão', obrig: false },
   { nome: 'Exame Clínico', desc: 'Avaliação geral', obrig: true }
 ]
-const TIPOS_EXAME = TIPOS_EXAME_DET.map(t => t.nome)
 const CAMPOS: any = {
   funcionarios: [{ k: 'nome', l: 'Nome' }, { k: 'setor', l: 'Setor' }, { k: 'cargo', l: 'Cargo' }, { k: 'empresa', l: 'Empresa' }, { k: 'cpf', l: 'CPF' }, { k: 'telefone', l: 'Telefone' }],
   epis: [{ k: 'nome', l: 'Nome do EPI' }, { k: 'ca', l: 'CA' }, { k: 'funcionario', l: 'Funcionário' }, { k: 'data_entrega', l: 'Data Entrega' }],
-  extintores: [{ k: 'localizacao', l: 'Localização' }, { k: 'tipo', l: 'Tipo' }, { k: 'vencimento', l: 'Vencimento' }, { k: 'status', l: 'Status' }],
+  extintores: [{ k: 'localizacao', l: 'Localização' }, { k: 'tipo', l: 'Tipo (Ex: PQS 6kg, CO2, Água)' }, { k: 'vencimento', l: 'Vencimento' }, { k: 'ultima_recarga', l: 'Última Recarga' }],
   inspecoes: [{ k: 'titulo', l: 'Título' }, { k: 'local', l: 'Local' }, { k: 'responsavel', l: 'Responsável' }, { k: 'data', l: 'Data' }, { k: 'status', l: 'Status' }],
   documentos: [{ k: 'titulo', l: 'Título' }, { k: 'empresa', l: 'Empresa' }, { k: 'vencimento', l: 'Vencimento' }],
   exames: [{ k: 'nome', l: 'Funcionário' }, { k: 'tipo', l: 'Tipo Exame' }, { k: 'data', l: 'Data' }, { k: 'resultado', l: 'Resultado' }, { k: 'clinica', l: 'Clínica' }],
@@ -117,6 +116,17 @@ function statusExame(item: any) {
   if (d < hoje) return 'vencido'
   return 'futuro'
 }
+// STATUS EXTINTOR COM CORES
+function statusExtintor(item: any) {
+  const v = limparData(item?.vencimento)
+  if (!v) return { label: 'Sem data', cor: '#e2e8f0', txt: '#475569', bg: '#f1f5f9', emoji: '⚪' }
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
+  const venc = new Date(v + 'T00:00:00')
+  const diff = Math.ceil((venc.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
+  if (diff < 0) return { label: 'VENCIDO', cor: '#dc2626', txt: '#fff', bg: '#fee2e2', emoji: '🔴' }
+  if (diff <= 30) return { label: 'A VENCER - ' + diff + ' dias', cor: '#f59e0b', txt: '#78350f', bg: '#fef3c7', emoji: '🟡' }
+  return { label: 'EM DIA - ' + diff + ' dias', cor: '#16a34a', txt: '#fff', bg: '#dcfce7', emoji: '🟢' }
+}
 const ADMIN = { login: 'cristiano', senha: 'previx123', nome: 'Cristiano', tipo: 'admin', empresa: 'Todas' }
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 export default function Home() {
@@ -142,8 +152,8 @@ export default function Home() {
   const [assinaturaFeita, setAssinaturaFeita] = useState(false)
   const [bioStatus, setBioStatus] = useState<'aguardando' | 'lendo' | 'ok'>('aguardando')
   const [bioMsg, setBioMsg] = useState('')
-  // RESPONSÁVEL TÉCNICO + CNPJ PARA LAUDOS
   const [tecnico, setTecnico] = useState({ nome: 'Cristiano Vicente', funcao: 'Técnico de Segurança do Trabalho', crea: '', mte: '', cnpj: '', telefone: '', email: '', empresaLaudo: '' })
+  const [filtroExt, setFiltroExt] = useState('Todos')
   const canvasRef = useRef<any>(null)
   const desenhando = useRef(false)
   useEffect(() => {
@@ -154,10 +164,7 @@ export default function Home() {
     carregar()
     setCarregando(false)
   }, [])
-  function salvarTecnico() {
-    localStorage.setItem('previx_tecnico', JSON.stringify(tecnico))
-    alert('✅ Dados do Responsável Técnico salvos! Já vai sair em todos os laudos.')
-  }
+  function salvarTecnico() { localStorage.setItem('previx_tecnico', JSON.stringify(tecnico)); alert('✅ Dados do Responsável Técnico salvos! Já vai sair em todos os laudos.') }
   function carregar() {
     try {
       const ld = JSON.parse(localStorage.getItem('previx_dados') || '{}')
@@ -214,19 +221,38 @@ export default function Home() {
     if (funcs.length === 0) linhasF = '<tr><td colspan="4" style="text-align:center">Nenhum funcionário</td></tr>'
     else funcs.slice(0, 12).forEach((f: any) => { linhasF += '<tr><td>' + (f.nome || '-') + '</td><td>' + (f.cargo || '-') + '</td><td>' + (f.setor || '-') + '</td><td>' + (f.cpf || '-') + '</td></tr>' })
     const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + titulo + '</title><style>body{font-family:Arial,sans-serif;color:#0f172a;margin:0;padding:28px;font-size:13px;line-height:1.55}.topo{display:flex;justify-content:space-between;border-bottom:3px solid #0d9488;padding-bottom:14px}.logo{font-size:28px;font-weight:900}.logo span{color:#0d9488}h1{font-size:22px;text-align:center}h2{font-size:14px;background:#0f172a;color:#fff;padding:8px 12px;border-radius:8px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#0d9488;color:#fff;padding:8px;text-align:left}td{padding:7px;border-bottom:1px solid #e2e8f0}.card{border:1px solid #e2e8f0;border-radius:10px;padding:12px;background:#f8fafc}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.btnprint{text-align:center;margin:18px 0}.btnprint button{background:#0d9488;color:#fff;border:none;padding:13px 26px;border-radius:20px;font-weight:800}@media print{.btnprint{display:none}}</style></head><body>'
-      + '<div class="topo"><div><div class="logo">PREVIX <span>SST</span></div><div>PREVENÇÃO QUE PROTEGE</div></div><div style="text-align:right"><b>' + num + '</b><div>Emitido: ' + hoje + '</div><div>Validade: ' + validade + '</div></div></div>'
-      + '<h1>' + titulo + '</h1><div style="text-align:center;color:#0d9488;font-weight:800">' + sub + '</div>'
-      + '<div class="grid"><div class="card"><h3>Empresa</h3><p><b>Razão Social:</b> ' + empNome + '</p><p><b>CNPJ:</b> ' + cnpjFinal + '</p><p><b>Responsável pela Empresa:</b> ' + (empObj.responsavel || usuario?.nome || '-') + '</p><p><b>Telefone:</b> ' + (empObj.telefone || tecnico.telefone || '-') + '</p><p><b>E-mail:</b> ' + (empObj.email || tecnico.email || '-') + '</p></div>'
-      + '<div class="card"><h3>Responsável Técnico</h3><p><b>Nome:</b> ' + (tecnico.nome || usuario?.nome || 'Cristiano') + '</p><p><b>Função:</b> ' + (tecnico.funcao || 'Técnico de Segurança do Trabalho') + '</p><p><b>Registro CREA:</b> ' + (tecnico.crea || 'A preencher') + '</p><p><b>Registro MTE:</b> ' + (tecnico.mte || 'A preencher') + '</p><p><b>Telefone:</b> ' + (tecnico.telefone || '-') + '</p><p><b>Elaborado por:</b> PREVIX SST</p></div></div>'
-      + '<h2>1. OBJETIVO</h2><p>' + objetivo + '</p><p>Este documento atende às exigências legais, subsidia o eSocial (S-2240), o PPP e a gestão de SST da empresa.</p>'
-      + '<h2>2. BASE LEGAL E NORMAS</h2><ul>' + base + '</ul><p><b>Atenção:</b> Este laudo deve ser validado e assinado pelo responsável técnico habilitado.</p>'
-      + '<h2>3. INVENTÁRIO DE RISCOS / GHE</h2><table><thead><tr><th>#</th><th>GHE / Setor</th><th>Risco</th><th>Tipo</th><th>Agente</th><th>Limite</th><th>EPI</th><th>Ação</th></tr></thead><tbody>' + linhasR + '</tbody></table>'
-      + '<h2>4. MEDIDAS DE CONTROLE</h2><p><b>Hierarquia:</b> 1. Eliminação, 2. Engenharia, 3. Administrativo, 4. EPI com CA válido e treinamento. <b>Treinamentos:</b> NR-01, NR-06, NR-17, NR-35, NR-10.</p>'
-      + '<h2>5. PLANO DE AÇÃO</h2><table><thead><tr><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr></thead><tbody><tr><td>Revisar inventário</td><td>Resp. Técnico</td><td>30 dias</td><td>Pendente</td></tr><tr><td>Entregar EPIs</td><td>Empresa</td><td>Imediato</td><td>Contínuo</td></tr><tr><td>Exames periódicos</td><td>Clínica</td><td>Conforme PCMSO</td><td>Agendado</td></tr><tr><td>Revisão anual</td><td>Resp. Técnico</td><td>' + validade + '</td><td>Programado</td></tr></tbody></table>'
-      + '<h2>6. FUNCIONÁRIOS</h2><table><thead><tr><th>Nome</th><th>Cargo</th><th>Setor</th><th>CPF</th></tr></thead><tbody>' + linhasF + '</tbody></table>'
-      + '<h2>7. CONCLUSÃO</h2><p>Manter inventário atualizado, garantir entrega e uso correto dos EPIs, realizar exames conforme PCMSO e promover treinamentos periódicos.</p>'
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:40px;text-align:center"><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (tecnico.nome || 'Cristiano') + '</b><div>' + (tecnico.funcao || '') + '</div><div>CREA: ' + (tecnico.crea || '-') + ' • MTE: ' + (tecnico.mte || '-') + '</div><div>Responsável Técnico</div></div><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (empObj.responsavel || empNome) + '</b><div>Responsável pela Empresa - CNPJ: ' + cnpjFinal + ' - ' + hoje + '</div></div></div>'
-      + '<div class="btnprint"><button onclick="window.print()">Imprimir / Salvar como PDF</button></div></body></html>'
+            + '<div class="topo"><div><div class="logo">PREVIX <span>SST</span></div><div>PREVENÇÃO QUE PROTEGE</div></div><div style="text-align:right"><b>' + num + '</b><div>Emitido: ' + hoje + '</div><div>Validade: ' + validade + '</div></div></div>'
+            + '<h1>' + titulo + '</h1><div style="text-align:center;color:#0d9488;font-weight:800">' + sub + '</div>'
+            + '<div class="grid"><div class="card"><h3>Empresa</h3><p><b>Razão Social:</b> ' + empNome + '</p><p><b>CNPJ:</b> ' + cnpjFinal + '</p><p><b>Responsável pela Empresa:</b> ' + (empObj.responsavel || usuario?.nome || '-') + '</p><p><b>Telefone:</b> ' + (empObj.telefone || tecnico.telefone || '-') + '</p><p><b>E-mail:</b> ' + (empObj.email || tecnico.email || '-') + '</p></div>'
+            + '<div class="card"><h3>Responsável Técnico</h3><p><b>Nome:</b> ' + (tecnico.nome || usuario?.nome || 'Cristiano') + '</p><p><b>Função:</b> ' + (tecnico.funcao || 'Técnico de Segurança do Trabalho') + '</p><p><b>Registro CREA:</b> ' + (tecnico.crea || 'A preencher') + '</p><p><b>Registro MTE:</b> ' + (tecnico.mte || 'A preencher') + '</p><p><b>Telefone:</b> ' + (tecnico.telefone || '-') + '</p><p><b>Elaborado por:</b> PREVIX SST</p></div></div>'
+            + '<h2>1. OBJETIVO</h2><p>' + objetivo + '</p><p>Este documento atende às exigências legais, subsidia o eSocial (S-2240), o PPP e a gestão de SST da empresa.</p>'
+            + '<h2>2. BASE LEGAL E NORMAS</h2><ul>' + base + '</ul><p><b>Atenção:</b> Este laudo deve ser validado e assinado pelo responsável técnico habilitado.</p>'
+            + '<h2>3. INVENTÁRIO DE RISCOS / GHE</h2><table><thead><tr><th>#</th><th>GHE / Setor</th><th>Risco</th><th>Tipo</th><th>Agente</th><th>Limite</th><th>EPI</th><th>Ação</th></tr></thead><tbody>' + linhasR + '</tbody></table>'
+            + '<h2>4. MEDIDAS DE CONTROLE</h2><p><b>Hierarquia:</b> 1. Eliminação, 2. Engenharia, 3. Administrativo, 4. EPI com CA válido e treinamento. <b>Treinamentos:</b> NR-01, NR-06, NR-17, NR-35, NR-10.</p>'
+            + '<h2>5. PLANO DE AÇÃO</h2><table><thead><tr><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr></thead><tbody><tr><td>Revisar inventário</td><td>Resp. Técnico</td><td>30 dias</td><td>Pendente</td></tr><tr><td>Entregar EPIs</td><td>Empresa</td><td>Imediato</td><td>Contínuo</td></tr><tr><td>Exames periódicos</td><td>Clínica</td><td>Conforme PCMSO</td><td>Agendado</td></tr><tr><td>Revisão anual</td><td>Resp. Técnico</td><td>' + validade + '</td><td>Programado</td></tr></tbody></table>'
+            + '<h2>6. FUNCIONÁRIOS</h2><table><thead><tr><th>Nome</th><th>Cargo</th><th>Setor</th><th>CPF</th></tr></thead><tbody>' + linhasF + '</tbody></table>'
+            + '<h2>7. CONCLUSÃO</h2><p>Manter inventário atualizado, garantir entrega e uso correto dos EPIs, realizar exames conforme PCMSO e promover treinamentos periódicos.</p>'
+            + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:40px;text-align:center"><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (tecnico.nome || 'Cristiano') + '</b><div>' + (tecnico.funcao || '') + '</div><div>CREA: ' + (tecnico.crea || '-') + ' • MTE: ' + (tecnico.mte || '-') + '</div><div>Responsável Técnico</div></div><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (empObj.responsavel || empNome) + '</b><div>Responsável pela Empresa - CNPJ: ' + cnpjFinal + ' - ' + hoje + '</div></div></div>'
+            + '<div class="btnprint"><button onclick="window.print()">Imprimir / Salvar como PDF</button></div></body></html>'
+    const w = window.open('', '_blank')
+    if (w) { w.document.write(html); w.document.close() }
+  }
+  function gerarRelatorioExtintores() {
+    const exts = dadosFiltrados(dados.extintores || [])
+    const empObj = (dados.empresas || []).find((e: any) => e.nome === usuario?.empresa) || {}
+    const empNome = usuario?.empresa && usuario.empresa !== 'Todas' ? usuario.empresa : tecnico.empresaLaudo || empObj.nome || 'Empresa'
+    const cnpjFinal = empObj.cnpj || tecnico.cnpj || 'A preencher'
+    const hoje = new Date().toLocaleDateString('pt-BR')
+    const qVenc = exts.filter((e: any) => statusExtintor(e).label.includes('VENCIDO')).length
+    const qAvencer = exts.filter((e: any) => statusExtintor(e).label.includes('A VENCER')).length
+    const qDia = exts.filter((e: any) => statusExtintor(e).label.includes('EM DIA')).length
+    let linhas = ''
+    if (exts.length === 0) linhas = '<tr><td colspan="6" style="text-align:center;padding:20px">Nenhum extintor cadastrado.</td></tr>'
+    else exts.forEach((e: any, i: number) => {
+      const st = statusExtintor(e)
+      linhas += '<tr><td>' + (i + 1) + '</td><td><b>' + (e.localizacao || e.nome || 'Extintor') + '</b><div style="font-size:11px;color:#64748b">' + (e.tipo || '-') + '</div></td><td>' + fmtData(e.vencimento) + '</td><td>' + fmtData(e.ultima_recarga) + '</td><td><span style="background:' + st.bg + ';color:' + (st.label.includes('VENCIDO') ? '#dc2626' : st.label.includes('A VENCER') ? '#92400e' : '#166534') + ';padding:4px 10px;border-radius:20px;font-weight:800;font-size:11px">' + st.emoji + ' ' + st.label + '</span></td><td>' + (e.foto ? '<img src="' + e.foto + '" style="width:90px;height:90px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0" />' : 'Sem foto') + '</td></tr>'
+    })
+    const html = '<html><head><meta charset="utf-8"><title>Relatório Extintores</title><style>body{font-family:Arial;padding:28px;max-width:1000px;margin:0 auto}table{width:100%;border-collapse:collapse}th{background:#dc2626;color:#fff;padding:10px;text-align:left}td{padding:10px;border-bottom:1px solid #e2e8f0}.card{border:1px solid #e2e8f0;border-radius:12px;padding:14px;background:#f8fafc}.btnprint{text-align:center;margin:16px}@media print{.btnprint{display:none}}</style></head><body><h1 style="text-align:center">🧯 Relatório de Extintores - Fiscalização</h1><p style="text-align:center;color:#64748b">PREVIX SST • Emitido: ' + hoje + '</p><div class="card"><p><b>Empresa:</b> ' + empNome + ' • <b>CNPJ:</b> ' + cnpjFinal + '</p><p><b>Responsável Técnico:</b> ' + tecnico.nome + ' • ' + tecnico.funcao + ' • <b>CREA:</b> ' + (tecnico.crea || '-') + ' • <b>MTE:</b> ' + (tecnico.mte || '-') + '</p><p><b>Resumo:</b> Total: ' + exts.length + ' • 🔴 Vencido: ' + qVenc + ' • 🟡 A Vencer: ' + qAvencer + ' • 🟢 Em Dia: ' + qDia + '</p></div><h2>Extintores</h2><table><thead><tr><th>#</th><th>Localização / Tipo</th><th>Vencimento</th><th>Última Recarga</th><th>Status</th><th>Foto</th></tr></thead><tbody>' + linhas + '</tbody></table><p style="font-size:12px;color:#64748b">Base: NR-23 • NBR 12962 • IT-21 Corpo de Bombeiros. Manter extintores desobstruídos, sinalizados, com recarga em dia e inspeção mensal.</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:50px;text-align:center"><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + tecnico.nome + '</b><div>CREA: ' + (tecnico.crea || '-') + ' • MTE: ' + (tecnico.mte || '-') + '</div></div><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (empObj.responsavel || empNome) + '</b><div>Empresa - ' + hoje + '</div></div></div><div class="btnprint"><button onclick="window.print()" style="background:#dc2626;color:#fff;border:none;padding:14px 28px;border-radius:20px;font-weight:800">Imprimir / Salvar PDF para Fiscalização</button></div></body></html>'
     const w = window.open('', '_blank')
     if (w) { w.document.write(html); w.document.close() }
   }
@@ -260,6 +286,7 @@ export default function Home() {
     if (aba === 'riscos') setForm({ ghe: 'Vendas', tipo: 'Físico' })
     if (aba === 'financeiro') setForm({ status: 'Pendente', vencimento: new Date().toISOString().split('T')[0] })
     if (aba === 'clinicas') setForm({ status: 'Ativa', convenio: 'Vigente' })
+    if (aba === 'extintores') setForm({ empresa: usuario?.tipo === 'empresa' ? usuario.empresa : '', tipo: 'PQS 6kg', vencimento: new Date().toISOString().split('T')[0] })
     setModal(true)
   }
   function abrirEditar(item: any) { setEditando(item); setForm({ ...item }); setPinDigitado(''); setPinVerificado(!!item.pinVerificado); setAssinaturaFeita(!!item.assinaturaImg); setBioStatus(item.biometria ? 'ok' : 'aguardando'); setBioMsg(item.biometria || ''); setModal(true) }
@@ -287,6 +314,13 @@ export default function Home() {
   }
   function limparAssinatura() { const c = canvasRef.current; if (c) { const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height) } setAssinaturaFeita(false) }
   function posCanvas(e: any) { const c = canvasRef.current; const r = c.getBoundingClientRect(); const t = e.touches?.[0] || e; return { x: t.clientX - r.left, y: t.clientY - r.top } }
+  function subirFotoExtintor(e: any) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setForm({ ...form, foto: reader.result })
+    reader.readAsDataURL(file)
+  }
   function salvar() {
     if (!aba || aba === 'inicio') return
     const f = { ...form }
@@ -300,6 +334,7 @@ export default function Home() {
       if (!assinaturaFeita) { alert('Pede pra ele assinar com o dedo no quadrado!'); return }
       const c = canvasRef.current; f.assinaturaImg = c ? c.toDataURL() : ''; f.pinVerificado = true; f.confDigital = true; f.biometria = bioMsg || 'Biometria OK'; f.quantidade = f.quantidade || 1
     }
+    if (aba === 'extintores') { if (!f.localizacao && !f.nome) { alert('Coloca a localização!'); return }; if (!f.vencimento) { alert('Coloca o vencimento!'); return }; f.nome = f.localizacao || f.nome || 'Extintor' }
     if (aba === 'documentos') { if (!f.titulo) { alert('Título!'); return } }
     if (aba === 'empresas') { if (!f.login && f.nome) f.login = f.nome.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12); if (!f.senha) f.senha = gerarSenha() }
     if (aba === 'riscos' && !f.nome) { alert('Coloca o risco!'); return }
@@ -355,6 +390,7 @@ export default function Home() {
   const examesF = dadosFiltrados(dados.exames || [])
   const riscosF = dadosFiltrados(dados.riscos || [])
   const financF = dadosFiltrados(dados.financeiro || [])
+  const extsF = dadosFiltrados(dados.extintores || [])
   const totalFin = financF.reduce((s: any, f: any) => s + (parseFloat(String(f.valor || '0').replace(',', '.')) || 0), 0)
   const totalRec = financF.filter((f: any) => String(f.status || '').toLowerCase().includes('pago')).reduce((s: any, f: any) => s + (parseFloat(String(f.valor || '0').replace(',', '.')) || 0), 0)
   const cards = [{ titulo: 'Funcionários', valor: funcs.length, icone: '👷', cor: 'linear-gradient(135deg,#14b8a6,#06b6d4)', aba: 'funcionarios' }, { titulo: "EPI's", valor: episF.length, icone: '🦺', cor: 'linear-gradient(135deg,#22c55e,#84cc16)', aba: 'epis' }, { titulo: 'Exames', valor: examesF.length, icone: '🩺', cor: 'linear-gradient(135deg,#0d9488,#2563eb)', aba: 'exames' }, { titulo: 'Riscos PGR', valor: riscosF.length, icone: '⚠️', cor: 'linear-gradient(135deg,#f59e0b,#ef4444)', aba: 'riscos' }]
@@ -365,6 +401,7 @@ export default function Home() {
   if (aba === 'documentos' && pastaAtual !== 'Todas') listaFiltrada = listaFiltrada.filter((it: any) => (it.pasta || it.tipo || 'Outros') === pastaAtual)
   if (aba === 'exames') { listaFiltrada = [...listaFiltrada].sort(comparaData) }
   if (aba === 'epis' && buscaEpi) { listaFiltrada = listaFiltrada.filter((it: any) => { const func = funcs.find((f: any) => f.nome === it.funcionario); const cpf = func?.cpf || ''; return JSON.stringify(it).toLowerCase().includes(buscaEpi.toLowerCase()) || cpf.includes(buscaEpi) }) }
+  if (aba === 'extintores' && filtroExt !== 'Todos') { listaFiltrada = listaFiltrada.filter((it: any) => { const st = statusExtintor(it); if (filtroExt === 'Vencido') return st.label.includes('VENCIDO'); if (filtroExt === 'A Vencer') return st.label.includes('A VENCER'); if (filtroExt === 'Em Dia') return st.label.includes('EM DIA'); return true }) }
   const exVenc = examesF.filter((e: any) => statusExame(e) === 'vencido').length
   const exReal = examesF.filter((e: any) => statusExame(e) === 'realizado').length
   const clinicaAtual = (dados.clinicas || []).find((c: any) => c.nome === clinicaSel) || (dados.clinicas || [])[0] || { nome: 'Sol Nascente', telefone: '(82) 99999-0000', endereco: 'Maceió - AL', convenio: 'Vigente', status: 'Ativa' }
@@ -380,6 +417,9 @@ export default function Home() {
   for (let i = 0; i < offset; i++) celulas.push(null)
   for (let d = 1; d <= diasNoMes; d++) celulas.push(d)
   const examesDoDia = examesF.filter((e: any) => limparData(e.data) === diaSel)
+  const qExtVenc = extsF.filter((e: any) => statusExtintor(e).label.includes('VENCIDO')).length
+  const qExtAvencer = extsF.filter((e: any) => statusExtintor(e).label.includes('A VENCER')).length
+  const qExtDia = extsF.filter((e: any) => statusExtintor(e).label.includes('EM DIA')).length
   return <div style={{ minHeight: '100vh', background: '#ecfeff', fontFamily: 'Arial,sans-serif' }}>
     <header style={{ background: 'linear-gradient(90deg,#0d9488,#2563eb)', color: 'white', padding: '12px 16px', position: 'sticky', top: 0, zIndex: 50 }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><div style={{ fontWeight: 900, fontSize: 20 }}>PREVIX <span style={{ fontSize: 12, background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: 20 }}>SST</span></div><div style={{ display: 'flex', gap: 8 }}><span style={{ fontSize: 12, background: isAdmin ? '#f97316' : '#22c55e', padding: '6px 12px', borderRadius: 20, fontWeight: 700 }}>{isAdmin ? 'SUPER ADMIN' : usuario.empresa}</span><button onClick={exportarCSV} style={{ ...btn, background: 'white', color: '#0f172a', borderRadius: 20 }}>Exportar CSV</button><button onClick={sair} style={{ ...btn, background: 'white', color: '#0f172a', borderRadius: 20 }}>Sair</button></div></div>
@@ -440,7 +480,16 @@ export default function Home() {
         <div style={{ background: 'white', borderRadius: 20, padding: 20, marginTop: 16 }}><h3 style={{ margin: 0 }}>Exames agendados - {listaFiltrada.length}</h3><input placeholder="Buscar exame por funcionário..." value={busca} onChange={e => setBusca(e.target.value)} style={{ ...input, marginTop: 10 }} />{listaFiltrada.map((item: any) => <div key={item.id} style={{ border: '1px solid #e2e8f0', borderRadius: 14, padding: 12, marginTop: 10, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}><div><b>🩺 {item.nome}</b><div style={{ fontSize: 13, color: '#64748b' }}>{item.tipo} - {fmtData(item.data)} - {item.clinica} - {item.resultado}</div></div><div style={{ display: 'flex', gap: 8 }}><button onClick={() => abrirEditar(item)} style={{ ...btn, background: '#dbeafe' }}>Editar</button><button onClick={() => excluir(item)} style={{ ...btn, background: '#fee2e2' }}>Excluir</button></div></div>)}</div>
       </div>}
       {aba !== 'inicio' && aba !== 'exames' && <div style={{ background: 'white', borderRadius: 24, padding: 24, marginTop: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}><div><h2 style={{ fontSize: 24, fontWeight: 900, margin: 0, textTransform: 'capitalize' }}>{aba === 'riscos' ? 'PGR / Riscos' : aba}</h2><p style={{ color: '#64748b' }}>Total: {listaFiltrada.length}</p></div><button onClick={abrirNovo} style={{ ...btn, background: 'linear-gradient(90deg,#0d9488,#2563eb)', color: 'white', padding: '12px 20px', borderRadius: 20 }}>+ Adicionar</button></div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}><div><h2 style={{ fontSize: 24, fontWeight: 900, margin: 0, textTransform: 'capitalize' }}>{aba === 'riscos' ? 'PGR / Riscos' : aba}</h2><p style={{ color: '#64748b' }}>Total: {listaFiltrada.length}</p></div><div style={{ display: 'flex', gap: 8 }}>{aba === 'extintores' && <button onClick={gerarRelatorioExtintores} style={{ ...btn, background: '#dc2626', color: 'white', padding: '12px 20px', borderRadius: 20 }}>📄 Relatório p/ Fiscalização</button>}<button onClick={abrirNovo} style={{ ...btn, background: 'linear-gradient(90deg,#0d9488,#2563eb)', color: 'white', padding: '12px 20px', borderRadius: 20 }}>+ Adicionar</button></div></div>
+        {aba === 'extintores' && <div style={{ marginTop: 16 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button onClick={() => setFiltroExt('Todos')} style={{ ...btn, background: filtroExt === 'Todos' ? '#0f172a' : '#f1f5f9', color: filtroExt === 'Todos' ? 'white' : '#0f172a', borderRadius: 20 }}>Todos ({extsF.length})</button>
+            <button onClick={() => setFiltroExt('Vencido')} style={{ ...btn, background: filtroExt === 'Vencido' ? '#dc2626' : '#fee2e2', color: filtroExt === 'Vencido' ? 'white' : '#991b1b', borderRadius: 20 }}>🔴 Vencido ({qExtVenc})</button>
+            <button onClick={() => setFiltroExt('A Vencer')} style={{ ...btn, background: filtroExt === 'A Vencer' ? '#f59e0b' : '#fef3c7', color: filtroExt === 'A Vencer' ? 'white' : '#92400e', borderRadius: 20 }}>🟡 A Vencer - 30 dias ({qExtAvencer})</button>
+            <button onClick={() => setFiltroExt('Em Dia')} style={{ ...btn, background: filtroExt === 'Em Dia' ? '#16a34a' : '#dcfce7', color: filtroExt === 'Em Dia' ? 'white' : '#166534', borderRadius: 20 }}>🟢 Em Dia ({qExtDia})</button>
+          </div>
+          <p style={{ fontSize: 12, color: '#64748b', marginTop: 8 }}>Status automático pela data de vencimento: Vencido = já passou • A Vencer = vence em até 30 dias • Em Dia = mais de 30 dias</p>
+        </div>}
         {aba === 'riscos' && <div style={{ background: '#fef9c3', borderRadius: 16, padding: 16, marginTop: 16 }}><b>Cadastra 1x, gera 3 laudos</b><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}><button onClick={() => gerarLaudo('PGR')} style={{ ...btn, background: '#0d9488', color: 'white', borderRadius: 20 }}>Gerar PGR</button><button onClick={() => gerarLaudo('LTCAT')} style={{ ...btn, background: '#2563eb', color: 'white', borderRadius: 20 }}>Gerar LTCAT</button><button onClick={() => gerarLaudo('LIP')} style={{ ...btn, background: '#f59e0b', color: 'white', borderRadius: 20 }}>Gerar LIP</button><button onClick={() => gerarLaudo('PCMSO')} style={{ ...btn, background: '#22c55e', color: 'white', borderRadius: 20 }}>Gerar PCMSO</button></div><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>{RISCOS_PRONTOS.map(r => <button key={r.nome} onClick={() => { setForm({ ghe: 'Vendas', nome: r.nome, tipo: r.tipo, agente: r.agente, limite: r.limite, epi: 'Protetor Auricular', empresa: usuario?.empresa || '' }); setModal(true) }} style={{ ...btn, background: '#f1f5f9', borderRadius: 20 }}>+ {r.nome}</button>)}</div></div>}
         {aba === 'funcionarios' && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>{['Todos', ...SETORES].map(s => { const q = s === 'Todos' ? funcs.length : funcs.filter((f: any) => f.setor === s).length; if (q === 0 && s !== 'Todos') return null; return <button key={s} onClick={() => setFiltroSetor(s)} style={{ ...btn, background: filtroSetor === s ? '#0d9488' : '#f1f5f9', color: filtroSetor === s ? 'white' : '#0f172a', borderRadius: 20 }}>{s} ({q})</button> })}</div>}
         {aba === 'documentos' && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}><button onClick={() => setPastaAtual('Todas')} style={{ ...btn, background: pastaAtual === 'Todas' ? '#0d9488' : '#f1f5f9', color: pastaAtual === 'Todas' ? 'white' : '#0f172a', borderRadius: 20 }}>Todas</button>{PASTAS.map(p => <button key={p.id} onClick={() => setPastaAtual(p.id)} style={{ ...btn, background: pastaAtual === p.id ? '#0d9488' : '#f1f5f9', color: pastaAtual === p.id ? 'white' : '#0f172a', borderRadius: 20 }}>{p.nome}</button>)}</div>}
@@ -449,7 +498,10 @@ export default function Home() {
           <p style={{ fontSize: 12, color: '#64748b' }}>Todos os EPIs já listados abaixo: {episF.length}</p>
         </div>}
         <input placeholder={'Buscar em ' + aba + '...'} value={busca} onChange={e => setBusca(e.target.value)} style={{ ...input, marginTop: 16 }} />
-        <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>{listaFiltrada.map((item: any) => <div key={item.id} style={{ border: '1px solid #e2e8f0', borderRadius: 20, padding: 16, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}><div style={{ flex: 1, display: 'flex', gap: 12 }}><div style={{ fontSize: 32, background: '#f0fdfa', borderRadius: 14, width: 56, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{aba === 'epis' ? iconeEpi(item.nome) : '📄'}</div><div><div style={{ fontWeight: 900 }}>{item.nome || item.titulo || item.descricao || 'Registro'} {aba === 'epis' && item.quantidade ? <span style={{ background: '#ccfbf1', padding: '2px 8px', borderRadius: 12, fontSize: 12 }}>Qtd: {item.quantidade}</span> : null}</div><div style={{ fontSize: 13, color: '#64748b' }}>{aba === 'funcionarios' ? (item.cargo || '') + ' • ' + (item.setor || '') + ' • CPF: ' + (item.cpf || '-') + ' • PIN: ' + (item.pin || '-') : aba === 'riscos' ? 'GHE: ' + (item.ghe || '-') + ' • Agente: ' + (item.agente || '-') + ' • Limite: ' + (item.limite || '-') : aba === 'financeiro' ? (item.empresa || '') + ' • Venc: ' + fmtData(item.vencimento) + ' • R$ ' + (item.valor || '0') : aba === 'epis' ? (item.funcionario || '-') + ' • Tipo: ' + (item.tipo || '-') + ' • ' + fmtData(item.data_entrega) + ' • CA: ' + (item.ca || '-') + ' • ✅ PIN + 👆 Biometria + ✍️ Assinatura' : aba === 'documentos' ? 'Venc: ' + fmtData(item.vencimento) + ' • ' + (item.empresa || '') : aba === 'inspecoes' ? (item.local || '-') + ' • ' + (item.responsavel || '-') + ' • ' + fmtData(item.data) : ''}</div>{aba === 'epis' && item.assinaturaImg ? <img src={item.assinaturaImg} style={{ width: 120, border: '1px solid #e2e8f0', borderRadius: 8, marginTop: 6 }} /> : null}</div></div><div style={{ display: 'flex', gap: 8 }}>{aba === 'epis' && <button onClick={() => gerarTermo(item)} style={{ ...btn, background: '#0f172a', color: 'white' }}>PDF</button>}<button onClick={() => abrirEditar(item)} style={{ ...btn, background: '#dbeafe' }}>Editar</button><button onClick={() => excluir(item)} style={{ ...btn, background: '#fee2e2' }}>Excluir</button></div></div>)}{listaFiltrada.length === 0 && <div style={{ textAlign: 'center', padding: 32, border: '2px dashed #cbd5e1', borderRadius: 20 }}>Nenhum registro aqui ainda. Clica em + Adicionar.</div>}</div>
+        <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>{listaFiltrada.map((item: any) => {
+          const stExt = aba === 'extintores' ? statusExtintor(item) : null
+          return <div key={item.id} style={{ border: stExt && stExt.label.includes('VENCIDO') ? '2px solid #dc2626' : stExt && stExt.label.includes('A VENCER') ? '2px solid #f59e0b' : '1px solid #e2e8f0', borderRadius: 20, padding: 16, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', background: stExt ? stExt.bg : 'white' }}><div style={{ flex: 1, display: 'flex', gap: 12 }}>{aba === 'extintores' && item.foto ? <img src={item.foto} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 14, border: '1px solid #e2e8f0' }} /> : <div style={{ fontSize: 32, background: '#f0fdfa', borderRadius: 14, width: 56, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{aba === 'epis' ? iconeEpi(item.nome) : aba === 'extintores' ? '🧯' : '📄'}</div>}<div><div style={{ fontWeight: 900 }}>{item.nome || item.titulo || item.descricao || item.localizacao || 'Registro'} {aba === 'epis' && item.quantidade ? <span style={{ background: '#ccfbf1', padding: '2px 8px', borderRadius: 12, fontSize: 12 }}>Qtd: {item.quantidade}</span> : null} {stExt ? <span style={{ background: stExt.cor, color: stExt.txt, padding: '4px 10px', borderRadius: 20, fontSize: 12, marginLeft: 6 }}>{stExt.emoji} {stExt.label}</span> : null}</div><div style={{ fontSize: 13, color: '#64748b' }}>{aba === 'funcionarios' ? (item.cargo || '') + ' • ' + (item.setor || '') + ' • CPF: ' + (item.cpf || '-') + ' • PIN: ' + (item.pin || '-') : aba === 'riscos' ? 'GHE: ' + (item.ghe || '-') + ' • Agente: ' + (item.agente || '-') + ' • Limite: ' + (item.limite || '-') : aba === 'financeiro' ? (item.empresa || '') + ' • Venc: ' + fmtData(item.vencimento) + ' • R$ ' + (item.valor || '0') : aba === 'epis' ? (item.funcionario || '-') + ' • Tipo: ' + (item.tipo || '-') + ' • ' + fmtData(item.data_entrega) + ' • CA: ' + (item.ca || '-') + ' • ✅ PIN + 👆 Biometria + ✍️ Assinatura' : aba === 'extintores' ? (item.localizacao || '-') + ' • Tipo: ' + (item.tipo || '-') + ' • Venc: ' + fmtData(item.vencimento) + ' • Recarga: ' + fmtData(item.ultima_recarga) : aba === 'documentos' ? 'Venc: ' + fmtData(item.vencimento) + ' • ' + (item.empresa || '') : aba === 'inspecoes' ? (item.local || '-') + ' • ' + (item.responsavel || '-') + ' • ' + fmtData(item.data) : ''}</div>{aba === 'epis' && item.assinaturaImg ? <img src={item.assinaturaImg} style={{ width: 120, border: '1px solid #e2e8f0', borderRadius: 8, marginTop: 6 }} /> : null}</div></div><div style={{ display: 'flex', gap: 8 }}>{aba === 'epis' && <button onClick={() => gerarTermo(item)} style={{ ...btn, background: '#0f172a', color: 'white' }}>PDF</button>}<button onClick={() => abrirEditar(item)} style={{ ...btn, background: '#dbeafe' }}>Editar</button><button onClick={() => excluir(item)} style={{ ...btn, background: '#fee2e2' }}>Excluir</button></div></div>
+        })}{listaFiltrada.length === 0 && <div style={{ textAlign: 'center', padding: 32, border: '2px dashed #cbd5e1', borderRadius: 20 }}>Nenhum registro aqui ainda. Clica em + Adicionar.</div>}</div>
       </div>}
     </main>
     {modal && <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }}><div style={{ background: 'white', borderRadius: 24, padding: 24, width: '100%', maxWidth: 560, maxHeight: '92vh', overflowY: 'auto' }}>
@@ -497,7 +549,7 @@ export default function Home() {
           />
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}><button type="button" onClick={limparAssinatura} style={{ ...btn, background: '#fee2e2' }}>Limpar assinatura</button>{assinaturaFeita ? <span style={{ color: '#15803d', fontWeight: 800, fontSize: 13 }}>✅ Assinatura pronta!</span> : null}</div>
         </div>
-      </div> : <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>{(CAMPOS[aba] || []).map((c: any) => { if (c.k === 'empresa' && usuario?.tipo === 'empresa') return null; if (c.k === 'setor' && aba === 'funcionarios') return <div key={c.k}><label>Setor</label><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>{SETORES.map(s => <button key={s} type="button" onClick={() => setForm({ ...form, setor: s })} style={{ padding: '8px 12px', borderRadius: 20, border: (form.setor || 'Vendas') === s ? '2px solid #0d9488' : '1px solid #e2e8f0', background: (form.setor || 'Vendas') === s ? '#ccfbf1' : 'white' }}>{s}</button>)}</div></div>; return <div key={c.k}><label>{c.l}</label><input type={c.k === 'data' || c.k === 'vencimento' ? 'date' : 'text'} value={form[c.k] || ''} onChange={e => setForm({ ...form, [c.k]: e.target.value })} style={{ ...input, marginTop: 4 }} /></div> })}{aba === 'funcionarios' && <div><label>PIN</label><input value={form.pin || ''} onChange={e => setForm({ ...form, pin: e.target.value.replace(/\D/g, '').slice(0, 4) })} style={{ ...input, marginTop: 4 }} /></div>}</div>}
+      </div> : <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>{(CAMPOS[aba] || []).map((c: any) => { if (c.k === 'empresa' && usuario?.tipo === 'empresa') return null; if (c.k === 'setor' && aba === 'funcionarios') return <div key={c.k}><label>Setor</label><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>{SETORES.map(s => <button key={s} type="button" onClick={() => setForm({ ...form, setor: s })} style={{ padding: '8px 12px', borderRadius: 20, border: (form.setor || 'Vendas') === s ? '2px solid #0d9488' : '1px solid #e2e8f0', background: (form.setor || 'Vendas') === s ? '#ccfbf1' : 'white' }}>{s}</button>)}</div></div>; if (c.k === 'vencimento' && aba === 'extintores') return <div key={c.k}><label>{c.l}</label><input type="date" value={form[c.k] || ''} onChange={e => setForm({ ...form, [c.k]: e.target.value })} style={{ ...input, marginTop: 4 }} />{form.vencimento ? <div style={{ marginTop: 6 }}>{(() => { const st = statusExtintor(form); return <span style={{ background: st.cor, color: st.txt, padding: '6px 12px', borderRadius: 20, fontSize: 12, fontWeight: 800 }}>{st.emoji} {st.label}</span> })()}</div> : null}</div>; if (c.k === 'ultima_recarga') return <div key={c.k}><label>{c.l}</label><input type="date" value={form[c.k] || ''} onChange={e => setForm({ ...form, [c.k]: e.target.value })} style={{ ...input, marginTop: 4 }} /></div>; return <div key={c.k}><label>{c.l}</label><input type={c.k === 'data' || c.k === 'vencimento' ? 'date' : 'text'} value={form[c.k] || ''} onChange={e => setForm({ ...form, [c.k]: e.target.value })} style={{ ...input, marginTop: 4 }} /></div> })}{aba === 'funcionarios' && <div><label>PIN</label><input value={form.pin || ''} onChange={e => setForm({ ...form, pin: e.target.value.replace(/\D/g, '').slice(0, 4) })} style={{ ...input, marginTop: 4 }} /></div>}{aba === 'extintores' && <div style={{ border: '2px dashed #dc2626', borderRadius: 16, padding: 14 }}><b>📸 Subir Foto do Extintor</b><p style={{ fontSize: 12, color: '#64748b' }}>Tira foto do extintor, do lacre e do manômetro. Vai sair no relatório da fiscalização.</p><input type="file" accept="image/*" capture="environment" onChange={subirFotoExtintor} style={{ marginTop: 8 }} />{form.foto ? <div style={{ marginTop: 10 }}><img src={form.foto} style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 12 }} /><button type="button" onClick={() => setForm({ ...form, foto: '' })} style={{ ...btn, background: '#fee2e2', marginTop: 6 }}>Remover foto</button></div> : null}</div>}</div>}
       <div style={{ display: 'flex', gap: 10, marginTop: 20 }}><button onClick={() => setModal(false)} style={{ ...btn, flex: 1, background: '#f1f5f9' }}>Cancelar</button><button onClick={salvar} style={{ ...btn, flex: 1, background: '#0d9488', color: 'white' }}>Salvar</button></div></div></div>}
   </div>
 }

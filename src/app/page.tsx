@@ -52,6 +52,21 @@ const CATALOGO_EPI = [
   { nome: 'Respirador Purificador', ca: '', tipo: '' },
   { nome: 'Viseira de Proteção', ca: '', tipo: '' }
 ]
+const TIPOS_EXAME_DET = [
+  { nome: 'Admissional', desc: 'Exame de admissão', obrig: true },
+  { nome: 'Periódico', desc: 'Acompanhamento anual', obrig: true },
+  { nome: 'Demissional', desc: 'Exame de desligamento', obrig: false },
+  { nome: 'Audiometria', desc: 'Avaliação auditiva', obrig: false },
+  { nome: 'Espirometria', desc: 'Capacidade pulmonar', obrig: false },
+  { nome: 'Raio-X', desc: 'Tórax PA', obrig: false },
+  { nome: 'Exame de Sangue', desc: 'Hemograma completo', obrig: false },
+  { nome: 'Eletrocardiograma', desc: 'Avaliação cardíaca', obrig: false },
+  { nome: 'Retorno ao Trabalho', desc: 'Após afastamento', obrig: true },
+  { nome: 'Mudança de Função', desc: 'Nova função', obrig: true },
+  { nome: 'Acuidade Visual', desc: 'Visão', obrig: false },
+  { nome: 'Exame Clínico', desc: 'Avaliação geral', obrig: true }
+]
+const TIPOS_EXAME = TIPOS_EXAME_DET.map(t => t.nome)
 const CAMPOS: any = {
   funcionarios: [{ k: 'nome', l: 'Nome' }, { k: 'setor', l: 'Setor' }, { k: 'cargo', l: 'Cargo' }, { k: 'empresa', l: 'Empresa' }, { k: 'cpf', l: 'CPF' }, { k: 'telefone', l: 'Telefone' }],
   epis: [{ k: 'nome', l: 'Nome do EPI' }, { k: 'ca', l: 'CA' }, { k: 'funcionario', l: 'Funcionário' }, { k: 'data_entrega', l: 'Data Entrega' }],
@@ -65,7 +80,6 @@ const CAMPOS: any = {
   financeiro: [{ k: 'descricao', l: 'Descrição' }, { k: 'empresa', l: 'Empresa' }, { k: 'valor', l: 'Valor R$' }, { k: 'vencimento', l: 'Vencimento' }, { k: 'status', l: 'Status' }]
 }
 const PASTAS = [{ id: 'PGR', nome: 'PGR' }, { id: 'PCMSO', nome: 'PCMSO' }, { id: 'ASO', nome: 'ASO / Exames' }, { id: 'Laudos', nome: 'Laudos' }, { id: 'Treinamentos', nome: 'Treinamentos' }, { id: 'Outros', nome: 'Outros' }]
-const TIPOS_EXAME = ['Admissional', 'Periódico', 'Demissional', 'Audiometria', 'Espirometria', 'Raio-X', 'Exame de Sangue', 'Eletrocardiograma', 'Retorno ao Trabalho', 'Mudança de Função', 'Acuidade Visual', 'Exame Clínico']
 function iconeEpi(nome: any) {
   const n = String(nome || '').toLowerCase()
   if (n.includes('capacete')) return '🪖'
@@ -104,6 +118,7 @@ function statusExame(item: any) {
   return 'futuro'
 }
 const ADMIN = { login: 'cristiano', senha: 'previx123', nome: 'Cristiano', tipo: 'admin', empresa: 'Todas' }
+const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 export default function Home() {
   const [dados, setDados] = useState<any>({ funcionarios: [], epis: [], extintores: [], inspecoes: [], documentos: [], exames: [], empresas: [], clinicas: [], riscos: [], financeiro: [] })
   const [aba, setAba] = useState('inicio')
@@ -118,14 +133,13 @@ export default function Home() {
   const [pastaAtual, setPastaAtual] = useState('Todas')
   const [filtroSetor, setFiltroSetor] = useState('Todos')
   const [clinicaSel, setClinicaSel] = useState('Sol Nascente')
-  const [diaSel, setDiaSel] = useState(new Date().toISOString().split('T')[0])
+  const [diaSel, setDiaSel] = useState('2026-11-12')
   const [tiposSel, setTiposSel] = useState<string[]>(['Periódico'])
   const [funcAgend, setFuncAgend] = useState('')
   const [buscaEpi, setBuscaEpi] = useState('')
   const [pinDigitado, setPinDigitado] = useState('')
   const [pinVerificado, setPinVerificado] = useState(false)
   const [assinaturaFeita, setAssinaturaFeita] = useState(false)
-  // BIOMETRIA / DIGITAL
   const [bioStatus, setBioStatus] = useState<'aguardando' | 'lendo' | 'ok'>('aguardando')
   const [bioMsg, setBioMsg] = useState('')
   const canvasRef = useRef<any>(null)
@@ -191,19 +205,19 @@ export default function Home() {
     if (funcs.length === 0) linhasF = '<tr><td colspan="4" style="text-align:center">Nenhum funcionário</td></tr>'
     else funcs.slice(0, 12).forEach((f: any) => { linhasF += '<tr><td>' + (f.nome || '-') + '</td><td>' + (f.cargo || '-') + '</td><td>' + (f.setor || '-') + '</td><td>' + (f.cpf || '-') + '</td></tr>' })
     const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + titulo + '</title><style>body{font-family:Arial,sans-serif;color:#0f172a;margin:0;padding:28px;font-size:13px;line-height:1.55}.topo{display:flex;justify-content:space-between;border-bottom:3px solid #0d9488;padding-bottom:14px}.logo{font-size:28px;font-weight:900}.logo span{color:#0d9488}h1{font-size:22px;text-align:center}h2{font-size:14px;background:#0f172a;color:#fff;padding:8px 12px;border-radius:8px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#0d9488;color:#fff;padding:8px;text-align:left}td{padding:7px;border-bottom:1px solid #e2e8f0}.card{border:1px solid #e2e8f0;border-radius:10px;padding:12px;background:#f8fafc}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.btnprint{text-align:center;margin:18px 0}.btnprint button{background:#0d9488;color:#fff;border:none;padding:13px 26px;border-radius:20px;font-weight:800}@media print{.btnprint{display:none}}</style></head><body>'
-      + '<div class="topo"><div><div class="logo">PREVIX <span>SST</span></div><div>PREVENÇÃO QUE PROTEGE</div></div><div style="text-align:right"><b>' + num + '</b><div>Emitido: ' + hoje + '</div><div>Validade: ' + validade + '</div></div></div>'
-      + '<h1>' + titulo + '</h1><div style="text-align:center;color:#0d9488;font-weight:800">' + sub + '</div>'
-      + '<div class="grid"><div class="card"><h3>Empresa</h3><p><b>Razão Social:</b> ' + empNome + '</p><p><b>CNPJ:</b> ' + (empObj.cnpj || 'Não informado') + '</p><p><b>Responsável:</b> ' + (empObj.responsavel || usuario?.nome || '-') + '</p><p><b>Telefone:</b> ' + (empObj.telefone || '-') + '</p></div>'
-      + '<div class="card"><h3>Responsável Técnico</h3><p><b>Nome:</b> ' + (usuario?.nome || 'Cristiano') + '</p><p><b>Função:</b> Técnico / Engenheiro de Segurança do Trabalho</p><p><b>Registro:</b> CREA / MTE - A preencher</p><p><b>Elaborado por:</b> PREVIX SST</p></div></div>'
-      + '<h2>1. OBJETIVO</h2><p>' + objetivo + '</p><p>Este documento atende às exigências legais, subsidia o eSocial (S-2240), o PPP e a gestão de SST da empresa.</p>'
-      + '<h2>2. BASE LEGAL E NORMAS</h2><ul>' + base + '</ul><p><b>Atenção:</b> Este laudo deve ser validado e assinado pelo responsável técnico habilitado.</p>'
-      + '<h2>3. INVENTÁRIO DE RISCOS / GHE</h2><table><thead><tr><th>#</th><th>GHE / Setor</th><th>Risco</th><th>Tipo</th><th>Agente</th><th>Limite</th><th>EPI</th><th>Ação</th></tr></thead><tbody>' + linhasR + '</tbody></table>'
-      + '<h2>4. MEDIDAS DE CONTROLE</h2><p><b>Hierarquia:</b> 1. Eliminação, 2. Engenharia, 3. Administrativo, 4. EPI com CA válido e treinamento. <b>Treinamentos:</b> NR-01, NR-06, NR-17, NR-35, NR-10.</p>'
-      + '<h2>5. PLANO DE AÇÃO</h2><table><thead><tr><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr></thead><tbody><tr><td>Revisar inventário</td><td>Resp. Técnico</td><td>30 dias</td><td>Pendente</td></tr><tr><td>Entregar EPIs</td><td>Empresa</td><td>Imediato</td><td>Contínuo</td></tr><tr><td>Exames periódicos</td><td>Clínica</td><td>Conforme PCMSO</td><td>Agendado</td></tr><tr><td>Revisão anual</td><td>Resp. Técnico</td><td>' + validade + '</td><td>Programado</td></tr></tbody></table>'
-      + '<h2>6. FUNCIONÁRIOS</h2><table><thead><tr><th>Nome</th><th>Cargo</th><th>Setor</th><th>CPF</th></tr></thead><tbody>' + linhasF + '</tbody></table>'
-      + '<h2>7. CONCLUSÃO</h2><p>Manter inventário atualizado, garantir entrega e uso correto dos EPIs, realizar exames conforme PCMSO e promover treinamentos periódicos.</p>'
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:40px;text-align:center"><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (usuario?.nome || 'Cristiano') + '</b><div>Responsável Técnico</div></div><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (empObj.responsavel || empNome) + '</b><div>Responsável pela Empresa - ' + hoje + '</div></div></div>'
-      + '<div class="btnprint"><button onclick="window.print()">Imprimir / Salvar como PDF</button></div></body></html>'
+            + '<div class="topo"><div><div class="logo">PREVIX <span>SST</span></div><div>PREVENÇÃO QUE PROTEGE</div></div><div style="text-align:right"><b>' + num + '</b><div>Emitido: ' + hoje + '</div><div>Validade: ' + validade + '</div></div></div>'
+            + '<h1>' + titulo + '</h1><div style="text-align:center;color:#0d9488;font-weight:800">' + sub + '</div>'
+            + '<div class="grid"><div class="card"><h3>Empresa</h3><p><b>Razão Social:</b> ' + empNome + '</p><p><b>CNPJ:</b> ' + (empObj.cnpj || 'Não informado') + '</p><p><b>Responsável:</b> ' + (empObj.responsavel || usuario?.nome || '-') + '</p><p><b>Telefone:</b> ' + (empObj.telefone || '-') + '</p></div>'
+            + '<div class="card"><h3>Responsável Técnico</h3><p><b>Nome:</b> ' + (usuario?.nome || 'Cristiano') + '</p><p><b>Função:</b> Técnico / Engenheiro de Segurança do Trabalho</p><p><b>Registro:</b> CREA / MTE - A preencher</p><p><b>Elaborado por:</b> PREVIX SST</p></div></div>'
+            + '<h2>1. OBJETIVO</h2><p>' + objetivo + '</p><p>Este documento atende às exigências legais, subsidia o eSocial (S-2240), o PPP e a gestão de SST da empresa.</p>'
+            + '<h2>2. BASE LEGAL E NORMAS</h2><ul>' + base + '</ul><p><b>Atenção:</b> Este laudo deve ser validado e assinado pelo responsável técnico habilitado.</p>'
+            + '<h2>3. INVENTÁRIO DE RISCOS / GHE</h2><table><thead><tr><th>#</th><th>GHE / Setor</th><th>Risco</th><th>Tipo</th><th>Agente</th><th>Limite</th><th>EPI</th><th>Ação</th></tr></thead><tbody>' + linhasR + '</tbody></table>'
+            + '<h2>4. MEDIDAS DE CONTROLE</h2><p><b>Hierarquia:</b> 1. Eliminação, 2. Engenharia, 3. Administrativo, 4. EPI com CA válido e treinamento. <b>Treinamentos:</b> NR-01, NR-06, NR-17, NR-35, NR-10.</p>'
+            + '<h2>5. PLANO DE AÇÃO</h2><table><thead><tr><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr></thead><tbody><tr><td>Revisar inventário</td><td>Resp. Técnico</td><td>30 dias</td><td>Pendente</td></tr><tr><td>Entregar EPIs</td><td>Empresa</td><td>Imediato</td><td>Contínuo</td></tr><tr><td>Exames periódicos</td><td>Clínica</td><td>Conforme PCMSO</td><td>Agendado</td></tr><tr><td>Revisão anual</td><td>Resp. Técnico</td><td>' + validade + '</td><td>Programado</td></tr></tbody></table>'
+            + '<h2>6. FUNCIONÁRIOS</h2><table><thead><tr><th>Nome</th><th>Cargo</th><th>Setor</th><th>CPF</th></tr></thead><tbody>' + linhasF + '</tbody></table>'
+            + '<h2>7. CONCLUSÃO</h2><p>Manter inventário atualizado, garantir entrega e uso correto dos EPIs, realizar exames conforme PCMSO e promover treinamentos periódicos.</p>'
+            + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:40px;text-align:center"><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (usuario?.nome || 'Cristiano') + '</b><div>Responsável Técnico</div></div><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (empObj.responsavel || empNome) + '</b><div>Responsável pela Empresa - ' + hoje + '</div></div></div>'
+            + '<div class="btnprint"><button onclick="window.print()">Imprimir / Salvar como PDF</button></div></body></html>'
     const w = window.open('', '_blank')
     if (w) { w.document.write(html); w.document.close() }
   }
@@ -211,7 +225,7 @@ export default function Home() {
     const func = (dados.funcionarios || []).find((f: any) => f.nome === entrega.funcionario) || {}
     const empNome = entrega.empresa || func.empresa || usuario?.empresa || 'PREVIX SST'
     const dataFmt = entrega.data_entrega ? entrega.data_entrega.split('-').reverse().join('/') : new Date().toLocaleDateString('pt-BR')
-    const html = '<html><head><meta charset="utf-8"><title>Termo</title><style>body{font-family:Arial;padding:28px;max-width:820px;margin:0 auto}</style></head><body><h1 style="text-align:center">Termo de Entrega de EPI - NR-06</h1><p><b>Empresa:</b> ' + empNome + '</p><p><b>Funcionário:</b> ' + (entrega.funcionario || '-') + ' - CPF: ' + (func.cpf || '-') + ' - Setor: ' + (func.setor || '-') + '</p><p><b>EPI:</b> ' + iconeEpi(entrega.nome) + ' ' + (entrega.nome || '-') + ' - Tipo/Modelo: ' + (entrega.tipo || entrega.modelo || '-') + ' - Qtd: ' + (entrega.quantidade || 1) + ' - CA: ' + (entrega.ca || '-') + ' - Data: ' + dataFmt + '</p><p><b>Confirmação:</b> PIN: ' + (entrega.pinVerificado ? 'OK' : 'OK') + ' | Digital / Biometria: ' + (entrega.biometria ? 'OK - ' + entrega.biometria : 'OK') + ' | Assinatura com dedo: SIM</p><p style="text-align:justify">Declaro que recebi o EPI acima, com CA válido, e fui orientado quanto ao uso correto, conforme NR-06. Confirmo com minha digital / biometria e assinatura.</p>' + (entrega.assinaturaImg ? '<p style="text-align:center"><img src="' + entrega.assinaturaImg + '" style="max-width:300px;border:1px solid #ccc" /></p>' : '') + '<div style="margin-top:20px;text-align:center"><div>👆 Digital / Biometria coletada: ' + (entrega.biometria || 'OK') + '</div><div style="border-top:1px solid #000;width:340px;margin:10px auto 0"></div>' + (entrega.funcionario || '') + '</div><div style="text-align:center;margin-top:20px"><button onclick="window.print()">Imprimir / PDF</button></div></body></html>'
+    const html = '<html><head><meta charset="utf-8"><title>Termo</title><style>body{font-family:Arial;padding:28px;max-width:820px;margin:0 auto}</style></head><body><h1 style="text-align:center">Termo de Entrega de EPI - NR-06</h1><p><b>Empresa:</b> ' + empNome + '</p><p><b>Funcionário:</b> ' + (entrega.funcionario || '-') + ' - CPF: ' + (func.cpf || '-') + ' - Setor: ' + (func.setor || '-') + '</p><p><b>EPI:</b> ' + iconeEpi(entrega.nome) + ' ' + (entrega.nome || '-') + ' - Tipo/Modelo: ' + (entrega.tipo || entrega.modelo || '-') + ' - Qtd: ' + (entrega.quantidade || 1) + ' - CA: ' + (entrega.ca || '-') + ' - Data: ' + dataFmt + '</p><p><b>Confirmação:</b> PIN: OK | Digital / Biometria: ' + (entrega.biometria ? 'OK - ' + entrega.biometria : 'OK') + ' | Assinatura com dedo: SIM</p><p style="text-align:justify">Declaro que recebi o EPI acima, com CA válido, e fui orientado quanto ao uso correto, conforme NR-06. Confirmo com minha digital / biometria e assinatura.</p>' + (entrega.assinaturaImg ? '<p style="text-align:center"><img src="' + entrega.assinaturaImg + '" style="max-width:300px;border:1px solid #ccc" /></p>' : '') + '<div style="margin-top:20px;text-align:center"><div>👆 Digital / Biometria coletada: ' + (entrega.biometria || 'OK') + '</div><div style="border-top:1px solid #000;width:340px;margin:10px auto 0"></div>' + (entrega.funcionario || '') + '</div><div style="text-align:center;margin-top:20px"><button onclick="window.print()">Imprimir / PDF</button></div></body></html>'
     const w = window.open('', '_blank')
     if (w) { w.document.write(html); w.document.close() }
   }
@@ -236,6 +250,7 @@ export default function Home() {
     if (aba === 'inspecoes') setForm({ status: 'Pendente', data: new Date().toISOString().split('T')[0] })
     if (aba === 'riscos') setForm({ ghe: 'Vendas', tipo: 'Físico' })
     if (aba === 'financeiro') setForm({ status: 'Pendente', vencimento: new Date().toISOString().split('T')[0] })
+    if (aba === 'clinicas') setForm({ status: 'Ativa', convenio: 'Vigente' })
     setModal(true)
   }
   function abrirEditar(item: any) { setEditando(item); setForm({ ...item }); setPinDigitado(''); setPinVerificado(!!item.pinVerificado); setAssinaturaFeita(!!item.assinaturaImg); setBioStatus(item.biometria ? 'ok' : 'aguardando'); setBioMsg(item.biometria || ''); setModal(true) }
@@ -250,7 +265,6 @@ export default function Home() {
     if (!pinVerificado) { alert('Primeiro verifica o PIN!'); return }
     setBioStatus('lendo'); setBioMsg('Encosta o dedo... lendo digital...')
     try {
-      // Tenta usar a biometria real do celular - Touch ID / Face ID / Digital
       if (typeof window !== 'undefined' && (window as any).PublicKeyCredential) {
         const challenge = new Uint8Array(32); crypto.getRandomValues(challenge)
         const cred: any = await Promise.race([
@@ -259,8 +273,7 @@ export default function Home() {
         ])
         if (cred) { setBioStatus('ok'); setBioMsg('Biometria do celular confirmada - ' + new Date().toLocaleString('pt-BR')); return }
       }
-    } catch (e) { /* cai para coleta visual */ }
-    // Fallback - animação igual maquininha de digital, funciona em qualquer celular
+    } catch (e) { }
     setTimeout(() => { setBioStatus('ok'); setBioMsg('Digital coletada - Biometria OK - ' + new Date().toLocaleString('pt-BR')) }, 1800)
   }
   function limparAssinatura() { const c = canvasRef.current; if (c) { const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height) } setAssinaturaFeita(false) }
@@ -313,6 +326,12 @@ export default function Home() {
     alert('✅ Agendado! ' + funcAgend + ' • ' + clinicaSel + ' • ' + fmtData(diaSel))
     setTiposSel([]); setFuncAgend('')
   }
+  function mudarMes(delta: number) {
+    const [y, m, d] = diaSel.split('-').map(Number)
+    const dt = new Date(y, m - 1 + delta, 1)
+    const novo = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-01'
+    setDiaSel(novo)
+  }
   const btn = { padding: '8px 14px', borderRadius: 10, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13 } as any
   const input = { width: '100%', padding: '12px', borderRadius: 12, border: '1px solid #cbd5e1', fontSize: 14, boxSizing: 'border-box' as any }
   if (carregando) return <div style={{ padding: 40, textAlign: 'center' }}>Carregando PREVIX...</div>
@@ -327,8 +346,6 @@ export default function Home() {
   const examesF = dadosFiltrados(dados.exames || [])
   const riscosF = dadosFiltrados(dados.riscos || [])
   const financF = dadosFiltrados(dados.financeiro || [])
-  const docF = dadosFiltrados(dados.documentos || [])
-  const inspF = dadosFiltrados(dados.inspecoes || [])
   const totalFin = financF.reduce((s: any, f: any) => s + (parseFloat(String(f.valor || '0').replace(',', '.')) || 0), 0)
   const totalRec = financF.filter((f: any) => String(f.status || '').toLowerCase().includes('pago')).reduce((s: any, f: any) => s + (parseFloat(String(f.valor || '0').replace(',', '.')) || 0), 0)
   const cards = [{ titulo: 'Funcionários', valor: funcs.length, icone: '👷', cor: 'linear-gradient(135deg,#14b8a6,#06b6d4)', aba: 'funcionarios' }, { titulo: "EPI's", valor: episF.length, icone: '🦺', cor: 'linear-gradient(135deg,#22c55e,#84cc16)', aba: 'epis' }, { titulo: 'Exames', valor: examesF.length, icone: '🩺', cor: 'linear-gradient(135deg,#0d9488,#2563eb)', aba: 'exames' }, { titulo: 'Riscos PGR', valor: riscosF.length, icone: '⚠️', cor: 'linear-gradient(135deg,#f59e0b,#ef4444)', aba: 'riscos' }]
@@ -341,11 +358,20 @@ export default function Home() {
   if (aba === 'epis' && buscaEpi) { listaFiltrada = listaFiltrada.filter((it: any) => { const func = funcs.find((f: any) => f.nome === it.funcionario); const cpf = func?.cpf || ''; return JSON.stringify(it).toLowerCase().includes(buscaEpi.toLowerCase()) || cpf.includes(buscaEpi) }) }
   const exVenc = examesF.filter((e: any) => statusExame(e) === 'vencido').length
   const exReal = examesF.filter((e: any) => statusExame(e) === 'realizado').length
-  const clinicaAtual = (dados.clinicas || []).find((c: any) => c.nome === clinicaSel) || (dados.clinicas || [])[0] || { nome: 'Sol Nascente' }
+  const clinicaAtual = (dados.clinicas || []).find((c: any) => c.nome === clinicaSel) || (dados.clinicas || [])[0] || { nome: 'Sol Nascente', telefone: '(82) 99999-0000', endereco: 'Maceió - AL', convenio: 'Vigente', status: 'Ativa' }
   const funcSelEpi = (dados.funcionarios || []).find((f: any) => f.nome === form.funcionario) || (dados.funcionarios || []).find((f: any) => (f.cpf || '') === form.funcionario) || null
   const textoEpi = String(form.nome || '').trim().toLowerCase()
   const mostrarListaEpi = textoEpi.length >= 1
   const listaEpiModal = mostrarListaEpi ? [...CATALOGO_EPI, ...episF.map((e: any) => ({ nome: e.nome, ca: e.ca, tipo: e.tipo || '' }))].filter((e: any) => String(e.nome || '').toLowerCase().includes(textoEpi)).filter((e: any, i: number, arr: any[]) => arr.findIndex((x: any) => (x.nome + x.tipo) === (e.nome + e.tipo)) === i) : []
+  // CALENDÁRIO EXAMES
+  const [anoCal, mesCal] = diaSel.split('-').map(Number)
+  const primeiroDia = new Date(anoCal, mesCal - 1, 1)
+  let offset = primeiroDia.getDay() - 1; if (offset < 0) offset = 6
+  const diasNoMes = new Date(anoCal, mesCal, 0).getDate()
+  const celulas: any[] = []
+  for (let i = 0; i < offset; i++) celulas.push(null)
+  for (let d = 1; d <= diasNoMes; d++) celulas.push(d)
+  const examesDoDia = examesF.filter((e: any) => limparData(e.data) === diaSel)
   return <div style={{ minHeight: '100vh', background: '#ecfeff', fontFamily: 'Arial,sans-serif' }}>
     <header style={{ background: 'linear-gradient(90deg,#0d9488,#2563eb)', color: 'white', padding: '12px 16px', position: 'sticky', top: 0, zIndex: 50 }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><div style={{ fontWeight: 900, fontSize: 20 }}>PREVIX <span style={{ fontSize: 12, background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: 20 }}>SST</span></div><div style={{ display: 'flex', gap: 8 }}><span style={{ fontSize: 12, background: isAdmin ? '#f97316' : '#22c55e', padding: '6px 12px', borderRadius: 20, fontWeight: 700 }}>{isAdmin ? 'SUPER ADMIN' : usuario.empresa}</span><button onClick={exportarCSV} style={{ ...btn, background: 'white', color: '#0f172a', borderRadius: 20 }}>Exportar CSV</button><button onClick={sair} style={{ ...btn, background: 'white', color: '#0f172a', borderRadius: 20 }}>Sair</button></div></div>
@@ -359,12 +385,38 @@ export default function Home() {
         <div style={{ background: 'white', borderRadius: 24, padding: 20, marginTop: 20 }}><h3>Financeiro</h3><p>Total: R$ {totalFin.toFixed(2)} - Recebido: R$ {totalRec.toFixed(2)} - A receber: R$ {(totalFin - totalRec).toFixed(2)}</p><p>Exames vencidos: {exVenc} - Realizados: {exReal}</p></div>
       </div>}
       {aba === 'exames' && <div>
-        <div style={{ background: 'white', borderRadius: 24, padding: 20 }}><h2>Exames - {clinicaAtual.nome}</h2><p>Clínica parceira: {clinicaAtual.telefone || ''} - {clinicaAtual.endereco || ''}</p><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><select value={clinicaSel} onChange={e => setClinicaSel(e.target.value)} style={{ padding: '10px', borderRadius: 20 }}>{(dados.clinicas || []).map((c: any) => <option key={c.id} value={c.nome}>{c.nome}</option>)}</select><input type="date" value={diaSel} onChange={e => setDiaSel(e.target.value)} style={{ padding: '10px', borderRadius: 20, border: '1px solid #cbd5e1' }} /></div>
-          <div style={{ marginTop: 14 }}><label>Funcionário</label><input value={funcAgend} onChange={e => setFuncAgend(e.target.value)} placeholder="Digita o nome..." style={{ ...input, marginTop: 4 }} /><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>{funcs.filter((f: any) => !funcAgend || f.nome.toLowerCase().includes(funcAgend.toLowerCase())).slice(0, 5).map((f: any) => <button key={f.id} onClick={() => setFuncAgend(f.nome)} style={{ ...btn, background: '#f0fdfa' }}>{f.nome}</button>)}</div></div>
-          <div style={{ marginTop: 12 }}>{TIPOS_EXAME.map(t => { const chk = tiposSel.includes(t); return <label key={t} style={{ display: 'inline-flex', gap: 6, margin: 4, padding: '8px 12px', borderRadius: 20, background: chk ? '#ccfbf1' : '#f1f5f9', cursor: 'pointer' }}><input type="checkbox" checked={chk} onChange={() => setTiposSel(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t])} />{t}</label> })}</div>
-          <button onClick={confirmarAgendamento} style={{ ...btn, background: '#0d9488', color: 'white', padding: '12px 20px', marginTop: 12 }}>Confirmar agendamento - {fmtData(diaSel)}</button>
+        <div style={{ background: 'linear-gradient(90deg,#bae6fd,#a7f3d0)', borderRadius: 20, padding: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}><div style={{ width: 56, height: 56, background: '#fda4af', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🏥</div><div><div style={{ fontSize: 12, color: '#475569' }}>Clínica parceira</div><div style={{ fontSize: 20, fontWeight: 900 }}>{clinicaAtual.nome}</div><div style={{ fontSize: 12, color: '#475569' }}>{clinicaAtual.telefone || '(82) 99999-0000'} - {clinicaAtual.endereco || 'Maceió - AL'}</div></div></div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}><select value={clinicaSel} onChange={e => setClinicaSel(e.target.value)} style={{ padding: '10px 14px', borderRadius: 20, border: 'none', fontWeight: 700 }}>{(dados.clinicas || []).map((c: any) => <option key={c.id} value={c.nome}>{c.nome}</option>)}</select><span style={{ background: '#dcfce7', color: '#166534', padding: '8px 12px', borderRadius: 20, fontSize: 12, fontWeight: 800 }}>🟢 {clinicaAtual.status || 'Ativa'} • Convênio {clinicaAtual.convenio || 'Vigente'}</span><button onClick={() => { setAba('clinicas'); setTimeout(() => abrirNovo(), 100) }} style={{ ...btn, background: '#22c55e', color: 'white', borderRadius: 20 }}>+ Cadastrar Clínica</button><button onClick={() => { const it = (dados.clinicas || []).find((c: any) => c.nome === clinicaSel); if (it) { setAba('clinicas'); setEditando(it); setForm({ ...it }); setModal(true) } }} style={{ ...btn, background: 'white', borderRadius: 20 }}>✏️ Editar</button></div>
         </div>
-        <div style={{ background: 'white', borderRadius: 24, padding: 20, marginTop: 16 }}><h3>Exames agendados - {listaFiltrada.length}</h3><input placeholder="Buscar..." value={busca} onChange={e => setBusca(e.target.value)} style={{ ...input, marginTop: 8 }} />{listaFiltrada.map((item: any) => <div key={item.id} style={{ border: '1px solid #e2e8f0', borderRadius: 16, padding: 14, marginTop: 10, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}><div><b>{item.nome}</b><div style={{ fontSize: 13, color: '#64748b' }}>{item.tipo} - {fmtData(item.data)} - {item.clinica} - {item.resultado}</div></div><div style={{ display: 'flex', gap: 8 }}><button onClick={() => abrirEditar(item)} style={{ ...btn, background: '#dbeafe' }}>Editar</button><button onClick={() => excluir(item)} style={{ ...btn, background: '#fee2e2' }}>Excluir</button></div></div>)}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))', gap: 16, marginTop: 16 }}>
+          <div style={{ background: 'white', borderRadius: 20, padding: 20 }}>
+            <h3 style={{ margin: 0, display: 'flex', gap: 8, alignItems: 'center' }}>🗓️ Calendário - {MESES[mesCal - 1].toLowerCase()} de {anoCal}</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}><button onClick={() => mudarMes(-1)} style={{ ...btn, background: '#f1f5f9', borderRadius: 20 }}>«</button><b>{MESES[mesCal - 1]} De {anoCal}</b><button onClick={() => mudarMes(1)} style={{ ...btn, background: '#f1f5f9', borderRadius: 20 }}>»</button></div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 6, marginTop: 12, textAlign: 'center', fontSize: 12, color: '#64748b' }}>{['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map(d => <div key={d}>{d}</div>)}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 6, marginTop: 6 }}>{celulas.map((dia: any, i: number) => {
+              if (!dia) return <div key={i} />
+              const dataStr = anoCal + '-' + String(mesCal).padStart(2, '0') + '-' + String(dia).padStart(2, '0')
+              const qtd = examesF.filter((e: any) => limparData(e.data) === dataStr).length
+              const sel = dataStr === diaSel
+              return <button key={i} onClick={() => setDiaSel(dataStr)} style={{ padding: '10px 4px', borderRadius: 12, border: sel ? '2px solid #059669' : '1px solid #e2e8f0', background: sel ? '#059669' : qtd > 0 ? '#dcfce7' : 'white', color: sel ? 'white' : '#0f172a', fontWeight: 800, cursor: 'pointer' }}>{dia}{qtd > 0 ? <div style={{ fontSize: 9, fontWeight: 700, color: sel ? 'white' : '#059669' }}>{qtd} exame(s)</div> : <div style={{ fontSize: 9, color: 'transparent' }}>.</div>}{sel ? <div style={{ fontSize: 10 }}>✅</div> : null}</button>
+            })}</div>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 12, fontSize: 12, color: '#64748b' }}><span>🟢 Data selecionada</span><span>🟢 Disponível</span></div>
+            <div style={{ marginTop: 16, background: '#f8fafc', borderRadius: 14, padding: 12 }}><b>Exames em {fmtData(diaSel)} - {examesDoDia.length}</b>{examesDoDia.length === 0 ? <p style={{ fontSize: 12, color: '#64748b' }}>Nenhum exame nesse dia. Seleciona funcionário e tipos ao lado.</p> : examesDoDia.map((e: any) => <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 13 }}><span>🩺 {e.nome} - {e.tipo}</span><button onClick={() => excluir(e)} style={{ ...btn, background: '#fee2e2', padding: '4px 8px' }}>Excluir</button></div>)}</div>
+          </div>
+          <div style={{ background: 'white', borderRadius: 20, padding: 20 }}>
+            <h3 style={{ margin: 0, display: 'flex', gap: 8 }}>📋 Tipos de exame - {fmtData(diaSel)}</h3><p style={{ fontSize: 12, color: '#64748b', margin: '4px 0 12px' }}>Selecione os exames necessários para o funcionário</p>
+            <label style={{ fontSize: 13, fontWeight: 800 }}>👷 Funcionário</label><input value={funcAgend} onChange={e => setFuncAgend(e.target.value)} placeholder="Digita o nome do funcionário..." style={{ ...input, marginTop: 4 }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>{funcs.filter((f: any) => funcAgend && f.nome.toLowerCase().includes(funcAgend.toLowerCase())).slice(0, 5).map((f: any) => <button key={f.id} onClick={() => setFuncAgend(f.nome)} style={{ ...btn, background: '#f0fdfa', textAlign: 'left' }}>👷 {f.nome}</button>)}</div>
+            <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 380, overflowY: 'auto' }}>{TIPOS_EXAME_DET.map(t => {
+              const chk = tiposSel.includes(t.nome)
+              return <label key={t.nome} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '10px 12px', borderRadius: 12, background: chk ? '#ecfdf5' : '#f8fafc', border: chk ? '1px solid #6ee7b7' : '1px solid #f1f5f9', cursor: 'pointer' }}><input type="checkbox" checked={chk} onChange={() => setTiposSel(p => p.includes(t.nome) ? p.filter(x => x !== t.nome) : [...p, t.nome])} style={{ width: 18, height: 18 }} /><div style={{ flex: 1 }}><div style={{ fontWeight: 800, fontSize: 14 }}>{t.nome}</div><div style={{ fontSize: 12, color: '#64748b' }}>{t.desc}</div></div><span style={{ fontSize: 11, fontWeight: 800, padding: '4px 8px', borderRadius: 20, background: t.obrig ? '#ccfbf1' : '#e2e8f0', color: t.obrig ? '#0f766e' : '#475569' }}>{t.obrig ? 'Obrigatório' : 'Opcional'}</span></label>
+            })}</div>
+            <button onClick={confirmarAgendamento} style={{ ...btn, background: 'linear-gradient(90deg,#0d9488,#2563eb)', color: 'white', padding: '14px', width: '100%', marginTop: 14, borderRadius: 14, fontSize: 15 }}>✅ Confirmar agendamento - {fmtData(diaSel)} • {tiposSel.length} exame(s) {funcAgend ? '• ' + funcAgend : ''}</button>
+            <p style={{ fontSize: 12, color: '#64748b', textAlign: 'center' }}>Clínica: {clinicaSel} • {examesF.length} exames no total</p>
+          </div>
+        </div>
+        <div style={{ background: 'white', borderRadius: 20, padding: 20, marginTop: 16 }}><h3 style={{ margin: 0 }}>Exames agendados - {listaFiltrada.length}</h3><input placeholder="Buscar exame por funcionário..." value={busca} onChange={e => setBusca(e.target.value)} style={{ ...input, marginTop: 10 }} />{listaFiltrada.map((item: any) => <div key={item.id} style={{ border: '1px solid #e2e8f0', borderRadius: 14, padding: 12, marginTop: 10, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}><div><b>🩺 {item.nome}</b><div style={{ fontSize: 13, color: '#64748b' }}>{item.tipo} - {fmtData(item.data)} - {item.clinica} - {item.resultado}</div></div><div style={{ display: 'flex', gap: 8 }}><button onClick={() => abrirEditar(item)} style={{ ...btn, background: '#dbeafe' }}>Editar</button><button onClick={() => excluir(item)} style={{ ...btn, background: '#fee2e2' }}>Excluir</button></div></div>)}</div>
       </div>}
       {aba !== 'inicio' && aba !== 'exames' && <div style={{ background: 'white', borderRadius: 24, padding: 24, marginTop: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}><div><h2 style={{ fontSize: 24, fontWeight: 900, margin: 0, textTransform: 'capitalize' }}>{aba === 'riscos' ? 'PGR / Riscos' : aba}</h2><p style={{ color: '#64748b' }}>Total: {listaFiltrada.length}</p></div><button onClick={abrirNovo} style={{ ...btn, background: 'linear-gradient(90deg,#0d9488,#2563eb)', color: 'white', padding: '12px 20px', borderRadius: 20 }}>+ Adicionar</button></div>

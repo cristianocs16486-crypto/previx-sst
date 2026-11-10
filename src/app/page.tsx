@@ -65,12 +65,22 @@ export default function Home() {
   const [diaSel, setDiaSel] = useState(new Date().toISOString().split('T')[0])
   const [tiposSel, setTiposSel] = useState<string[]>(['Periódico'])
   const [funcAgend, setFuncAgend] = useState('')
+  // ALTERAÇÃO 3 - RESPONSÁVEL TÉCNICO EDITÁVEL - VERSÃO FINAL
+  const [respTecNome, setRespTecNome] = useState('Cristiano')
+  const [respTecRegistro, setRespTecRegistro] = useState('CREA / MTE - A preencher')
+  const [respTecCargo, setRespTecCargo] = useState('Técnico / Engenheiro de Segurança do Trabalho')
   useEffect(() => {
     const s = localStorage.getItem('previx_session')
     if (s) { try { setUsuario(JSON.parse(s)) } catch { } }
+    // ALTERAÇÃO 3 - carrega responsável técnico salvo
+    try { const rt = localStorage.getItem('previx_resp_tecnico'); if (rt) { const o = JSON.parse(rt); setRespTecNome(o.nome || 'Cristiano'); setRespTecRegistro(o.registro || 'CREA / MTE - A preencher'); setRespTecCargo(o.cargo || 'Técnico / Engenheiro de Segurança do Trabalho') } } catch {}
     carregar()
     setCarregando(false)
   }, [])
+  function salvarRespTec() {
+    localStorage.setItem('previx_resp_tecnico', JSON.stringify({ nome: respTecNome, registro: respTecRegistro, cargo: respTecCargo }))
+    alert('✅ Responsável Técnico atualizado! Vai sair assim nos laudos PGR / LTCAT / LIP / PCMSO')
+  }
   function carregar() {
     try {
       const ld = JSON.parse(localStorage.getItem('previx_dados') || '{}')
@@ -107,8 +117,13 @@ export default function Home() {
   function gerarLaudo(tipo: string) {
     const riscos = dadosFiltrados(dados.riscos || [])
     const funcs = dadosFiltrados(dados.funcionarios || [])
-    const empObj = (dados.empresas || []).find((e: any) => e.nome === usuario?.empresa) || {}
+    // ALTERAÇÃO 2 - CNPJ: busca empresa sem diferenciar maiúscula/minúscula e pega CNPJ
+    const empNomeBusca = (usuario?.empresa || '').toLowerCase()
+    const empObj = (dados.empresas || []).find((e: any) => (e.nome || '').toLowerCase() === empNomeBusca) || (dados.empresas || []).find((e: any) => (e.nome || '').toLowerCase().includes(empNomeBusca)) || {}
     const empNome = usuario?.empresa || 'Empresa'
+    const empCnpj = empObj.cnpj || 'Não informado'
+    const empResp = empObj.responsavel || usuario?.nome || '-'
+    const empTel = empObj.telefone || '-'
     const hoje = new Date().toLocaleDateString('pt-BR')
     const validade = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString('pt-BR')
     const num = 'PREVIX-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 9000) + 1000)
@@ -128,8 +143,8 @@ export default function Home() {
     const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + titulo + '</title><style>body{font-family:Arial,sans-serif;color:#0f172a;margin:0;padding:28px;font-size:13px;line-height:1.55}.topo{display:flex;justify-content:space-between;border-bottom:3px solid #0d9488;padding-bottom:14px}.logo{font-size:28px;font-weight:900}.logo span{color:#0d9488}h1{font-size:22px;text-align:center}h2{font-size:14px;background:#0f172a;color:#fff;padding:8px 12px;border-radius:8px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#0d9488;color:#fff;padding:8px;text-align:left}td{padding:7px;border-bottom:1px solid #e2e8f0}.card{border:1px solid #e2e8f0;border-radius:10px;padding:12px;background:#f8fafc}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.btnprint{text-align:center;margin:18px 0}.btnprint button{background:#0d9488;color:#fff;border:none;padding:13px 26px;border-radius:20px;font-weight:800}@media print{.btnprint{display:none}}</style></head><body>'
       + '<div class="topo"><div><div class="logo">PREVIX <span>SST</span></div><div>PREVENÇÃO QUE PROTEGE</div></div><div style="text-align:right"><b>' + num + '</b><div>Emitido: ' + hoje + '</div><div>Validade: ' + validade + '</div></div></div>'
       + '<h1>' + titulo + '</h1><div style="text-align:center;color:#0d9488;font-weight:800">' + sub + '</div>'
-      + '<div class="grid"><div class="card"><h3>Empresa</h3><p><b>Razão Social:</b> ' + empNome + '</p><p><b>CNPJ:</b> ' + (empObj.cnpj || 'Não informado') + '</p><p><b>Responsável:</b> ' + (empObj.responsavel || usuario?.nome || '-') + '</p><p><b>Telefone:</b> ' + (empObj.telefone || '-') + '</p></div>'
-      + '<div class="card"><h3>Responsável Técnico</h3><p><b>Nome:</b> ' + (usuario?.nome || 'Cristiano') + '</p><p><b>Função:</b> Técnico / Engenheiro de Segurança do Trabalho</p><p><b>Registro:</b> CREA / MTE - A preencher</p><p><b>Elaborado por:</b> PREVIX SST</p></div></div>'
+      + '<div class="grid"><div class="card"><h3>Empresa</h3><p><b>Razão Social:</b> ' + empNome + '</p><p><b>CNPJ:</b> ' + empCnpj + '</p><p><b>Responsável:</b> ' + empResp + '</p><p><b>Telefone:</b> ' + empTel + '</p></div>'
+      + '<div class="card"><h3>Responsável Técnico</h3><p><b>Nome:</b> ' + respTecNome + '</p><p><b>Função:</b> ' + respTecCargo + '</p><p><b>Registro:</b> ' + respTecRegistro + '</p><p><b>Elaborado por:</b> PREVIX SST</p></div></div>'
       + '<h2>1. OBJETIVO</h2><p>' + objetivo + '</p><p>Este documento atende às exigências legais, subsidia o eSocial (S-2240), o PPP e a gestão de SST da empresa.</p>'
       + '<h2>2. BASE LEGAL E NORMAS</h2><ul>' + base + '</ul><p><b>Atenção:</b> Este laudo deve ser validado e assinado pelo responsável técnico habilitado.</p>'
       + '<h2>3. INVENTÁRIO DE RISCOS / GHE</h2><table><thead><tr><th>#</th><th>GHE / Setor</th><th>Risco</th><th>Tipo</th><th>Agente</th><th>Limite</th><th>EPI</th><th>Ação</th></tr></thead><tbody>' + linhasR + '</tbody></table>'
@@ -137,7 +152,7 @@ export default function Home() {
       + '<h2>5. PLANO DE AÇÃO</h2><table><thead><tr><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr></thead><tbody><tr><td>Revisar inventário</td><td>Resp. Técnico</td><td>30 dias</td><td>Pendente</td></tr><tr><td>Entregar EPIs</td><td>Empresa</td><td>Imediato</td><td>Contínuo</td></tr><tr><td>Exames periódicos</td><td>Clínica</td><td>Conforme PCMSO</td><td>Agendado</td></tr><tr><td>Revisão anual</td><td>Resp. Técnico</td><td>' + validade + '</td><td>Programado</td></tr></tbody></table>'
       + '<h2>6. FUNCIONÁRIOS</h2><table><thead><tr><th>Nome</th><th>Cargo</th><th>Setor</th><th>CPF</th></tr></thead><tbody>' + linhasF + '</tbody></table>'
       + '<h2>7. CONCLUSÃO</h2><p>Manter inventário atualizado, garantir entrega e uso correto dos EPIs, realizar exames conforme PCMSO e promover treinamentos periódicos.</p>'
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:40px;text-align:center"><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (usuario?.nome || 'Cristiano') + '</b><div>Responsável Técnico</div></div><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (empObj.responsavel || empNome) + '</b><div>Responsável pela Empresa - ' + hoje + '</div></div></div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:40px;text-align:center"><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + respTecNome + '</b><div>Responsável Técnico - ' + respTecRegistro + '</div></div><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + empResp + '</b><div>Responsável pela Empresa - ' + empNome + ' - CNPJ: ' + empCnpj + ' - ' + hoje + '</div></div></div>'
       + '<div class="btnprint"><button onclick="window.print()">Imprimir / Salvar como PDF</button></div></body></html>'
     const w = window.open('', '_blank')
     if (w) { w.document.write(html); w.document.close() }
@@ -218,7 +233,8 @@ export default function Home() {
   const input = { width: '100%', padding: '12px', borderRadius: 12, border: '1px solid #cbd5e1', fontSize: 14, boxSizing: 'border-box' as any }
   if (carregando) return <div style={{ padding: 40, textAlign: 'center' }}>Carregando PREVIX...</div>
   if (!usuario) {
-    return <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#0d9488,#2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: 'Arial,sans-serif' }}><div style={{ background: 'white', borderRadius: 24, padding: 32, width: '100%', maxWidth: 420 }}><div style={{ textAlign: 'center' }}><h1 style={{ fontSize: 32, fontWeight: 900, margin: '12px 0 0' }}>PREVIX</h1><p style={{ color: '#0d9488', fontWeight: 800, fontSize: 11, letterSpacing: 2 }}>PREVENÇÃO QUE PROTEGE</p></div><div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}><input value={loginForm.login} onChange={e => setLoginForm({ ...loginForm, login: e.target.value })} placeholder="Login" style={input} /><input type="password" value={loginForm.senha} onChange={e => setLoginForm({ ...loginForm, senha: e.target.value })} onKeyDown={e => { if (e.key === 'Enter') fazerLogin() }} placeholder="Senha" style={input} />{erroLogin && <div style={{ background: '#fee2e2', padding: 10, borderRadius: 10, fontSize: 13, fontWeight: 700, color: '#b91c1c' }}>{erroLogin}</div>}<button onClick={fazerLogin} style={{ ...btn, background: 'linear-gradient(90deg,#0d9488,#2563eb)', color: 'white', padding: 14, borderRadius: 12, fontSize: 15 }}>Entrar</button></div></div></div>
+    // ALTERAÇÃO 1 - LOGO NO LOGIN - SÓ ISSO MUDOU AQUI
+    return <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#0d9488,#2563eb)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: 'Arial,sans-serif' }}><div style={{ background: 'white', borderRadius: 24, padding: 32, width: '100%', maxWidth: 420 }}><div style={{ textAlign: 'center' }}><div style={{ width: 72, height: 72, margin: '0 auto', background: '#DC2626', borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 20px rgba(220,38,38,0.3)' }}><span style={{ color: 'white', fontSize: 32, fontWeight: 900 }}>P</span></div><h1 style={{ fontSize: 44, fontWeight: 900, margin: '16px 0 0', letterSpacing: -1 }}><span style={{ color: '#DC2626' }}>PRE</span><span style={{ color: '#0F172A' }}>VIX</span></h1><p style={{ color: '#0d9488', fontWeight: 800, fontSize: 11, letterSpacing: 2, margin: '4px 0 0' }}>PREVENÇÃO QUE PROTEGE</p><p style={{ color: '#64748b', fontSize: 13, margin: '8px 0 0' }}>Gestão Completa de SST • PGR • PCMSO • eSocial</p></div><div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}><input value={loginForm.login} onChange={e => setLoginForm({ ...loginForm, login: e.target.value })} placeholder="Login" style={input} /><input type="password" value={loginForm.senha} onChange={e => setLoginForm({ ...loginForm, senha: e.target.value })} onKeyDown={e => { if (e.key === 'Enter') fazerLogin() }} placeholder="Senha" style={input} />{erroLogin && <div style={{ background: '#fee2e2', padding: 10, borderRadius: 10, fontSize: 13, fontWeight: 700, color: '#b91c1c' }}>{erroLogin}</div>}<button onClick={fazerLogin} style={{ ...btn, background: 'linear-gradient(90deg,#0d9488,#2563eb)', color: 'white', padding: 14, borderRadius: 12, fontSize: 15 }}>Entrar</button></div></div></div>
   }
   const isAdmin = usuario.tipo === 'admin'
   const menuBase = [{ id: 'inicio', label: 'Início', icone: '🏠' }, { id: 'funcionarios', label: 'Funcionários', icone: '👷' }, { id: 'epis', label: "EPI's", icone: '🦺' }, { id: 'extintores', label: 'Extintores', icone: '🧯' }, { id: 'inspecoes', label: 'Inspeções', icone: '📋' }, { id: 'documentos', label: 'Documentos', icone: '📄' }, { id: 'exames', label: 'Exames', icone: '🩺' }, { id: 'clinicas', label: 'Clínicas', icone: '🏥' }, { id: 'riscos', label: 'PGR / Riscos', icone: '⚠️' }, { id: 'financeiro', label: 'Financeiro', icone: '💰' }]
@@ -251,6 +267,8 @@ export default function Home() {
       {aba === 'inicio' && <div>
         <div style={{ background: 'white', borderRadius: 24, padding: 24 }}><h2 style={{ fontSize: 32, fontWeight: 900, margin: 0 }}>Olá, {usuario.nome}! 👋</h2><p style={{ color: '#64748b' }}>{usuario.empresa}</p></div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 16, marginTop: 20 }}>{cards.map(c => (<button key={c.titulo} onClick={() => setAba(c.aba)} style={{ background: c.cor, borderRadius: 24, padding: 20, textAlign: 'left', border: 'none', cursor: 'pointer', color: 'white' }}><div style={{ fontSize: 24 }}>{c.icone}</div><div style={{ marginTop: 12, fontWeight: 700 }}>{c.titulo}</div><div style={{ fontSize: 32, fontWeight: 900 }}>{c.valor}</div></button>))}</div>
+        {/* ALTERAÇÃO 3 - BLOCO PARA MUDAR RESPONSÁVEL TÉCNICO */}
+        <div style={{ background: 'white', borderRadius: 24, padding: 20, marginTop: 20 }}><h3 style={{ margin: '0 0 12px' }}>Responsável Técnico - vai sair nos laudos</h3><div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 10 }}><div><label style={{ fontSize: 13, fontWeight: 700 }}>Nome do Responsável Técnico</label><input value={respTecNome} onChange={e => setRespTecNome(e.target.value)} placeholder="Ex: Nome do Engenheiro / Técnico" style={{ ...input, marginTop: 4 }} /></div><div><label style={{ fontSize: 13, fontWeight: 700 }}>Cargo / Função</label><input value={respTecCargo} onChange={e => setRespTecCargo(e.target.value)} style={{ ...input, marginTop: 4 }} /></div><div><label style={{ fontSize: 13, fontWeight: 700 }}>Registro CREA / MTE</label><input value={respTecRegistro} onChange={e => setRespTecRegistro(e.target.value)} placeholder="Ex: CREA-AL 123456" style={{ ...input, marginTop: 4 }} /></div></div><button onClick={salvarRespTec} style={{ ...btn, background: '#0f172a', color: 'white', padding: '12px 20px', marginTop: 12, borderRadius: 20 }}>Salvar Responsável Técnico</button><p style={{ fontSize: 13, color: '#64748b', margin: '8px 0 0' }}>Atual: <b>{respTecNome}</b> • {respTecCargo} • {respTecRegistro}</p></div>
         <div style={{ background: 'white', borderRadius: 24, padding: 20, marginTop: 20 }}><h3 style={{ margin: '0 0 12px' }}>Laudos em 1 clique - Profissional com Normas</h3><div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}><button onClick={() => gerarLaudo('PGR')} style={{ ...btn, background: '#0d9488', color: 'white', padding: '12px 18px', borderRadius: 20 }}>Gerar PGR</button><button onClick={() => gerarLaudo('LTCAT')} style={{ ...btn, background: '#2563eb', color: 'white', padding: '12px 18px', borderRadius: 20 }}>Gerar LTCAT</button><button onClick={() => gerarLaudo('LIP')} style={{ ...btn, background: '#f59e0b', color: 'white', padding: '12px 18px', borderRadius: 20 }}>Gerar LIP</button><button onClick={() => gerarLaudo('PCMSO')} style={{ ...btn, background: '#22c55e', color: 'white', padding: '12px 18px', borderRadius: 20 }}>Gerar PCMSO</button></div><p style={{ fontSize: 13, color: '#64748b' }}>Cadastra o risco 1x em PGR / Riscos e gera os laudos com base legal, normas e responsável técnico.</p></div>
         <div style={{ background: 'white', borderRadius: 24, padding: 20, marginTop: 20 }}><h3>Financeiro</h3><p>Total: R$ {totalFin.toFixed(2)} - Recebido: R$ {totalRec.toFixed(2)} - A receber: R$ {(totalFin - totalRec).toFixed(2)}</p><p>Exames vencidos: {exVenc} - Realizados: {exReal}</p></div>
       </div>}

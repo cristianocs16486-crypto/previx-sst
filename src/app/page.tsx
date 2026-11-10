@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 const SETORES = ['Vendas','Caixa','Estoque','Limpeza','Gerência','Entrega','Administrativo','Produção','Manutenção','Segurança','Almoxarifado','RH','Outro']
 const RISCOS_PRONTOS = [
   { nome: 'Ruído', tipo: 'Físico', agente: 'Ruído contínuo', limite: '85 dB' },
@@ -66,10 +66,12 @@ export default function Home() {
   const [tiposSel, setTiposSel] = useState<string[]>(['Periódico'])
   const [funcAgend, setFuncAgend] = useState('')
   const [buscaEpi, setBuscaEpi] = useState('')
-  const [etapaEpi, setEtapaEpi] = useState(1)
-  const [confDigital, setConfDigital] = useState(false)
-  const [pinEntrega, setPinEntrega] = useState('')
-  const [assinatura, setAssinatura] = useState('')
+  // EPI igual do print
+  const [pinDigitado, setPinDigitado] = useState('')
+  const [pinVerificado, setPinVerificado] = useState(false)
+  const [assinaturaFeita, setAssinaturaFeita] = useState(false)
+  const canvasRef = useRef<any>(null)
+  const desenhando = useRef(false)
   useEffect(() => {
     const s = localStorage.getItem('previx_session')
     if (s) { try { setUsuario(JSON.parse(s)) } catch { } }
@@ -151,7 +153,7 @@ export default function Home() {
     const func = (dados.funcionarios || []).find((f: any) => f.nome === entrega.funcionario) || {}
     const empNome = entrega.empresa || func.empresa || usuario?.empresa || 'PREVIX SST'
     const dataFmt = entrega.data_entrega ? entrega.data_entrega.split('-').reverse().join('/') : new Date().toLocaleDateString('pt-BR')
-    const html = '<html><head><meta charset="utf-8"><title>Termo</title><style>body{font-family:Arial;padding:28px;max-width:820px;margin:0 auto}</style></head><body><h1 style="text-align:center">Termo de Entrega de EPI - NR-06</h1><p><b>Empresa:</b> ' + empNome + '</p><p><b>Funcionário:</b> ' + (entrega.funcionario || '-') + ' - CPF: ' + (func.cpf || '-') + ' - Setor: ' + (func.setor || '-') + '</p><p><b>EPI:</b> ' + (entrega.nome || '-') + ' - CA: ' + (entrega.ca || '-') + ' - Data: ' + dataFmt + '</p><p><b>Confirmação em 3 Etapas:</b> 1) Digital: ' + (entrega.confDigital ? 'SIM' : 'SIM') + ' | 2) PIN: ' + (entrega.pinEntrega || func.pin || '****') + ' | 3) Assinatura: ' + (entrega.assinatura || '-') + '</p><p style="text-align:justify">Declaro que recebi o EPI acima, com CA válido, e fui orientado quanto ao uso correto, conforme NR-06.</p>' + (entrega.assinatura ? '<p style="text-align:center;font-family:cursive;font-size:28px">' + entrega.assinatura + '</p>' : '') + '<div style="margin-top:60px;text-align:center"><div style="border-top:1px solid #000;width:340px;margin:0 auto"></div>' + (entrega.funcionario || '') + '</div><div style="text-align:center;margin-top:20px"><button onclick="window.print()">Imprimir / PDF</button></div></body></html>'
+    const html = '<html><head><meta charset="utf-8"><title>Termo</title><style>body{font-family:Arial;padding:28px;max-width:820px;margin:0 auto}</style></head><body><h1 style="text-align:center">Termo de Entrega de EPI - NR-06</h1><p><b>Empresa:</b> ' + empNome + '</p><p><b>Funcionário:</b> ' + (entrega.funcionario || '-') + ' - CPF: ' + (func.cpf || '-') + ' - Setor: ' + (func.setor || '-') + '</p><p><b>EPI:</b> ' + (entrega.nome || '-') + ' - Tipo/Modelo: ' + (entrega.tipo || entrega.modelo || '-') + ' - Qtd: ' + (entrega.quantidade || 1) + ' - CA: ' + (entrega.ca || '-') + ' - Data: ' + dataFmt + '</p><p><b>Confirmação:</b> Digital: SIM | PIN Verificado: ' + (entrega.pinVerificado ? 'SIM' : 'SIM') + ' | Assinatura com dedo: SIM</p><p style="text-align:justify">Declaro que recebi o EPI acima, com CA válido, e fui orientado quanto ao uso correto, conforme NR-06.</p>' + (entrega.assinaturaImg ? '<p style="text-align:center"><img src="' + entrega.assinaturaImg + '" style="max-width:300px;border:1px solid #ccc" /></p>' : '') + '<div style="margin-top:20px;text-align:center"><div style="border-top:1px solid #000;width:340px;margin:0 auto"></div>' + (entrega.funcionario || '') + '</div><div style="text-align:center;margin-top:20px"><button onclick="window.print()">Imprimir / PDF</button></div></body></html>'
     const w = window.open('', '_blank')
     if (w) { w.document.write(html); w.document.close() }
   }
@@ -170,7 +172,7 @@ export default function Home() {
     setEditando(null); setForm({})
     if (aba === 'empresas') setForm({ senha: gerarSenha(), status: 'Ativa' })
     if (aba === 'funcionarios') setForm({ empresa: usuario?.tipo === 'empresa' ? usuario.empresa : '', pin: gerarPIN(), setor: 'Vendas' })
-    if (aba === 'epis') { setForm({ empresa: usuario?.tipo === 'empresa' ? usuario.empresa : '', data_entrega: new Date().toISOString().split('T')[0] }); setEtapaEpi(1); setConfDigital(false); setPinEntrega(''); setAssinatura('') }
+    if (aba === 'epis') { setForm({ empresa: usuario?.tipo === 'empresa' ? usuario.empresa : '', data_entrega: new Date().toISOString().split('T')[0], quantidade: 1, tipo: '', modelo: '' }); setPinDigitado(''); setPinVerificado(false); setAssinaturaFeita(false); setTimeout(() => { const c = canvasRef.current; if (c) { const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height) } }, 100) }
     if (aba === 'exames') setForm({ data: diaSel, tipo: 'Periódico', resultado: 'Aguardando', clinica: clinicaSel })
     if (aba === 'documentos') setForm({ empresa: usuario?.tipo === 'empresa' ? usuario.empresa : '' })
     if (aba === 'inspecoes') setForm({ status: 'Pendente', data: new Date().toISOString().split('T')[0] })
@@ -178,7 +180,15 @@ export default function Home() {
     if (aba === 'financeiro') setForm({ status: 'Pendente', vencimento: new Date().toISOString().split('T')[0] })
     setModal(true)
   }
-  function abrirEditar(item: any) { setEditando(item); setForm({ ...item }); setConfDigital(!!item.confDigital); setPinEntrega(item.pinEntrega || ''); setAssinatura(item.assinatura || ''); setEtapaEpi(1); setModal(true) }
+  function abrirEditar(item: any) { setEditando(item); setForm({ ...item }); setPinDigitado(''); setPinVerificado(!!item.pinVerificado); setAssinaturaFeita(!!item.assinaturaImg); setModal(true) }
+  function verificarPIN() {
+    const func = (dados.funcionarios || []).find((f: any) => f.nome === form.funcionario) || (dados.funcionarios || []).find((f: any) => (f.cpf || '') === form.funcionario)
+    if (!func) { alert('Primeiro escolhe o funcionário!'); return }
+    if (pinDigitado === String(func.pin)) { setPinVerificado(true); alert('✅ PIN correto! Agora pede pra assinar abaixo.') }
+    else { setPinVerificado(false); alert('❌ PIN incorreto. Pede o PIN dele de novo.') }
+  }
+  function limparAssinatura() { const c = canvasRef.current; if (c) { const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height) } setAssinaturaFeita(false) }
+  function posCanvas(e: any) { const c = canvasRef.current; const r = c.getBoundingClientRect(); const t = e.touches?.[0] || e; return { x: t.clientX - r.left, y: t.clientY - r.top } }
   function salvar() {
     if (!aba || aba === 'inicio') return
     const f = { ...form }
@@ -186,11 +196,10 @@ export default function Home() {
     if (aba === 'exames') { if (!f.nome) { alert('Escolhe o funcionário!'); return }; f.data = limparData(f.data) || new Date().toISOString().split('T')[0]; f.funcionario = f.nome; if (!f.clinica) f.clinica = clinicaSel }
     if (aba === 'epis') {
       if (!f.nome) { alert('Escolhe o EPI!'); return }
-      if (!f.funcionario) { alert('Busca o funcionário por nome ou CPF!'); return }
-      if (!confDigital) { alert('Etapa 1: Marca a confirmação digital!'); return }
-      if (!pinEntrega || pinEntrega.length < 4) { alert('Etapa 2: Digita o PIN de 4 dígitos!'); return }
-      if (!assinatura.trim()) { alert('Etapa 3: Digita a assinatura!'); return }
-      f.confDigital = true; f.pinEntrega = pinEntrega; f.assinatura = assinatura
+      if (!f.funcionario) { alert('Digita nome OU CPF!'); return }
+      if (!pinVerificado) { alert('Verifica o PIN primeiro!'); return }
+      if (!assinaturaFeita) { alert('Pede pra ele assinar com o dedo no quadrado!'); return }
+      const c = canvasRef.current; f.assinaturaImg = c ? c.toDataURL() : ''; f.pinVerificado = true; f.confDigital = true; f.quantidade = f.quantidade || 1
     }
     if (aba === 'documentos') { if (!f.titulo) { alert('Título!'); return } }
     if (aba === 'empresas') { if (!f.login && f.nome) f.login = f.nome.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12); if (!f.senha) f.senha = gerarSenha() }
@@ -208,7 +217,7 @@ export default function Home() {
       lista.push(novo)
       const nd = { ...dados, [aba]: lista }; setDados(nd); salvarNav(nd)
       if (aba === 'funcionarios') alert('✅ ' + novo.nome + ' • PIN: ' + novo.pin)
-      if (aba === 'epis') alert('✅ Entrega confirmada em 3 etapas!')
+      if (aba === 'epis') alert('✅ Entrega confirmada! PDF já sai com a assinatura.')
     }
     setModal(false); setForm({}); setEditando(null)
   }
@@ -256,6 +265,7 @@ export default function Home() {
   const exVenc = examesF.filter((e: any) => statusExame(e) === 'vencido').length
   const exReal = examesF.filter((e: any) => statusExame(e) === 'realizado').length
   const clinicaAtual = (dados.clinicas || []).find((c: any) => c.nome === clinicaSel) || (dados.clinicas || [])[0] || { nome: 'Sol Nascente' }
+  const funcSelEpi = (dados.funcionarios || []).find((f: any) => f.nome === form.funcionario) || (dados.funcionarios || []).find((f: any) => (f.cpf || '') === form.funcionario) || null
   return <div style={{ minHeight: '100vh', background: '#ecfeff', fontFamily: 'Arial,sans-serif' }}>
     <header style={{ background: 'linear-gradient(90deg,#0d9488,#2563eb)', color: 'white', padding: '12px 16px', position: 'sticky', top: 0, zIndex: 50 }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><div style={{ fontWeight: 900, fontSize: 20 }}>PREVIX <span style={{ fontSize: 12, background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: 20 }}>SST</span></div><div style={{ display: 'flex', gap: 8 }}><span style={{ fontSize: 12, background: isAdmin ? '#f97316' : '#22c55e', padding: '6px 12px', borderRadius: 20, fontWeight: 700 }}>{isAdmin ? 'SUPER ADMIN' : usuario.empresa}</span><button onClick={exportarCSV} style={{ ...btn, background: 'white', color: '#0f172a', borderRadius: 20 }}>Exportar CSV</button><button onClick={sair} style={{ ...btn, background: 'white', color: '#0f172a', borderRadius: 20 }}>Sair</button></div></div>
@@ -283,15 +293,44 @@ export default function Home() {
         {aba === 'documentos' && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}><button onClick={() => setPastaAtual('Todas')} style={{ ...btn, background: pastaAtual === 'Todas' ? '#0d9488' : '#f1f5f9', color: pastaAtual === 'Todas' ? 'white' : '#0f172a', borderRadius: 20 }}>Todas</button>{PASTAS.map(p => <button key={p.id} onClick={() => setPastaAtual(p.id)} style={{ ...btn, background: pastaAtual === p.id ? '#0d9488' : '#f1f5f9', color: pastaAtual === p.id ? 'white' : '#0f172a', borderRadius: 20 }}>{p.nome}</button>)}</div>}
         {aba === 'epis' && <div style={{ marginTop: 16 }}>
           <input placeholder="Buscar EPI por funcionário, CPF ou nome do EPI..." value={buscaEpi} onChange={e => setBuscaEpi(e.target.value)} style={{ ...input }} />
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-            {funcs.filter((f: any) => buscaEpi && (f.nome.toLowerCase().includes(buscaEpi.toLowerCase()) || (f.cpf || '').includes(buscaEpi))).slice(0, 5).map((f: any) => <button key={f.id} type="button" onClick={() => setBuscaEpi(f.nome)} style={{ ...btn, background: '#ccfbf1' }}>{f.nome} - CPF: {f.cpf || '-'}</button>)}
-          </div>
-          <p style={{ fontSize: 12, color: '#64748b' }}>Todos os EPIs já listados abaixo: {episF.length} {buscaEpi ? '• Filtrado por: ' + buscaEpi : ''}</p>
+          <p style={{ fontSize: 12, color: '#64748b' }}>Todos os EPIs já listados abaixo: {episF.length}</p>
         </div>}
         <input placeholder={'Buscar em ' + aba + '...'} value={busca} onChange={e => setBusca(e.target.value)} style={{ ...input, marginTop: 16 }} />
-        <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>{listaFiltrada.map((item: any) => <div key={item.id} style={{ border: '1px solid #e2e8f0', borderRadius: 20, padding: 16, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}><div style={{ flex: 1 }}><div style={{ fontWeight: 900 }}>{item.nome || item.titulo || item.descricao || 'Registro'}</div><div style={{ fontSize: 13, color: '#64748b' }}>{aba === 'funcionarios' ? (item.cargo || '') + ' • ' + (item.setor || '') + ' • CPF: ' + (item.cpf || '-') + ' • PIN: ' + (item.pin || '-') : aba === 'riscos' ? 'GHE: ' + (item.ghe || '-') + ' • Agente: ' + (item.agente || '-') + ' • Limite: ' + (item.limite || '-') : aba === 'financeiro' ? (item.empresa || '') + ' • Venc: ' + fmtData(item.vencimento) + ' • R$ ' + (item.valor || '0') : aba === 'epis' ? (item.funcionario || '-') + ' • ' + (item.data_entrega || '-') + ' • CA: ' + (item.ca || '-') + ' • ✅ Digital + 🔢 PIN + ✍️ ' + (item.assinatura || 'Assinado') : aba === 'documentos' ? 'Venc: ' + fmtData(item.vencimento) + ' • ' + (item.empresa || '') : aba === 'inspecoes' ? (item.local || '-') + ' • ' + (item.responsavel || '-') + ' • ' + fmtData(item.data) : ''}</div></div><div style={{ display: 'flex', gap: 8 }}>{aba === 'epis' && <button onClick={() => gerarTermo(item)} style={{ ...btn, background: '#0f172a', color: 'white' }}>PDF</button>}<button onClick={() => abrirEditar(item)} style={{ ...btn, background: '#dbeafe' }}>Editar</button><button onClick={() => excluir(item)} style={{ ...btn, background: '#fee2e2' }}>Excluir</button></div></div>)}{listaFiltrada.length === 0 && <div style={{ textAlign: 'center', padding: 32, border: '2px dashed #cbd5e1', borderRadius: 20 }}>Nenhum registro aqui ainda. Clica em + Adicionar.</div>}</div>
+        <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>{listaFiltrada.map((item: any) => <div key={item.id} style={{ border: '1px solid #e2e8f0', borderRadius: 20, padding: 16, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}><div style={{ flex: 1 }}><div style={{ fontWeight: 900 }}>{item.nome || item.titulo || item.descricao || 'Registro'} {aba === 'epis' && item.quantidade ? <span style={{ background: '#ccfbf1', padding: '2px 8px', borderRadius: 12, fontSize: 12 }}>Qtd: {item.quantidade}</span> : null}</div><div style={{ fontSize: 13, color: '#64748b' }}>{aba === 'funcionarios' ? (item.cargo || '') + ' • ' + (item.setor || '') + ' • CPF: ' + (item.cpf || '-') + ' • PIN: ' + (item.pin || '-') : aba === 'riscos' ? 'GHE: ' + (item.ghe || '-') + ' • Agente: ' + (item.agente || '-') + ' • Limite: ' + (item.limite || '-') : aba === 'financeiro' ? (item.empresa || '') + ' • Venc: ' + fmtData(item.vencimento) + ' • R$ ' + (item.valor || '0') : aba === 'epis' ? (item.funcionario || '-') + ' • Tipo: ' + (item.tipo || '-') + ' • ' + fmtData(item.data_entrega) + ' • CA: ' + (item.ca || '-') + ' • ✅ PIN + ✍️ Assinatura' : aba === 'documentos' ? 'Venc: ' + fmtData(item.vencimento) + ' • ' + (item.empresa || '') : aba === 'inspecoes' ? (item.local || '-') + ' • ' + (item.responsavel || '-') + ' • ' + fmtData(item.data) : ''}</div>{aba === 'epis' && item.assinaturaImg ? <img src={item.assinaturaImg} style={{ width: 120, border: '1px solid #e2e8f0', borderRadius: 8, marginTop: 6 }} /> : null}</div><div style={{ display: 'flex', gap: 8 }}>{aba === 'epis' && <button onClick={() => gerarTermo(item)} style={{ ...btn, background: '#0f172a', color: 'white' }}>PDF</button>}<button onClick={() => abrirEditar(item)} style={{ ...btn, background: '#dbeafe' }}>Editar</button><button onClick={() => excluir(item)} style={{ ...btn, background: '#fee2e2' }}>Excluir</button></div></div>)}{listaFiltrada.length === 0 && <div style={{ textAlign: 'center', padding: 32, border: '2px dashed #cbd5e1', borderRadius: 20 }}>Nenhum registro aqui ainda. Clica em + Adicionar.</div>}</div>
       </div>}
     </main>
-    {modal && <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }}><div style={{ background: 'white', borderRadius: 24, padding: 24, width: '100%', maxWidth: 540, maxHeight: '92vh', overflowY: 'auto' }}><h3 style={{ fontWeight: 900 }}>{editando ? 'Editar' : 'Adicionar'} - {aba}</h3><div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>{(CAMPOS[aba] || []).map((c: any) => { if (c.k === 'empresa' && usuario?.tipo === 'empresa') return null; if (c.k === 'setor' && aba === 'funcionarios') return <div key={c.k}><label>Setor</label><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>{SETORES.map(s => <button key={s} type="button" onClick={() => setForm({ ...form, setor: s })} style={{ padding: '8px 12px', borderRadius: 20, border: (form.setor || 'Vendas') === s ? '2px solid #0d9488' : '1px solid #e2e8f0', background: (form.setor || 'Vendas') === s ? '#ccfbf1' : 'white' }}>{s}</button>)}</div></div>; if (c.k === 'funcionario' && aba === 'epis') return <div key={c.k}><label>Funcionário - busca por Nome ou CPF</label><input value={form.funcionario || ''} onChange={e => setForm({ ...form, funcionario: e.target.value })} placeholder="Digite nome ou CPF..." style={{ ...input, marginTop: 4 }} /><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>{funcs.filter((f: any) => form.funcionario && (f.nome.toLowerCase().includes(form.funcionario.toLowerCase()) || (f.cpf || '').includes(form.funcionario))).slice(0, 5).map((f: any) => <button key={f.id} type="button" onClick={() => setForm({ ...form, funcionario: f.nome })} style={{ ...btn, background: '#ccfbf1' }}>{f.nome} - {f.cpf || ''}</button>)}</div></div>; return <div key={c.k}><label>{c.l}</label><input type={c.k === 'data' || c.k === 'vencimento' ? 'date' : 'text'} value={form[c.k] || ''} onChange={e => setForm({ ...form, [c.k]: e.target.value })} style={{ ...input, marginTop: 4 }} /></div> })}{aba === 'funcionarios' && <div><label>PIN</label><input value={form.pin || ''} onChange={e => setForm({ ...form, pin: e.target.value.replace(/\D/g, '').slice(0, 4) })} style={{ ...input, marginTop: 4 }} /></div>}{aba === 'epis' && <div style={{ background: '#f0fdfa', borderRadius: 16, padding: 14 }}><b>Entrega EPI - 3 Etapas</b><p style={{ fontSize: 12, color: '#64748b' }}>Etapa atual: {etapaEpi} de 3</p><div style={{ display: 'flex', gap: 6 }}><button type="button" onClick={() => setEtapaEpi(1)} style={{ ...btn, background: etapaEpi === 1 ? '#0d9488' : '#e2e8f0', color: etapaEpi === 1 ? 'white' : '#0f172a' }}>1 - Digital</button><button type="button" onClick={() => setEtapaEpi(2)} style={{ ...btn, background: etapaEpi === 2 ? '#0d9488' : '#e2e8f0', color: etapaEpi === 2 ? 'white' : '#0f172a' }}>2 - PIN</button><button type="button" onClick={() => setEtapaEpi(3)} style={{ ...btn, background: etapaEpi === 3 ? '#0d9488' : '#e2e8f0', color: etapaEpi === 3 ? 'white' : '#0f172a' }}>3 - Assinatura</button></div>{etapaEpi === 1 && <label style={{ display: 'flex', gap: 8, marginTop: 12 }}><input type="checkbox" checked={confDigital} onChange={e => setConfDigital(e.target.checked)} /> Confirmo que recebi o EPI e fui orientado - NR-06</label>}{etapaEpi === 2 && <div><label style={{ display: 'block', marginTop: 10 }}>PIN do funcionário (4 dígitos)</label><input value={pinEntrega} onChange={e => setPinEntrega(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="Digite o PIN" style={{ ...input, marginTop: 4 }} /></div>}{etapaEpi === 3 && <div><label style={{ display: 'block', marginTop: 10 }}>Assinatura - digite o nome completo</label><input value={assinatura} onChange={e => setAssinatura(e.target.value)} placeholder="Ex: João Silva" style={{ ...input, marginTop: 4, fontFamily: 'cursive', fontSize: 18 }} /></div>}</div>}</div><div style={{ display: 'flex', gap: 10, marginTop: 20 }}><button onClick={() => setModal(false)} style={{ ...btn, flex: 1, background: '#f1f5f9' }}>Cancelar</button><button onClick={salvar} style={{ ...btn, flex: 1, background: '#0d9488', color: 'white' }}>Salvar</button></div></div></div>}
+    {modal && <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }}><div style={{ background: 'white', borderRadius: 24, padding: 24, width: '100%', maxWidth: 560, maxHeight: '92vh', overflowY: 'auto' }}>
+      <h3 style={{ fontWeight: 900 }}>{editando ? 'Editar' : 'Adicionar'} - {aba}</h3>
+      {aba === 'epis' ? <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
+        <div><label>Nome do EPI</label><input value={form.nome || ''} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Ex: Luva, Capacete, Bota..." style={{ ...input, marginTop: 4 }} /></div>
+        <div><label>Tipo / Modelo</label><input value={form.tipo || ''} onChange={e => setForm({ ...form, tipo: e.target.value, modelo: e.target.value })} placeholder="Ex: 12545" style={{ ...input, marginTop: 4 }} /></div>
+        <div><label>CA</label><input value={form.ca || ''} onChange={e => setForm({ ...form, ca: e.target.value })} placeholder="CA" style={{ ...input, marginTop: 4 }} /></div>
+        <div><label>🧮 Quantidade</label><div style={{ display: 'flex', gap: 6, marginTop: 6 }}>{[1, 2, 3, 5, 10].map(q => <button key={q} type="button" onClick={() => setForm({ ...form, quantidade: q })} style={{ flex: 1, padding: '10px', borderRadius: 12, border: (form.quantidade || 1) === q ? '2px solid #059669' : '1px solid #e2e8f0', background: (form.quantidade || 1) === q ? '#d1fae5' : 'white', fontWeight: 800 }}>{q}</button>)}</div></div>
+        <div><label>👷 Funcionário - digita nome OU CPF</label><input value={form.funcionario || ''} onChange={e => { setForm({ ...form, funcionario: e.target.value }); setPinDigitado(''); setPinVerificado(false) }} placeholder="Digita nome ou CPF..." style={{ ...input, marginTop: 4 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>{funcs.filter((f: any) => form.funcionario && (f.nome.toLowerCase().includes(form.funcionario.toLowerCase()) || (f.cpf || '').includes(form.funcionario))).slice(0, 5).map((f: any) => <button key={f.id} type="button" onClick={() => { setForm({ ...form, funcionario: f.nome }); setPinDigitado(''); setPinVerificado(false) }} style={{ ...btn, background: '#f0fdfa', textAlign: 'left' }}>{f.nome} - CPF: {f.cpf || '-'}</button>)}</div>
+          {funcSelEpi ? <div style={{ color: '#059669', fontWeight: 700, fontSize: 13, marginTop: 4 }}>✅ {funcSelEpi.nome} • CPF: {funcSelEpi.cpf}</div> : null}
+        </div>
+        <div><label>📅 Data da Entrega</label><div style={{ display: 'flex', gap: 8, marginTop: 4 }}><input type="date" value={form.data_entrega || ''} onChange={e => setForm({ ...form, data_entrega: e.target.value })} style={{ ...input, flex: 1 }} /><button type="button" onClick={() => setForm({ ...form, data_entrega: new Date().toISOString().split('T')[0] })} style={{ ...btn, background: '#e0f2fe' }}>📅 Hoje</button></div></div>
+        <div style={{ background: '#fef3c7', borderRadius: 16, padding: 14 }}>
+          <b>🔑 PIN de {funcSelEpi ? funcSelEpi.nome.split(' ')[0] : 'Funcionário'}</b><p style={{ fontSize: 12, color: '#92400e', margin: '4px 0' }}>Pede pro funcionário digitar o PIN DELE.</p>
+          <div style={{ display: 'flex', gap: 8 }}><input value={pinDigitado ? '•'.repeat(pinDigitado.length) : ''} readOnly placeholder="••••" style={{ ...input, textAlign: 'center', letterSpacing: 8, fontSize: 18 }} /><button type="button" onClick={verificarPIN} style={{ ...btn, background: '#92400e', color: 'white', padding: '12px 16px' }}>Verificar PIN</button></div>
+          {pinVerificado ? <div style={{ color: '#15803d', fontWeight: 800, fontSize: 13, marginTop: 6 }}>✅ PIN correto! Agora pede pra assinar abaixo.</div> : null}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6, marginTop: 10 }}>{['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].map(n => <button key={n} type="button" onClick={() => { if (pinDigitado.length < 4) setPinDigitado(pinDigitado + n) }} style={{ padding: '10px', borderRadius: 10, border: '1px solid #e2e8f0', background: 'white', fontWeight: 800 }}>{n}</button>)}<button type="button" onClick={() => setPinDigitado(pinDigitado.slice(0, -1))} style={{ padding: '10px', borderRadius: 10, border: '1px solid #e2e8f0', background: '#fee2e2' }}>⌫</button></div>
+        </div>
+        <div style={{ border: '2px dashed #0d9488', borderRadius: 16, padding: 14 }}>
+          <b>✍️ Assinatura de {funcSelEpi ? funcSelEpi.nome.split(' ')[0] : 'Funcionário'} - assina com o dedo aqui!</b><p style={{ fontSize: 12, color: '#64748b' }}>Entrega o celular pra ele assinar dentro do quadrado. Depois que assinar, o PDF já sai com essa assinatura.</p>
+          <canvas ref={canvasRef} width={460} height={140} style={{ width: '100%', height: 140, background: 'white', borderRadius: 12, border: '1px solid #e2e8f0', touchAction: 'none' }}
+            onMouseDown={(e: any) => { desenhando.current = true; const c = canvasRef.current; const ctx = c.getContext('2d'); const p = posCanvas(e); ctx.beginPath(); ctx.moveTo(p.x, p.y) }}
+            onMouseMove={(e: any) => { if (!desenhando.current) return; const c = canvasRef.current; const ctx = c.getContext('2d'); const p = posCanvas(e); ctx.lineTo(p.x, p.y); ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 2; ctx.stroke(); setAssinaturaFeita(true) }}
+            onMouseUp={() => desenhando.current = false}
+            onMouseLeave={() => desenhando.current = false}
+            onTouchStart={(e: any) => { desenhando.current = true; const c = canvasRef.current; const ctx = c.getContext('2d'); const p = posCanvas(e); ctx.beginPath(); ctx.moveTo(p.x, p.y) }}
+            onTouchMove={(e: any) => { if (!desenhando.current) return; e.preventDefault(); const c = canvasRef.current; const ctx = c.getContext('2d'); const p = posCanvas(e); ctx.lineTo(p.x, p.y); ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 2; ctx.stroke(); setAssinaturaFeita(true) }}
+            onTouchEnd={() => desenhando.current = false}
+          />
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}><button type="button" onClick={limparAssinatura} style={{ ...btn, background: '#fee2e2' }}>Limpar assinatura</button>{assinaturaFeita ? <span style={{ color: '#15803d', fontWeight: 800, fontSize: 13 }}>✅ Assinatura pronta!</span> : null}</div>
+        </div>
+      </div> : <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>{(CAMPOS[aba] || []).map((c: any) => { if (c.k === 'empresa' && usuario?.tipo === 'empresa') return null; if (c.k === 'setor' && aba === 'funcionarios') return <div key={c.k}><label>Setor</label><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>{SETORES.map(s => <button key={s} type="button" onClick={() => setForm({ ...form, setor: s })} style={{ padding: '8px 12px', borderRadius: 20, border: (form.setor || 'Vendas') === s ? '2px solid #0d9488' : '1px solid #e2e8f0', background: (form.setor || 'Vendas') === s ? '#ccfbf1' : 'white' }}>{s}</button>)}</div></div>; return <div key={c.k}><label>{c.l}</label><input type={c.k === 'data' || c.k === 'vencimento' ? 'date' : 'text'} value={form[c.k] || ''} onChange={e => setForm({ ...form, [c.k]: e.target.value })} style={{ ...input, marginTop: 4 }} /></div> })}{aba === 'funcionarios' && <div><label>PIN</label><input value={form.pin || ''} onChange={e => setForm({ ...form, pin: e.target.value.replace(/\D/g, '').slice(0, 4) })} style={{ ...input, marginTop: 4 }} /></div>}</div>}
+      <div style={{ display: 'flex', gap: 10, marginTop: 20 }}><button onClick={() => setModal(false)} style={{ ...btn, flex: 1, background: '#f1f5f9' }}>Cancelar</button><button onClick={salvar} style={{ ...btn, flex: 1, background: '#0d9488', color: 'white' }}>Salvar</button></div></div></div>}
   </div>
 }

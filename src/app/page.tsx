@@ -41,8 +41,9 @@ const [buscaEpi,setBuscaEpi]=useState('')
 const [pinDigitado,setPinDigitado]=useState('')
 const [pinVerificado,setPinVerificado]=useState(false)
 const [assinaturaFeita,setAssinaturaFeita]=useState(false)
-const [bioStatus,setBioStatus]=useState<'aguardando'|'lendo'|'ok'>('aguardando')
+const [bioStatus,setBioStatus]=useState<'aguardando'|'lendo'|'ok'|'recusada'>('aguardando')
 const [bioMsg,setBioMsg]=useState('')
+const [metodo,setMetodo]=useState<'pin'|'digital'|'assinatura'|''>('')
 const [tecnico,setTecnico]=useState({nome:'Cristiano Vicente',funcao:'Técnico de Segurança do Trabalho',formacao:'Técnico de Segurança do Trabalho',crea:'',crm:'',art:'',mte:'',cnpj:'',telefone:'',email:'',empresaLaudo:'',enderecoEmpresa:''})
 const [filtroExt,setFiltroExt]=useState('Todos')
 const [filtroDoc,setFiltroDoc]=useState('Todos')
@@ -50,8 +51,13 @@ const [filtroInsp,setFiltroInsp]=useState('Todos')
 const [senhaClienteTemp,setSenhaClienteTemp]=useState<any>({})
 const canvasRef=useRef<any>(null)
 const desenhando=useRef(false)
-const formasConfirmadas=(pinVerificado?1:0)+(bioStatus==='ok'?1:0)+(assinaturaFeita?1:0)
-const podeSalvarEpi=formasConfirmadas>=1
+const podeSalvarEpi=(metodo==='pin'&&pinVerificado)||(metodo==='digital'&&bioStatus==='ok')||(metodo==='assinatura'&&assinaturaFeita)
+function escolherMetodo(m:'pin'|'digital'|'assinatura'){
+setMetodo(m)
+if(m==='pin'){setBioStatus('aguardando');setBioMsg('');setAssinaturaFeita(false);limparAssinatura()}
+if(m==='digital'){setPinVerificado(false);setPinDigitado('');setAssinaturaFeita(false);limparAssinatura()}
+if(m==='assinatura'){setPinVerificado(false);setPinDigitado('');setBioStatus('aguardando');setBioMsg('')}
+}
 useEffect(()=>{const s=localStorage.getItem('previx_session');if(s){try{setUsuario(JSON.parse(s))}catch{}}const t=localStorage.getItem('previx_tecnico');if(t){try{setTecnico({nome:'Cristiano Vicente',funcao:'Técnico de Segurança do Trabalho',formacao:'Técnico de Segurança do Trabalho',crea:'',crm:'',art:'',mte:'',cnpj:'',telefone:'',email:'',empresaLaudo:'',enderecoEmpresa:'',...JSON.parse(t)})}catch{}}carregar();setCarregando(false)},[])
 function salvarTecnico(){localStorage.setItem('previx_tecnico',JSON.stringify(tecnico));alert('✅ Dados salvos!')}
 function carregar(){
@@ -153,22 +159,16 @@ function sair(){setUsuario(null);localStorage.removeItem('previx_session');setLo
 function abrirNovo(){
 setEditando(null)
 setForm({})
+setMetodo('')
+setPinDigitado('');setPinVerificado(false);setAssinaturaFeita(false);setBioStatus('aguardando');setBioMsg('')
 if(aba==='empresas')setForm({senha:gerarSenha(),status:'Ativa',dicaSenha:''})
 if(aba==='funcionarios')setForm({empresa:usuario?.tipo==='empresa'?usuario.empresa:'',pin:gerarPIN(),setor:'Vendas'})
 if(aba==='epis'){
 setForm({empresa:usuario?.tipo==='empresa'?usuario.empresa:'',data_entrega:new Date().toISOString().split('T')[0],quantidade:1,tipo:'',modelo:''})
-setPinDigitado('');setPinVerificado(false);setAssinaturaFeita(false);setBioStatus('aguardando');setBioMsg('')
 setTimeout(()=>{const c=canvasRef.current;if(c){const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height)}},100)
 }
 if(aba==='exames'){
-setForm({
-data:diaSel,
-clinica:clinicaSel,
-tipo:'Periódico',
-resultado:'Pendente',
-empresa:usuario?.tipo==='empresa'?usuario.empresa:'',
-nome:''
-})
+setForm({data:diaSel,clinica:clinicaSel,tipo:'Periódico',resultado:'Pendente',empresa:usuario?.tipo==='empresa'?usuario.empresa:'',nome:''})
 }
 if(aba==='inspecoes'){
 const tipo0='Visita Técnica Geral'
@@ -181,13 +181,29 @@ if(aba==='clinicas')setForm({status:'Ativa',convenio:'Vigente',cnpj:''})
 if(aba==='extintores')setForm({empresa:usuario?.tipo==='empresa'?usuario.empresa:'',tipo:'PQS 6kg',vencimento:new Date().toISOString().split('T')[0]})
 setModal(true)
 }
-function abrirEditar(item:any){setEditando(item);setForm({...item});setPinDigitado('');setPinVerificado(!!item.pinVerificado);setAssinaturaFeita(!!item.assinaturaImg);setBioStatus(item.biometria?'ok':'aguardando');setBioMsg(item.biometria||'');setModal(true)}
+function abrirEditar(item:any){
+setEditando(item);setForm({...item});setPinDigitado('');setPinVerificado(!!item.pinVerificado);setAssinaturaFeita(!!item.assinaturaImg);setBioStatus(item.biometria?'ok':'aguardando');setBioMsg(item.biometria||'')
+if(item.pinVerificado)setMetodo('pin');else if(item.biometria)setMetodo('digital');else if(item.assinaturaImg)setMetodo('assinatura');else setMetodo('')
+setModal(true)
+}
 function verificarPIN(){
 const func=(dados.funcionarios||[]).find((f:any)=>f.nome===form.funcionario)||(dados.funcionarios||[]).find((f:any)=>(f.cpf||'')===form.funcionario)
 if(!func){alert('Primeiro escolhe o funcionário!');return}
-if(pinDigitado===String(func.pin)){setPinVerificado(true);alert('✅ PIN correto!')}else{setPinVerificado(false);alert('❌ PIN incorreto. O PIN desse funcionário é '+func.pin+' - confere lá em Funcionários.')}
+if(metodo!=='pin'){alert('Primeiro escolhe o método PIN lá em cima!');return}
+if(pinDigitado===String(func.pin)){setPinVerificado(true);alert('✅ PIN correto! Pode salvar.')}else{setPinVerificado(false);alert('❌ PIN incorreto.')}
 }
-async function coletarBiometria(){if(!form.funcionario){alert('Primeiro escolhe o funcionário!');return}setBioStatus('lendo');setBioMsg('Lendo digital...');setTimeout(()=>{setBioStatus('ok');setBioMsg('Digital coletada - '+new Date().toLocaleString('pt-BR'))},1500)}
+function iniciarDigital(){
+if(!form.funcionario){alert('Primeiro escolhe o funcionário!');return}
+if(metodo!=='digital'){alert('Primeiro escolhe o método Digital!');return}
+setBioStatus('lendo');setBioMsg('👆 Coloque o dedo do funcionário no leitor... Aguardando leitura...')
+}
+function confirmarDigitalOK(){
+setBioStatus('ok');setBioMsg('✅ Digital conferida - é do funcionário '+form.funcionario+' - '+new Date().toLocaleString('pt-BR'))
+}
+function recusarDigital(){
+setBioStatus('recusada');setBioMsg('❌ Digital recusada - NÃO é do funcionário '+form.funcionario+'. Tente novamente ou use PIN / Assinatura.')
+setTimeout(()=>{setBioStatus('aguardando');setBioMsg('')},2500)
+}
 function limparAssinatura(){const c=canvasRef.current;if(c){const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height)}setAssinaturaFeita(false)}
 function posCanvas(e:any){const c=canvasRef.current;const r=c.getBoundingClientRect();const t=e.touches?.[0]||e;return{x:t.clientX-r.left,y:t.clientY-r.top}}
 function subirFotoExtintor(e:any){const file=e.target.files?.[0];if(!file)return;const reader=new FileReader();reader.onload=()=>setForm({...form,foto:reader.result});reader.readAsDataURL(file)}
@@ -199,7 +215,21 @@ if(!aba||aba==='inicio')return
 const f={...form}
 if(aba==='funcionarios'){if(!f.pin)f.pin=gerarPIN();if(!f.nome){alert('Coloca o nome!');return}if(!f.setor)f.setor='Vendas'}
 if(aba==='exames'){if(!f.nome){alert('Escolhe o funcionário!');return}f.data=limparData(f.data)||new Date().toISOString().split('T')[0];f.funcionario=f.nome;if(!f.clinica)f.clinica=clinicaSel}
-if(aba==='epis'){if(!f.nome){alert('Escolhe o EPI!');return}if(!f.funcionario){alert('Digita nome OU CPF!');return}if(!podeSalvarEpi){alert('Escolhe 1 forma: PIN OU Digital OU Assinatura');return}const c=canvasRef.current;f.assinaturaImg=assinaturaFeita&&c?c.toDataURL():f.assinaturaImg||'';f.pinVerificado=pinVerificado;f.biometria=bioStatus==='ok'?(bioMsg||'Biometria OK'):'';f.quantidade=f.quantidade||1;f.formaConfirmacao=(pinVerificado?'PIN ':'')+(bioStatus==='ok'?'Digital ':'')+(assinaturaFeita?'Assinatura':'')}
+if(aba==='epis'){
+if(!f.nome){alert('Escolhe o EPI!');return}
+if(!f.funcionario){alert('Digita nome OU CPF!');return}
+if(!metodo){alert('Escolhe como vai assinar: PIN OU Digital OU Assinatura');return}
+if(metodo==='pin'&&!pinVerificado){alert('Você escolheu PIN. Digita o PIN e clica em Verificar PIN antes de salvar.');return}
+if(metodo==='digital'&&bioStatus!=='ok'){alert('Você escolheu Digital. Coloque o dedo e confirme que é a digital do funcionário antes de salvar.');return}
+if(metodo==='assinatura'&&!assinaturaFeita){alert('Você escolheu Assinatura. Assina no quadro antes de salvar.');return}
+const c=canvasRef.current
+f.assinaturaImg=(metodo==='assinatura'&&assinaturaFeita&&c)?c.toDataURL():f.assinaturaImg||''
+f.pinVerificado=metodo==='pin'&&pinVerificado
+f.biometria=metodo==='digital'&&bioStatus==='ok'?(bioMsg||'Biometria OK'):''
+f.quantidade=f.quantidade||1
+f.formaConfirmacao=metodo==='pin'?'PIN':metodo==='digital'?'Digital':'Assinatura'
+f.metodoConfirmacao=metodo
+}
 if(aba==='inspecoes'){if(!f.titulo){alert('Coloca o título!');return}if(!f.tipoInspecao)f.tipoInspecao='Visita Técnica Geral';f.tipo=f.tipoInspecao;if(f.cnpjEmpresa)f.cnpjEmpresa=mascaraCNPJ(f.cnpjEmpresa);if(!f.checklist||!f.checklist.length){const itens=TIPOS_INSPECAO.find(t=>t.id===f.tipoInspecao)?.itens||['Item 1'];f.checklist=itens.map((it:string)=>({item:it,status:'Conforme',obs:''}))}}
 if(aba==='extintores'){if(!f.localizacao&&!f.nome){alert('Coloca a localização!');return}if(!f.vencimento){alert('Coloca o vencimento!');return}f.nome=f.localizacao||f.nome||'Extintor'}
 if(aba==='documentos'){if(!f.titulo){alert('Coloca o título!');return}if(!f.pasta)f.pasta='PGR';f.tipo=f.pasta}
@@ -210,25 +240,14 @@ if(aba==='financeiro'&&!f.descricao){alert('Descrição!');return}
 if(usuario?.tipo==='empresa')f.empresa=usuario.empresa
 const lista=[...(dados[aba]||[])]
 if(editando){const id=editando.id||editando._id;const idx=lista.findIndex((x:any)=>(x.id||x._id)===id);if(idx>=0)lista[idx]={...lista[idx],...f};const nd={...dados,[aba]:lista};setDados(nd);salvarNav(nd)}
-else{const novo={...f,id:Date.now().toString(),status:f.status||'Ativa'};lista.push(novo);const nd={...dados,[aba]:lista};setDados(nd);salvarNav(nd);if(aba==='funcionarios')alert('✅ '+novo.nome+' • PIN: '+novo.pin);if(aba==='epis')alert('✅ Entrega confirmada')}
-setModal(false);setForm({});setEditando(null)
+else{const novo={...f,id:Date.now().toString(),status:f.status||'Ativa'};lista.push(novo);const nd={...dados,[aba]:lista};setDados(nd);salvarNav(nd);if(aba==='funcionarios')alert('✅ '+novo.nome+' • PIN: '+novo.pin);if(aba==='epis')alert('✅ Entrega confirmada por '+f.formaConfirmacao)}
+setModal(false);setForm({});setEditando(null);setMetodo('')
 }
 function excluir(item:any){if(!confirm('Excluir '+(item.nome||item.titulo||item.descricao||'registro')+'?'))return;const id=item.id||item._id;const nl=(dados[aba]||[]).filter((x:any)=>(x.id||x._id)!==id);const nd={...dados,[aba]:nl};setDados(nd);salvarNav(nd)}
 function confirmarAgendamento(){
 if(!funcAgend){alert('Escolhe o funcionário!');return}
 if(tiposSel.length===0){alert('Marca 1 tipo!');return}
-const novos=tiposSel.map(t=>{
-return {
-id:Date.now().toString()+Math.random().toString().slice(2,6),
-nome:funcAgend,
-funcionario:funcAgend,
-tipo:t,
-data:diaSel,
-clinica:clinicaSel,
-empresa:usuario?.tipo==='empresa'?usuario.empresa:'',
-resultado:'Pendente'
-}
-})
+const novos=tiposSel.map(t=>{return {id:Date.now().toString()+Math.random().toString().slice(2,6),nome:funcAgend,funcionario:funcAgend,tipo:t,data:diaSel,clinica:clinicaSel,empresa:usuario?.tipo==='empresa'?usuario.empresa:'',resultado:'Pendente'}})
 const nd={...dados,exames:[...(dados.exames||[]),...novos]}
 setDados(nd);salvarNav(nd);alert('✅ Agendado! '+funcAgend+' • '+clinicaSel+' • '+fmtData(diaSel));setTiposSel([]);setFuncAgend('')
 }
@@ -358,7 +377,7 @@ return (
 </div>
 <button onClick={salvarTecnico} style={{...btn,background:'#0d9488',color:'white',padding:'12px 20px',borderRadius:20,marginTop:12}}>💾 Salvar dados do laudo</button>
 </div>
-<div style={{background:'white',borderRadius:24,padding:20,marginTop:20}}><h3>📄 Gerador de PDF Profissional</h3><p style={{fontSize:13,color:'#64748b'}}>Todos com cabeçalho PREVIX SST, assinatura e rodapé. Clica e já abre pronto pra imprimir.</p><div style={{display:'flex',gap:10,flexWrap:'wrap'}}><button onClick={()=>gerarLaudo('PGR')} style={{...btn,background:'#0d9488',color:'white',padding:'12px 18px',borderRadius:20}}>📄 PGR</button><button onClick={()=>gerarLaudo('LTCAT')} style={{...btn,background:'#2563eb',color:'white',padding:'12px 18px',borderRadius:20}}>📄 LTCAT</button><button onClick={()=>gerarLaudo('LIP')} style={{...btn,background:'#f59e0b',color:'white',padding:'12px 18px',borderRadius:20}}>📄 LIP</button><button onClick={()=>gerarLaudo('PCMSO')} style={{...btn,background:'#22c55e',color:'white',padding:'12px 18px',borderRadius:20}}>📄 PCMSO</button><button onClick={gerarRelatorioExtintores} style={{...btn,background:'#dc2626',color:'white',padding:'12px 18px',borderRadius:20}}>🧯 Extintores</button><button onClick={gerarRelatorioDocumentos} style={{...btn,background:'#0f172a',color:'white',padding:'12px 18px',borderRadius:20}}>📄 Documentos</button><button onClick={gerarRelatorioExames} style={{...btn,background:'#0ea5e9',color:'white',padding:'12px 18px',borderRadius:20}}>🩺 Exames</button></div></div>
+<div style={{background:'white',borderRadius:24,padding:20,marginTop:20}}><h3>📄 Gerador de PDF Profissional</h3><p style={{fontSize:13,color:'#64748b'}}>Todos com cabeçalho PREVIX SST, assinatura e rodapé.</p><div style={{display:'flex',gap:10,flexWrap:'wrap'}}><button onClick={()=>gerarLaudo('PGR')} style={{...btn,background:'#0d9488',color:'white',padding:'12px 18px',borderRadius:20}}>📄 PGR</button><button onClick={()=>gerarLaudo('LTCAT')} style={{...btn,background:'#2563eb',color:'white',padding:'12px 18px',borderRadius:20}}>📄 LTCAT</button><button onClick={()=>gerarLaudo('LIP')} style={{...btn,background:'#f59e0b',color:'white',padding:'12px 18px',borderRadius:20}}>📄 LIP</button><button onClick={()=>gerarLaudo('PCMSO')} style={{...btn,background:'#22c55e',color:'white',padding:'12px 18px',borderRadius:20}}>📄 PCMSO</button><button onClick={gerarRelatorioExtintores} style={{...btn,background:'#dc2626',color:'white',padding:'12px 18px',borderRadius:20}}>🧯 Extintores</button><button onClick={gerarRelatorioDocumentos} style={{...btn,background:'#0f172a',color:'white',padding:'12px 18px',borderRadius:20}}>📄 Documentos</button><button onClick={gerarRelatorioExames} style={{...btn,background:'#0ea5e9',color:'white',padding:'12px 18px',borderRadius:20}}>🩺 Exames</button></div></div>
 {isAdmin && <div style={{background:'white',borderRadius:24,padding:20,marginTop:20}}><h3>Financeiro</h3><p>Total: R$ {totalFin.toFixed(2)} - Recebido: R$ {totalRec.toFixed(2)} - A receber: R$ {(totalFin-totalRec).toFixed(2)}</p><p>Exames vencidos: {exVenc} - Realizados: {exReal}</p></div>}
 {!isAdmin && <div style={{background:'white',borderRadius:24,padding:20,marginTop:20}}><p>Exames vencidos: {exVenc} - Realizados: {exReal}</p></div>}
 </div>
@@ -367,7 +386,7 @@ return (
 <div>
 <div style={{background:'white',borderRadius:24,padding:24,marginTop:4}}>
 <h2 style={{margin:0}}>⚙️ Minha Conta</h2>
-<p style={{color:'#64748b'}}>Troca de senha e dica, dentro do sistema. Nada no login.</p>
+<p style={{color:'#64748b'}}>Troca de senha e dica, dentro do sistema.</p>
 {isAdmin ? (
 <div style={{display:'flex',flexDirection:'column',gap:12,marginTop:16}}>
 <div style={{background:'#f0fdfa',borderRadius:16,padding:16}}><b>🔐 Minha senha de ADM - {getAdmin().login}</b>
@@ -388,15 +407,14 @@ return (
 <div><label style={{fontSize:12,fontWeight:800}}>💡 Dica da senha</label><input value={form.dicaSenha||minhaEmpresa?.dicaSenha||''} onChange={e=>setForm({...form,dicaSenha:e.target.value})} placeholder="Ex: Minha cidade + ano" style={{...input,marginTop:4}} /></div>
 </div>
 <button onClick={salvarMinhaSenhaCliente} style={{...btn,background:'linear-gradient(90deg,#0d9488,#2563eb)',color:'white',padding:'12px 20px',borderRadius:14,marginTop:10}}>💾 Salvar minha senha + dica</button>
-<p style={{fontSize:12,color:'#92400e'}}>A dica não é a senha, é só uma lembrança.</p></div>
+</div>
 )}
 </div>
 {isAdmin && (
 <div style={{background:'white',borderRadius:24,padding:24,marginTop:16}}>
 <h3 style={{margin:0}}>👥 Alterar / Recuperar senha do cliente</h3>
-<p style={{fontSize:13,color:'#64748b'}}>Você vê a dica do cliente e pode resetar a senha dele na hora.</p>
 <input placeholder="Buscar cliente..." value={busca} onChange={e=>setBusca(e.target.value)} style={{...input,marginTop:12}} />
-<div style={{display:'flex',flexDirection:'column',gap:12,marginTop:12}}>{(dados.empresas||[]).filter((e:any)=>JSON.stringify(e).toLowerCase().includes(busca.toLowerCase())).map((emp:any)=>{const tmp=senhaClienteTemp[emp.id]||{nova:'',dica:emp.dicaSenha||''};return (<div key={emp.id} style={{border:'1px solid #e2e8f0',borderRadius:16,padding:16}}><div style={{display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:8}}><div><b>🏢 {emp.nome}</b><div style={{fontSize:13,color:'#64748b'}}>Login: <b>{emp.login}</b> • Responsável: {emp.responsavel||'-'}</div><div style={{fontSize:13}}>💡 Dica atual: <b>{emp.dicaSenha||'Sem dica cadastrada'}</b></div></div><button onClick={()=>{const nova=gerarSenha();salvarSenhaCliente(emp,nova,tmp.dica)}} style={{...btn,background:'#f59e0b',color:'white'}}>🔄 Gerar senha automática</button></div><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:10,marginTop:12}}><div><label style={{fontSize:12,fontWeight:800}}>Nova senha do cliente</label><input value={tmp.nova} onChange={e=>setSenhaClienteTemp({...senhaClienteTemp,[emp.id]:{...tmp,nova:e.target.value}})} placeholder="Digita a nova senha" style={{...input,marginTop:4}} /></div><div><label style={{fontSize:12,fontWeight:800}}>💡 Dica da senha</label><input value={tmp.dica} onChange={e=>setSenhaClienteTemp({...senhaClienteTemp,[emp.id]:{...tmp,dica:e.target.value}})} placeholder="Ex: nome da loja + ano" style={{...input,marginTop:4}} /></div></div><button onClick={()=>salvarSenhaCliente(emp,tmp.nova,tmp.dica)} style={{...btn,background:'#0d9488',color:'white',padding:'12px 20px',borderRadius:14,marginTop:10}}>💾 Salvar nova senha + dica</button></div>)})}</div>
+<div style={{display:'flex',flexDirection:'column',gap:12,marginTop:12}}>{(dados.empresas||[]).filter((e:any)=>JSON.stringify(e).toLowerCase().includes(busca.toLowerCase())).map((emp:any)=>{const tmp=senhaClienteTemp[emp.id]||{nova:'',dica:emp.dicaSenha||''};return (<div key={emp.id} style={{border:'1px solid #e2e8f0',borderRadius:16,padding:16}}><div style={{display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:8}}><div><b>🏢 {emp.nome}</b><div style={{fontSize:13,color:'#64748b'}}>Login: <b>{emp.login}</b> • Responsável: {emp.responsavel||'-'}</div><div style={{fontSize:13}}>💡 Dica atual: <b>{emp.dicaSenha||'Sem dica'}</b></div></div><button onClick={()=>{const nova=gerarSenha();salvarSenhaCliente(emp,nova,tmp.dica)}} style={{...btn,background:'#f59e0b',color:'white'}}>🔄 Gerar senha automática</button></div><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:10,marginTop:12}}><div><label style={{fontSize:12,fontWeight:800}}>Nova senha do cliente</label><input value={tmp.nova} onChange={e=>setSenhaClienteTemp({...senhaClienteTemp,[emp.id]:{...tmp,nova:e.target.value}})} placeholder="Digita a nova senha" style={{...input,marginTop:4}} /></div><div><label style={{fontSize:12,fontWeight:800}}>💡 Dica da senha</label><input value={tmp.dica} onChange={e=>setSenhaClienteTemp({...senhaClienteTemp,[emp.id]:{...tmp,dica:e.target.value}})} placeholder="Ex: nome da loja + ano" style={{...input,marginTop:4}} /></div></div><button onClick={()=>salvarSenhaCliente(emp,tmp.nova,tmp.dica)} style={{...btn,background:'#0d9488',color:'white',padding:'12px 20px',borderRadius:14,marginTop:10}}>💾 Salvar nova senha + dica</button></div>)})}</div>
 </div>
 )}
 </div>
@@ -471,30 +489,54 @@ return (
 <div><label>Tipo / Modelo</label><input value={form.tipo||''} onChange={e=>setForm({...form,tipo:e.target.value})} style={{...input,marginTop:4}} /></div>
 <div><label>CA</label><input value={form.ca||''} onChange={e=>setForm({...form,ca:e.target.value})} style={{...input,marginTop:4}} /></div>
 <div><label>Quantidade</label><div style={{display:'flex',gap:6,marginTop:6}}>{[1,2,3,5,10].map(q=><button key={q} type="button" onClick={()=>setForm({...form,quantidade:q})} style={{flex:1,padding:'10px',borderRadius:12,border:(form.quantidade||1)===q?'2px solid #059669':'1px solid #e2e8f0',background:(form.quantidade||1)===q?'#d1fae5':'white',fontWeight:800}}>{q}</button>)}</div></div>
-<div><label>👷 Funcionário - nome OU CPF</label><input value={form.funcionario||''} onChange={e=>{setForm({...form,funcionario:e.target.value});setPinDigitado('');setPinVerificado(false);setBioStatus('aguardando');setBioMsg('');setAssinaturaFeita(false)}} placeholder="Digita nome ou CPF..." style={{...input,marginTop:4}} /><div style={{display:'flex',flexDirection:'column',gap:4,marginTop:6}}>{(dados.funcionarios||[]).filter((f:any)=>form.funcionario&&form.funcionario.length>=2&&(f.nome.toLowerCase().includes(form.funcionario.toLowerCase())||(f.cpf||'').includes(form.funcionario))).slice(0,5).map((f:any)=><button key={f.id} type="button" onClick={()=>setForm({...form,funcionario:f.nome})} style={{...btn,background:'#f0fdfa',textAlign:'left'}}>👷 {f.nome} • CPF: {f.cpf||'-'} • PIN: {f.pin}</button>)}</div></div>
+<div><label>👷 Funcionário - nome OU CPF</label><input value={form.funcionario||''} onChange={e=>{setForm({...form,funcionario:e.target.value});setPinDigitado('');setPinVerificado(false);setBioStatus('aguardando');setBioMsg('');setAssinaturaFeita(false);setMetodo('')}} placeholder="Digita nome ou CPF..." style={{...input,marginTop:4}} /><div style={{display:'flex',flexDirection:'column',gap:4,marginTop:6}}>{(dados.funcionarios||[]).filter((f:any)=>form.funcionario&&form.funcionario.length>=2&&(f.nome.toLowerCase().includes(form.funcionario.toLowerCase())||(f.cpf||'').includes(form.funcionario))).slice(0,5).map((f:any)=><button key={f.id} type="button" onClick={()=>setForm({...form,funcionario:f.nome})} style={{...btn,background:'#f0fdfa',textAlign:'left'}}>👷 {f.nome} • CPF: {f.cpf||'-'} • PIN: {f.pin}</button>)}</div></div>
 <div><label>Data Entrega</label><input type="date" value={form.data_entrega||''} onChange={e=>setForm({...form,data_entrega:e.target.value})} style={{...input,marginTop:4}} /></div>
 <div style={{background:'#fef3c7',borderRadius:14,padding:12}}>
-<b>✅ Escolhe 1 forma:</b><div style={{fontSize:12,marginTop:4}}>{formasConfirmadas} de 3 - precisa de 1</div>
+<b>✅ Como o funcionário vai assinar? Escolhe 1 - obrigatório</b>
+<div style={{fontSize:12,marginTop:4}}>Método atual: <b>{metodo===''?'Nenhum - escolhe abaixo':metodo==='pin'?'PIN':metodo==='digital'?'Digital':'Assinatura'}</b> • Status: <b>{podeSalvarEpi?'✅ Liberado pra salvar':'❌ Falta confirmar'}</b></div>
 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginTop:10}}>
-<button type="button" onClick={()=>{if(pinVerificado){setPinVerificado(false);setPinDigitado('')}}} style={{padding:12,borderRadius:12,border:pinVerificado?'2px solid #059669':'1px solid #e2e8f0',background:pinVerificado?'#d1fae5':'white',fontWeight:800}}>🔢 PIN {pinVerificado?'✅':''}</button>
-<button type="button" onClick={coletarBiometria} style={{padding:12,borderRadius:12,border:bioStatus==='ok'?'2px solid #059669':'1px solid #e2e8f0',background:bioStatus==='ok'?'#d1fae5':'white',fontWeight:800}}>👆 Digital {bioStatus==='ok'?'✅':''}</button>
-<button type="button" onClick={()=>setAssinaturaFeita(!assinaturaFeita)} style={{padding:12,borderRadius:12,border:assinaturaFeita?'2px solid #059669':'1px solid #e2e8f0',background:assinaturaFeita?'#d1fae5':'white',fontWeight:800}}>✍️ Assinatura {assinaturaFeita?'✅':''}</button>
+<button type="button" onClick={()=>escolherMetodo('pin')} style={{padding:12,borderRadius:12,border:metodo==='pin'?'2px solid #059669':'1px solid #e2e8f0',background:metodo==='pin'?'#d1fae5':'white',fontWeight:800}}>🔢 PIN {metodo==='pin'&&pinVerificado?'✅':''}</button>
+<button type="button" onClick={()=>escolherMetodo('digital')} style={{padding:12,borderRadius:12,border:metodo==='digital'?'2px solid #059669':'1px solid #e2e8f0',background:metodo==='digital'?'#d1fae5':'white',fontWeight:800}}>👆 Digital {metodo==='digital'&&bioStatus==='ok'?'✅':''}</button>
+<button type="button" onClick={()=>escolherMetodo('assinatura')} style={{padding:12,borderRadius:12,border:metodo==='assinatura'?'2px solid #059669':'1px solid #e2e8f0',background:metodo==='assinatura'?'#d1fae5':'white',fontWeight:800}}>✍️ Assinatura {metodo==='assinatura'&&assinaturaFeita?'✅':''}</button>
 </div>
+{metodo==='pin' && (
 <div style={{background:'white',borderRadius:12,padding:12,marginTop:12,border:'2px solid #0d9488'}}>
 <b>🔢 Digita o PIN do funcionário:</b>
 <div style={{display:'flex',gap:8,marginTop:8}}>
-<input value={pinDigitado} onChange={e=>setPinDigitado(e.target.value)} placeholder="Ex: 7227 - PIN que está no cadastro" style={{...input}} />
+<input value={pinDigitado} onChange={e=>setPinDigitado(e.target.value)} placeholder="PIN que está no cadastro do funcionário" style={{...input}} />
 <button type="button" onClick={verificarPIN} style={{...btn,background:'#0d9488',color:'white',whiteSpace:'nowrap'}}>Verificar PIN</button>
 </div>
-{pinVerificado ? <div style={{fontSize:12,marginTop:8,fontWeight:800,color:'#059669'}}>✅ PIN correto! Pode salvar a entrega.</div> : <div style={{fontSize:12,marginTop:8,color:'#92400e'}}>Digita o PIN que você cadastrou pro funcionário e clica em Verificar PIN. Se esquecer, olha em Funcionários - lá mostra o PIN.</div>}
-{bioStatus!=='aguardando' && <div style={{fontSize:12,marginTop:8,fontWeight:700}}>{bioMsg}</div>}
+{pinVerificado ? <div style={{fontSize:12,marginTop:8,fontWeight:800,color:'#059669'}}>✅ PIN correto! Pode salvar.</div> : <div style={{fontSize:12,marginTop:8,color:'#92400e'}}>Só o PIN do funcionário funciona. Se errar, não salva.</div>}
 </div>
-<div style={{marginTop:12}}><b>✍️ Assina aqui:</b><canvas ref={canvasRef} width={460} height={150} style={{width:'100%',height:150,border:'2px dashed #0d9488',borderRadius:12,background:'white',touchAction:'none',marginTop:6}} onMouseDown={e=>{desenhando.current=true;const c=canvasRef.current;const ctx=c.getContext('2d');ctx.beginPath();const p=posCanvas(e);ctx.moveTo(p.x,p.y)}} onMouseMove={e=>{if(!desenhando.current)return;const c=canvasRef.current;const ctx=c.getContext('2d');const p=posCanvas(e);ctx.lineTo(p.x,p.y);ctx.strokeStyle='#0f172a';ctx.lineWidth=2;ctx.stroke();setAssinaturaFeita(true)}} onMouseUp={()=>{desenhando.current=false}} onMouseLeave={()=>{desenhando.current=false}} onTouchStart={e=>{desenhando.current=true;const c=canvasRef.current;const ctx=c.getContext('2d');ctx.beginPath();const p=posCanvas(e);ctx.moveTo(p.x,p.y)}} onTouchMove={e=>{if(!desenhando.current)return;const c=canvasRef.current;const ctx=c.getContext('2d');const p=posCanvas(e);ctx.lineTo(p.x,p.y);ctx.strokeStyle='#0f172a';ctx.lineWidth=2;ctx.stroke();setAssinaturaFeita(true)}} onTouchEnd={()=>{desenhando.current=false}} /><button type="button" onClick={limparAssinatura} style={{...btn,background:'#fee2e2',marginTop:6}}>🧹 Limpar</button></div>
+)}
+{metodo==='digital' && (
+<div style={{background:'white',borderRadius:12,padding:12,marginTop:12,border:'2px solid #2563eb'}}>
+<b>👆 Digital - precisa colocar o dedo</b>
+<p style={{fontSize:12,margin:'6px 0'}}>Funcionário: <b>{form.funcionario||'Escolhe o funcionário primeiro'}</b></p>
+{bioStatus==='aguardando' && (<><button type="button" onClick={iniciarDigital} style={{...btn,background:'#2563eb',color:'white',padding:'12px 20px',borderRadius:12}}>👆 Ler Digital - Colocar o dedo</button><p style={{fontSize:12,color:'#64748b'}}>Não aprova sozinho. Você precisa colocar o dedo e confirmar.</p></>)}
+{bioStatus==='lendo' && (<div style={{background:'#fef9c3',borderRadius:10,padding:12}}><b>👆 Aguardando dedo no leitor...</b><p style={{fontSize:12}}>Coloque o dedo do funcionário <b>{form.funcionario}</b> no leitor agora.</p><p style={{fontSize:12}}>Depois confirma abaixo se a digital é dele:</p><div style={{display:'flex',gap:8,marginTop:8}}><button type="button" onClick={confirmarDigitalOK} style={{...btn,background:'#16a34a',color:'white',flex:1}}>✅ Sim, é a digital dele</button><button type="button" onClick={recusarDigital} style={{...btn,background:'#dc2626',color:'white',flex:1}}>❌ Não, recusar</button></div><p style={{fontSize:11,color:'#92400e'}}>Se clicar em Recusar, a digital é rejeitada e não deixa salvar.</p></div>)}
+{bioStatus==='ok' && <div style={{fontSize:12,fontWeight:800,color:'#059669'}}>✅ Digital conferida! Pode salvar.</div>}
+{bioStatus==='recusada' && <div style={{fontSize:12,fontWeight:800,color:'#dc2626'}}>❌ Digital recusada! Tente de novo ou use PIN / Assinatura.</div>}
+<div style={{fontSize:12,marginTop:8}}>{bioMsg}</div>
+</div>
+)}
+{metodo==='assinatura' && (
+<div style={{background:'white',borderRadius:12,padding:12,marginTop:12,border:'2px solid #f59e0b'}}>
+<b>✍️ Assinatura do funcionário:</b>
+<p style={{fontSize:12,color:'#64748b'}}>O funcionário assina no quadro abaixo. Só vale se assinar.</p>
+<canvas ref={canvasRef} width={460} height={150} style={{width:'100%',height:150,border:'2px dashed #0d9488',borderRadius:12,background:'white',touchAction:'none',marginTop:6}} onMouseDown={e=>{desenhando.current=true;const c=canvasRef.current;const ctx=c.getContext('2d');ctx.beginPath();const p=posCanvas(e);ctx.moveTo(p.x,p.y)}} onMouseMove={e=>{if(!desenhando.current)return;const c=canvasRef.current;const ctx=c.getContext('2d');const p=posCanvas(e);ctx.lineTo(p.x,p.y);ctx.strokeStyle='#0f172a';ctx.lineWidth=2;ctx.stroke();setAssinaturaFeita(true)}} onMouseUp={()=>{desenhando.current=false}} onMouseLeave={()=>{desenhando.current=false}} onTouchStart={e=>{desenhando.current=true;const c=canvasRef.current;const ctx=c.getContext('2d');ctx.beginPath();const p=posCanvas(e);ctx.moveTo(p.x,p.y)}} onTouchMove={e=>{if(!desenhando.current)return;const c=canvasRef.current;const ctx=c.getContext('2d');const p=posCanvas(e);ctx.lineTo(p.x,p.y);ctx.strokeStyle='#0f172a';ctx.lineWidth=2;ctx.stroke();setAssinaturaFeita(true)}} onTouchEnd={()=>{desenhando.current=false}} />
+<button type="button" onClick={limparAssinatura} style={{...btn,background:'#fee2e2',marginTop:6}}>🧹 Limpar assinatura</button>
+{assinaturaFeita ? <div style={{fontSize:12,marginTop:6,fontWeight:800,color:'#059669'}}>✅ Assinatura feita! Pode salvar.</div> : <div style={{fontSize:12,marginTop:6,color:'#92400e'}}>Assina no quadro pra liberar.</div>}
+</div>
+)}
+{metodo==='' && <div style={{fontSize:12,marginTop:10,color:'#92400e'}}>👆 Escolhe 1 método acima: PIN ou Digital ou Assinatura. Sem isso não salva.</div>}
 </div>
 </div>
 ):aba==='extintores' ? (
 <div style={{display:'flex',flexDirection:'column',gap:12,marginTop:12}}>
-<div><label>📍 Localização</label><input value={form.localizacao||form.nome||''} onChange={e=>setForm({...form,localizacao:e.target.value,nome:e.target.value})} style={{...input,marginTop:4}} /></div>
+<div><label>📍 Localização</label><input value={form.localizacao||form.nome||''} onChange={e=>setForm({...form,localizacao:e.targetContinua da onde cortou — cola essa parte final no lugar da parte cortada, do `Extintores` pra baixo, até o final do arquivo:
+
+```tsx
 <div><label>Tipo</label><input value={form.tipo||''} onChange={e=>setForm({...form,tipo:e.target.value})} style={{...input,marginTop:4}} /></div>
 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}><div><label>Vencimento</label><input type="date" value={form.vencimento||''} onChange={e=>setForm({...form,vencimento:e.target.value})} style={{...input,marginTop:4}} /></div><div><label>Última Recarga</label><input type="date" value={form.ultima_recarga||''} onChange={e=>setForm({...form,ultima_recarga:e.target.value})} style={{...input,marginTop:4}} /></div></div>
 <div><label>Empresa</label><input value={form.empresa||''} onChange={e=>setForm({...form,empresa:e.target.value})} style={{...input,marginTop:4}} /></div>
@@ -512,7 +554,7 @@ return (
 <input value={form.pin||''} onChange={e=>setForm({...form,pin:e.target.value.replace(/\D/g,'').slice(0,6)})} placeholder="Ex: 7227 ou 1234" style={{...input}} />
 <button type="button" onClick={()=>setForm({...form,pin:gerarPIN()})} style={{...btn,background:'#0d9488',color:'white',whiteSpace:'nowrap'}}>🎲 Gerar outro</button>
 </div>
-<p style={{fontSize:12,color:'#64748b',margin:'6px 0 0'}}>Pode deixar o que veio automático, ou apagar e digitar o PIN que o funcionário quiser. Só números, até 6 dígitos. Esse PIN ele vai usar pra confirmar a entrega do EPI.</p>
+<p style={{fontSize:12,color:'#64748b',margin:'6px 0 0'}}>Pode deixar o automático, ou apagar e digitar o PIN que o funcionário quiser. Só números, até 6 dígitos. Esse PIN ele vai usar pra confirmar a entrega do EPI.</p>
 </div>
 </div>
 ):(
@@ -522,7 +564,7 @@ return (
 ))}
 </div>
 )}
-<div style={{display:'flex',gap:10,marginTop:20}}><button onClick={()=>setModal(false)} style={{...btn,flex:1,background:'#f1f5f9',padding:14,borderRadius:14}}>Cancelar</button><button onClick={salvar} style={{...btn,flex:1,background:aba==='epis'&&!podeSalvarEpi?'#94a3b8':'linear-gradient(90deg,#0d9488,#2563eb)',color:'white',padding:14,borderRadius:14}}>{aba==='epis'&&!podeSalvarEpi?'⚠️ Confirma 1 forma':'✅ Salvar'}</button></div>
+<div style={{display:'flex',gap:10,marginTop:20}}><button onClick={()=>setModal(false)} style={{...btn,flex:1,background:'#f1f5f9',padding:14,borderRadius:14}}>Cancelar</button><button onClick={salvar} style={{...btn,flex:1,background:aba==='epis'&&!podeSalvarEpi?'#94a3b8':'linear-gradient(90deg,#0d9488,#2563eb)',color:'white',padding:14,borderRadius:14}}>{aba==='epis'&&!podeSalvarEpi?'⚠️ Escolhe 1 forma pra assinar':'✅ Salvar'}</button></div>
 </div>
 </div>
 )}

@@ -142,14 +142,22 @@ export default function Home() {
   const [assinaturaFeita, setAssinaturaFeita] = useState(false)
   const [bioStatus, setBioStatus] = useState<'aguardando' | 'lendo' | 'ok'>('aguardando')
   const [bioMsg, setBioMsg] = useState('')
+  // RESPONSÁVEL TÉCNICO + CNPJ PARA LAUDOS
+  const [tecnico, setTecnico] = useState({ nome: 'Cristiano Vicente', funcao: 'Técnico de Segurança do Trabalho', crea: '', mte: '', cnpj: '', telefone: '', email: '', empresaLaudo: '' })
   const canvasRef = useRef<any>(null)
   const desenhando = useRef(false)
   useEffect(() => {
     const s = localStorage.getItem('previx_session')
     if (s) { try { setUsuario(JSON.parse(s)) } catch { } }
+    const t = localStorage.getItem('previx_tecnico')
+    if (t) { try { setTecnico({ nome: 'Cristiano Vicente', funcao: 'Técnico de Segurança do Trabalho', crea: '', mte: '', cnpj: '', telefone: '', email: '', empresaLaudo: '', ...JSON.parse(t) }) } catch { } }
     carregar()
     setCarregando(false)
   }, [])
+  function salvarTecnico() {
+    localStorage.setItem('previx_tecnico', JSON.stringify(tecnico))
+    alert('✅ Dados do Responsável Técnico salvos! Já vai sair em todos os laudos.')
+  }
   function carregar() {
     try {
       const ld = JSON.parse(localStorage.getItem('previx_dados') || '{}')
@@ -186,8 +194,9 @@ export default function Home() {
   function gerarLaudo(tipo: string) {
     const riscos = dadosFiltrados(dados.riscos || [])
     const funcs = dadosFiltrados(dados.funcionarios || [])
-    const empObj = (dados.empresas || []).find((e: any) => e.nome === usuario?.empresa) || {}
-    const empNome = usuario?.empresa || 'Empresa'
+    const empObj = (dados.empresas || []).find((e: any) => e.nome === usuario?.empresa) || (dados.empresas || []).find((e: any) => e.nome === tecnico.empresaLaudo) || {}
+    const empNome = usuario?.empresa && usuario.empresa !== 'Todas' ? usuario.empresa : tecnico.empresaLaudo || empObj.nome || 'Empresa'
+    const cnpjFinal = empObj.cnpj || tecnico.cnpj || 'A preencher'
     const hoje = new Date().toLocaleDateString('pt-BR')
     const validade = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString('pt-BR')
     const num = 'PREVIX-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 9000) + 1000)
@@ -205,19 +214,19 @@ export default function Home() {
     if (funcs.length === 0) linhasF = '<tr><td colspan="4" style="text-align:center">Nenhum funcionário</td></tr>'
     else funcs.slice(0, 12).forEach((f: any) => { linhasF += '<tr><td>' + (f.nome || '-') + '</td><td>' + (f.cargo || '-') + '</td><td>' + (f.setor || '-') + '</td><td>' + (f.cpf || '-') + '</td></tr>' })
     const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + titulo + '</title><style>body{font-family:Arial,sans-serif;color:#0f172a;margin:0;padding:28px;font-size:13px;line-height:1.55}.topo{display:flex;justify-content:space-between;border-bottom:3px solid #0d9488;padding-bottom:14px}.logo{font-size:28px;font-weight:900}.logo span{color:#0d9488}h1{font-size:22px;text-align:center}h2{font-size:14px;background:#0f172a;color:#fff;padding:8px 12px;border-radius:8px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#0d9488;color:#fff;padding:8px;text-align:left}td{padding:7px;border-bottom:1px solid #e2e8f0}.card{border:1px solid #e2e8f0;border-radius:10px;padding:12px;background:#f8fafc}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.btnprint{text-align:center;margin:18px 0}.btnprint button{background:#0d9488;color:#fff;border:none;padding:13px 26px;border-radius:20px;font-weight:800}@media print{.btnprint{display:none}}</style></head><body>'
-            + '<div class="topo"><div><div class="logo">PREVIX <span>SST</span></div><div>PREVENÇÃO QUE PROTEGE</div></div><div style="text-align:right"><b>' + num + '</b><div>Emitido: ' + hoje + '</div><div>Validade: ' + validade + '</div></div></div>'
-            + '<h1>' + titulo + '</h1><div style="text-align:center;color:#0d9488;font-weight:800">' + sub + '</div>'
-            + '<div class="grid"><div class="card"><h3>Empresa</h3><p><b>Razão Social:</b> ' + empNome + '</p><p><b>CNPJ:</b> ' + (empObj.cnpj || 'Não informado') + '</p><p><b>Responsável:</b> ' + (empObj.responsavel || usuario?.nome || '-') + '</p><p><b>Telefone:</b> ' + (empObj.telefone || '-') + '</p></div>'
-            + '<div class="card"><h3>Responsável Técnico</h3><p><b>Nome:</b> ' + (usuario?.nome || 'Cristiano') + '</p><p><b>Função:</b> Técnico / Engenheiro de Segurança do Trabalho</p><p><b>Registro:</b> CREA / MTE - A preencher</p><p><b>Elaborado por:</b> PREVIX SST</p></div></div>'
-            + '<h2>1. OBJETIVO</h2><p>' + objetivo + '</p><p>Este documento atende às exigências legais, subsidia o eSocial (S-2240), o PPP e a gestão de SST da empresa.</p>'
-            + '<h2>2. BASE LEGAL E NORMAS</h2><ul>' + base + '</ul><p><b>Atenção:</b> Este laudo deve ser validado e assinado pelo responsável técnico habilitado.</p>'
-            + '<h2>3. INVENTÁRIO DE RISCOS / GHE</h2><table><thead><tr><th>#</th><th>GHE / Setor</th><th>Risco</th><th>Tipo</th><th>Agente</th><th>Limite</th><th>EPI</th><th>Ação</th></tr></thead><tbody>' + linhasR + '</tbody></table>'
-            + '<h2>4. MEDIDAS DE CONTROLE</h2><p><b>Hierarquia:</b> 1. Eliminação, 2. Engenharia, 3. Administrativo, 4. EPI com CA válido e treinamento. <b>Treinamentos:</b> NR-01, NR-06, NR-17, NR-35, NR-10.</p>'
-            + '<h2>5. PLANO DE AÇÃO</h2><table><thead><tr><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr></thead><tbody><tr><td>Revisar inventário</td><td>Resp. Técnico</td><td>30 dias</td><td>Pendente</td></tr><tr><td>Entregar EPIs</td><td>Empresa</td><td>Imediato</td><td>Contínuo</td></tr><tr><td>Exames periódicos</td><td>Clínica</td><td>Conforme PCMSO</td><td>Agendado</td></tr><tr><td>Revisão anual</td><td>Resp. Técnico</td><td>' + validade + '</td><td>Programado</td></tr></tbody></table>'
-            + '<h2>6. FUNCIONÁRIOS</h2><table><thead><tr><th>Nome</th><th>Cargo</th><th>Setor</th><th>CPF</th></tr></thead><tbody>' + linhasF + '</tbody></table>'
-            + '<h2>7. CONCLUSÃO</h2><p>Manter inventário atualizado, garantir entrega e uso correto dos EPIs, realizar exames conforme PCMSO e promover treinamentos periódicos.</p>'
-            + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:40px;text-align:center"><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (usuario?.nome || 'Cristiano') + '</b><div>Responsável Técnico</div></div><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (empObj.responsavel || empNome) + '</b><div>Responsável pela Empresa - ' + hoje + '</div></div></div>'
-            + '<div class="btnprint"><button onclick="window.print()">Imprimir / Salvar como PDF</button></div></body></html>'
+      + '<div class="topo"><div><div class="logo">PREVIX <span>SST</span></div><div>PREVENÇÃO QUE PROTEGE</div></div><div style="text-align:right"><b>' + num + '</b><div>Emitido: ' + hoje + '</div><div>Validade: ' + validade + '</div></div></div>'
+      + '<h1>' + titulo + '</h1><div style="text-align:center;color:#0d9488;font-weight:800">' + sub + '</div>'
+      + '<div class="grid"><div class="card"><h3>Empresa</h3><p><b>Razão Social:</b> ' + empNome + '</p><p><b>CNPJ:</b> ' + cnpjFinal + '</p><p><b>Responsável pela Empresa:</b> ' + (empObj.responsavel || usuario?.nome || '-') + '</p><p><b>Telefone:</b> ' + (empObj.telefone || tecnico.telefone || '-') + '</p><p><b>E-mail:</b> ' + (empObj.email || tecnico.email || '-') + '</p></div>'
+      + '<div class="card"><h3>Responsável Técnico</h3><p><b>Nome:</b> ' + (tecnico.nome || usuario?.nome || 'Cristiano') + '</p><p><b>Função:</b> ' + (tecnico.funcao || 'Técnico de Segurança do Trabalho') + '</p><p><b>Registro CREA:</b> ' + (tecnico.crea || 'A preencher') + '</p><p><b>Registro MTE:</b> ' + (tecnico.mte || 'A preencher') + '</p><p><b>Telefone:</b> ' + (tecnico.telefone || '-') + '</p><p><b>Elaborado por:</b> PREVIX SST</p></div></div>'
+      + '<h2>1. OBJETIVO</h2><p>' + objetivo + '</p><p>Este documento atende às exigências legais, subsidia o eSocial (S-2240), o PPP e a gestão de SST da empresa.</p>'
+      + '<h2>2. BASE LEGAL E NORMAS</h2><ul>' + base + '</ul><p><b>Atenção:</b> Este laudo deve ser validado e assinado pelo responsável técnico habilitado.</p>'
+      + '<h2>3. INVENTÁRIO DE RISCOS / GHE</h2><table><thead><tr><th>#</th><th>GHE / Setor</th><th>Risco</th><th>Tipo</th><th>Agente</th><th>Limite</th><th>EPI</th><th>Ação</th></tr></thead><tbody>' + linhasR + '</tbody></table>'
+      + '<h2>4. MEDIDAS DE CONTROLE</h2><p><b>Hierarquia:</b> 1. Eliminação, 2. Engenharia, 3. Administrativo, 4. EPI com CA válido e treinamento. <b>Treinamentos:</b> NR-01, NR-06, NR-17, NR-35, NR-10.</p>'
+      + '<h2>5. PLANO DE AÇÃO</h2><table><thead><tr><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr></thead><tbody><tr><td>Revisar inventário</td><td>Resp. Técnico</td><td>30 dias</td><td>Pendente</td></tr><tr><td>Entregar EPIs</td><td>Empresa</td><td>Imediato</td><td>Contínuo</td></tr><tr><td>Exames periódicos</td><td>Clínica</td><td>Conforme PCMSO</td><td>Agendado</td></tr><tr><td>Revisão anual</td><td>Resp. Técnico</td><td>' + validade + '</td><td>Programado</td></tr></tbody></table>'
+      + '<h2>6. FUNCIONÁRIOS</h2><table><thead><tr><th>Nome</th><th>Cargo</th><th>Setor</th><th>CPF</th></tr></thead><tbody>' + linhasF + '</tbody></table>'
+      + '<h2>7. CONCLUSÃO</h2><p>Manter inventário atualizado, garantir entrega e uso correto dos EPIs, realizar exames conforme PCMSO e promover treinamentos periódicos.</p>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:40px;text-align:center"><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (tecnico.nome || 'Cristiano') + '</b><div>' + (tecnico.funcao || '') + '</div><div>CREA: ' + (tecnico.crea || '-') + ' • MTE: ' + (tecnico.mte || '-') + '</div><div>Responsável Técnico</div></div><div><div style="border-top:1px solid #000;width:90%;margin:0 auto"></div><b>' + (empObj.responsavel || empNome) + '</b><div>Responsável pela Empresa - CNPJ: ' + cnpjFinal + ' - ' + hoje + '</div></div></div>'
+      + '<div class="btnprint"><button onclick="window.print()">Imprimir / Salvar como PDF</button></div></body></html>'
     const w = window.open('', '_blank')
     if (w) { w.document.write(html); w.document.close() }
   }
@@ -363,7 +372,6 @@ export default function Home() {
   const textoEpi = String(form.nome || '').trim().toLowerCase()
   const mostrarListaEpi = textoEpi.length >= 1
   const listaEpiModal = mostrarListaEpi ? [...CATALOGO_EPI, ...episF.map((e: any) => ({ nome: e.nome, ca: e.ca, tipo: e.tipo || '' }))].filter((e: any) => String(e.nome || '').toLowerCase().includes(textoEpi)).filter((e: any, i: number, arr: any[]) => arr.findIndex((x: any) => (x.nome + x.tipo) === (e.nome + e.tipo)) === i) : []
-  // CALENDÁRIO EXAMES
   const [anoCal, mesCal] = diaSel.split('-').map(Number)
   const primeiroDia = new Date(anoCal, mesCal - 1, 1)
   let offset = primeiroDia.getDay() - 1; if (offset < 0) offset = 6
@@ -381,7 +389,20 @@ export default function Home() {
       {aba === 'inicio' && <div>
         <div style={{ background: 'white', borderRadius: 24, padding: 24 }}><h2 style={{ fontSize: 32, fontWeight: 900, margin: 0 }}>Olá, {usuario.nome}! 👋</h2><p style={{ color: '#64748b' }}>{usuario.empresa}</p></div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 16, marginTop: 20 }}>{cards.map(c => (<button key={c.titulo} onClick={() => setAba(c.aba)} style={{ background: c.cor, borderRadius: 24, padding: 20, textAlign: 'left', border: 'none', cursor: 'pointer', color: 'white' }}><div style={{ fontSize: 24 }}>{c.icone}</div><div style={{ marginTop: 12, fontWeight: 700 }}>{c.titulo}</div><div style={{ fontSize: 32, fontWeight: 900 }}>{c.valor}</div></button>))}</div>
-        <div style={{ background: 'white', borderRadius: 24, padding: 20, marginTop: 20 }}><h3 style={{ margin: '0 0 12px' }}>Laudos em 1 clique - Profissional com Normas</h3><div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}><button onClick={() => gerarLaudo('PGR')} style={{ ...btn, background: '#0d9488', color: 'white', padding: '12px 18px', borderRadius: 20 }}>Gerar PGR</button><button onClick={() => gerarLaudo('LTCAT')} style={{ ...btn, background: '#2563eb', color: 'white', padding: '12px 18px', borderRadius: 20 }}>Gerar LTCAT</button><button onClick={() => gerarLaudo('LIP')} style={{ ...btn, background: '#f59e0b', color: 'white', padding: '12px 18px', borderRadius: 20 }}>Gerar LIP</button><button onClick={() => gerarLaudo('PCMSO')} style={{ ...btn, background: '#22c55e', color: 'white', padding: '12px 18px', borderRadius: 20 }}>Gerar PCMSO</button></div><p style={{ fontSize: 13, color: '#64748b' }}>Cadastra o risco 1x em PGR / Riscos e gera os laudos com base legal, normas e responsável técnico.</p></div>
+        <div style={{ background: 'white', borderRadius: 24, padding: 20, marginTop: 20 }}><h3 style={{ margin: '0 0 6px' }}>👨‍🔧 Responsável Técnico do Laudo</h3><p style={{ fontSize: 13, color: '#64748b', margin: '0 0 12px' }}>Preenche 1x, já sai em todos os laudos: PGR, LTCAT, LIP e PCMSO. CNPJ puxa da empresa, mas você pode corrigir aqui.</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 10 }}>
+            <div><label style={{ fontSize: 12, fontWeight: 800 }}>Nome do Responsável Técnico</label><input value={tecnico.nome} onChange={e => setTecnico({ ...tecnico, nome: e.target.value })} placeholder="Ex: Cristiano Vicente" style={{ ...input, marginTop: 4 }} /></div>
+            <div><label style={{ fontSize: 12, fontWeight: 800 }}>Função</label><input value={tecnico.funcao} onChange={e => setTecnico({ ...tecnico, funcao: e.target.value })} placeholder="Ex: Técnico de Segurança do Trabalho" style={{ ...input, marginTop: 4 }} /></div>
+            <div><label style={{ fontSize: 12, fontWeight: 800 }}>Registro CREA</label><input value={tecnico.crea} onChange={e => setTecnico({ ...tecnico, crea: e.target.value })} placeholder="Ex: CREA-AL 123456" style={{ ...input, marginTop: 4 }} /></div>
+            <div><label style={{ fontSize: 12, fontWeight: 800 }}>Registro MTE</label><input value={tecnico.mte} onChange={e => setTecnico({ ...tecnico, mte: e.target.value })} placeholder="Ex: MTE 000123 / AL" style={{ ...input, marginTop: 4 }} /></div>
+            <div><label style={{ fontSize: 12, fontWeight: 800 }}>CNPJ da Empresa do Laudo</label><input value={tecnico.cnpj} onChange={e => setTecnico({ ...tecnico, cnpj: e.target.value })} placeholder="00.000.000/0001-00" style={{ ...input, marginTop: 4 }} /></div>
+            <div><label style={{ fontSize: 12, fontWeight: 800 }}>Empresa do Laudo (se não for a logada)</label><input value={tecnico.empresaLaudo} onChange={e => setTecnico({ ...tecnico, empresaLaudo: e.target.value })} placeholder="Ex: Solnascente LTDA" style={{ ...input, marginTop: 4 }} /></div>
+            <div><label style={{ fontSize: 12, fontWeight: 800 }}>Telefone do Técnico</label><input value={tecnico.telefone} onChange={e => setTecnico({ ...tecnico, telefone: e.target.value })} placeholder="(82) 99999-0000" style={{ ...input, marginTop: 4 }} /></div>
+            <div><label style={{ fontSize: 12, fontWeight: 800 }}>E-mail do Técnico</label><input value={tecnico.email} onChange={e => setTecnico({ ...tecnico, email: e.target.value })} placeholder="tecnico@previx.com" style={{ ...input, marginTop: 4 }} /></div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}><button onClick={salvarTecnico} style={{ ...btn, background: '#0d9488', color: 'white', padding: '12px 20px', borderRadius: 20 }}>💾 Salvar dados do laudo</button><button onClick={() => { const emp = (dados.empresas || []).find((e: any) => e.nome === usuario.empresa); if (emp && emp.cnpj) { setTecnico({ ...tecnico, cnpj: emp.cnpj, empresaLaudo: emp.nome }); alert('CNPJ puxado da empresa: ' + emp.cnpj) } else alert('Cadastra o CNPJ na aba Empresas primeiro!') }} style={{ ...btn, background: '#e0f2fe', borderRadius: 20 }}>↩️ Puxar CNPJ da Empresa</button><span style={{ fontSize: 12, color: '#64748b', alignSelf: 'center' }}>Atual: {tecnico.nome} • CREA: {tecnico.crea || '-'} • MTE: {tecnico.mte || '-'} • CNPJ: {tecnico.cnpj || '-'}</span></div>
+        </div>
+        <div style={{ background: 'white', borderRadius: 24, padding: 20, marginTop: 20 }}><h3 style={{ margin: '0 0 12px' }}>Laudos em 1 clique - Profissional com Normas</h3><div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}><button onClick={() => gerarLaudo('PGR')} style={{ ...btn, background: '#0d9488', color: 'white', padding: '12px 18px', borderRadius: 20 }}>Gerar PGR</button><button onClick={() => gerarLaudo('LTCAT')} style={{ ...btn, background: '#2563eb', color: 'white', padding: '12px 18px', borderRadius: 20 }}>Gerar LTCAT</button><button onClick={() => gerarLaudo('LIP')} style={{ ...btn, background: '#f59e0b', color: 'white', padding: '12px 18px', borderRadius: 20 }}>Gerar LIP</button><button onClick={() => gerarLaudo('PCMSO')} style={{ ...btn, background: '#22c55e', color: 'white', padding: '12px 18px', borderRadius: 20 }}>Gerar PCMSO</button></div><p style={{ fontSize: 13, color: '#64748b' }}>Já sai com Empresa + CNPJ + Responsável Técnico + CREA / MTE + assinatura.</p></div>
         <div style={{ background: 'white', borderRadius: 24, padding: 20, marginTop: 20 }}><h3>Financeiro</h3><p>Total: R$ {totalFin.toFixed(2)} - Recebido: R$ {totalRec.toFixed(2)} - A receber: R$ {(totalFin - totalRec).toFixed(2)}</p><p>Exames vencidos: {exVenc} - Realizados: {exReal}</p></div>
       </div>}
       {aba === 'exames' && <div>

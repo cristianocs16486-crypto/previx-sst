@@ -37,6 +37,16 @@ function Login({ onEntrar, erroInicial }: { onEntrar: (profile: Profile) => void
         .single();
       if (profileError) throw new Error(`Não foi possível carregar o perfil: ${profileError.message}`);
       if (!profile) throw new Error("Perfil não encontrado para este usuário.");
+      if (profile.tipo === "empresa") {
+        if (!profile.empresa_id) throw new Error("Esta conta não está vinculada a uma empresa.");
+        const { data: company, error: companyError } = await supabase
+          .from("empresas")
+          .select("status")
+          .eq("id", profile.empresa_id)
+          .single();
+        if (companyError) throw new Error(`Não foi possível validar o status da empresa: ${companyError.message}`);
+        if (company.status === "Inativa") throw new Error("O acesso desta empresa está inativo. Fale com o administrador.");
+      }
 
       onEntrar(profile as Profile);
     } catch (error) {
@@ -63,7 +73,7 @@ function Login({ onEntrar, erroInicial }: { onEntrar: (profile: Profile) => void
         )}
 
         <form onSubmit={handleLogin}>
-          <label htmlFor="email" className="mb-1 block text-xs font-bold text-slate-600">Login</label>
+          <label htmlFor="email" className="mb-1 block text-xs font-bold text-slate-600">E-mail de acesso</label>
           <input
             id="email"
             type="email"
@@ -131,11 +141,25 @@ export default function Page() {
             .eq("id", data.session.user.id)
             .single();
           if (profileError) throw new Error(`Não foi possível carregar o perfil: ${profileError.message}`);
+          if (profile?.tipo === "empresa") {
+            if (!profile.empresa_id) throw new Error("Esta conta não está vinculada a uma empresa.");
+            const { data: company, error: companyError } = await supabase
+              .from("empresas")
+              .select("status")
+              .eq("id", profile.empresa_id)
+              .single();
+            if (companyError) throw new Error(`Não foi possível validar o status da empresa: ${companyError.message}`);
+            if (company.status === "Inativa") throw new Error("O acesso desta empresa está inativo. Fale com o administrador.");
+          }
           if (ativo && profile) setUsuario(profile as Profile);
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Não foi possível recuperar a sessão.";
-        if (ativo) setErro(message);
+        if (ativo) {
+          setErro(message);
+          const { error: signOutError } = await supabase.auth.signOut();
+          if (signOutError) console.error("Erro ao encerrar sessão sem acesso válido:", signOutError.message);
+        }
       } finally {
         if (ativo) setCarregando(false);
       }

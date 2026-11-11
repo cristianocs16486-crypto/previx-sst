@@ -15,6 +15,12 @@ type Profile = {
 type Empresa = {
   id: string;
   nome: string;
+  cnpj?: string | null;
+  responsavel?: string | null;
+  telefone?: string | null;
+  email?: string | null;
+  login?: string | null;
+  status?: "Ativa" | "Inativa";
 };
 
 type Registro = Record<string, any> & {
@@ -55,6 +61,21 @@ const CATEGORIAS_POR_RELATORIO: Record<string, Categoria[]> = {
 };
 
 const SETORES = ["Vendas", "Caixa", "Estoque", "Limpeza", "Gerência", "Entrega", "Administrativo", "Produção", "Manutenção", "Segurança", "Almoxarifado", "RH", "Outro"];
+
+const TIPOS_EXAME = [
+  { tipo: "Admissional", descricao: "Exame de admissão", obrigatorio: true },
+  { tipo: "Periódico", descricao: "Acompanhamento anual", obrigatorio: true },
+  { tipo: "Demissional", descricao: "Exame de desligamento", obrigatorio: false },
+  { tipo: "Audiometria", descricao: "Avaliação auditiva", obrigatorio: false },
+  { tipo: "Espirometria", descricao: "Capacidade pulmonar", obrigatorio: false },
+  { tipo: "Raio-X", descricao: "Tórax PA", obrigatorio: false },
+  { tipo: "Exame de Sangue", descricao: "Hemograma completo", obrigatorio: false },
+  { tipo: "Eletrocardiograma", descricao: "Avaliação cardíaca", obrigatorio: false },
+  { tipo: "Retorno ao Trabalho", descricao: "Após afastamento", obrigatorio: true },
+  { tipo: "Mudança de Função", descricao: "Nova função", obrigatorio: true },
+  { tipo: "Acuidade Visual", descricao: "Visão", obrigatorio: false },
+  { tipo: "Exame Clínico", descricao: "Avaliação geral", obrigatorio: true },
+];
 
 const TIPOS_INSPECAO = [
   "NR-01 - Gerenciamento de Riscos Ocupacionais",
@@ -206,6 +227,30 @@ function dataHoje() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function dataLocalISO(data: Date) {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const dia = String(data.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+}
+
+function formatarData(data: string) {
+  if (!data) return "—";
+  const valor = new Date(`${data}T12:00:00`);
+  return Number.isNaN(valor.getTime()) ? data : valor.toLocaleDateString("pt-BR");
+}
+
+function formatarCpf(cpf: unknown) {
+  const digitos = String(cpf || "").replace(/\D/g, "");
+  if (digitos.length !== 11) return String(cpf || "CPF não informado");
+  return digitos.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+}
+
+function convenioVigente(clinica: Registro) {
+  const estado = `${clinica.status || ""} ${clinica.convenio || ""}`.toLocaleLowerCase("pt-BR");
+  return !/(inativ|vencid|cancel|n[aã]o)/i.test(estado) && /(ativ[oa]|vigente|valid|sim|true)/i.test(estado);
+}
+
 function escaparHtml(valor: unknown) {
   return String(valor ?? "—")
     .replace(/&/g, "&amp;")
@@ -235,6 +280,13 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
   const ehAdm = usuario.tipo === "adm";
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [empresaAtual, setEmpresaAtual] = useState<Empresa | null>(null);
+  const [empresaForm, setEmpresaForm] = useState({ nome: "", cnpj: "", responsavel: "", telefone: "", email: "", login: "", senha: "", status: "Ativa" });
+  const [empresaEdicaoId, setEmpresaEdicaoId] = useState("");
+  const [empresaLoginManual, setEmpresaLoginManual] = useState(false);
+  const [empresaSenhaVisivel, setEmpresaSenhaVisivel] = useState(false);
+  const [acessoInicialEmpresa, setAcessoInicialEmpresa] = useState<{ login: string; email: string; senha: string } | null>(null);
+  const [buscaEmpresas, setBuscaEmpresas] = useState("");
+  const [salvandoEmpresa, setSalvandoEmpresa] = useState(false);
   const [categoria, setCategoria] = useState<"inicio" | "empresas" | Categoria>("inicio");
   const [registros, setRegistros] = useState<Record<Categoria, Registro[]>>({
     funcionarios: [], epis: [], extintores: [], inspecoes: [], documentos: [],
@@ -253,6 +305,13 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
   const [filtroStatus, setFiltroStatus] = useState("Todos");
   const [filtroSetor, setFiltroSetor] = useState("Todos");
   const [filtroTipoInspecao, setFiltroTipoInspecao] = useState("Todos");
+  const [diaExameSelecionado, setDiaExameSelecionado] = useState(() => dataLocalISO(new Date()));
+  const [mesCalendario, setMesCalendario] = useState(() => dataLocalISO(new Date()).slice(0, 7));
+  const [buscaFuncionarioExame, setBuscaFuncionarioExame] = useState("");
+  const [funcionarioExameId, setFuncionarioExameId] = useState("");
+  const [tiposExameSelecionados, setTiposExameSelecionados] = useState<string[]>([]);
+  const [clinicaExameId, setClinicaExameId] = useState("");
+  const [buscaExames, setBuscaExames] = useState("");
   const [buscaFuncionarioEpi, setBuscaFuncionarioEpi] = useState("");
   const [listaFuncionariosEpiAberta, setListaFuncionariosEpiAberta] = useState(false);
   const requestId = useRef(0);
@@ -283,7 +342,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
   const carregarEmpresas = useCallback(async () => {
     setCarregandoEmpresas(true);
     setErro("");
-    let query = supabase.from("empresas").select("id, nome").order("nome");
+    let query = supabase.from("empresas").select("id, nome, cnpj, responsavel, telefone, email, login, status").order("nome");
     if (!ehAdm) {
       if (!usuario.empresa_id) {
         setEmpresas([]);
@@ -308,6 +367,9 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
   }, [ehAdm, usuario.empresa_id]);
 
   useEffect(() => { void carregarEmpresas(); }, [carregarEmpresas]);
+  useEffect(() => {
+    if (categoria !== "empresas") setAcessoInicialEmpresa(null);
+  }, [categoria]);
 
   const carregarRegistros = useCallback(async () => {
     const request = ++requestId.current;
@@ -321,13 +383,17 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     }
     const categoriaSolicitada = categoria === "inicio" || categoria === "empresas" ? null : categoria;
     setCarregandoRegistros(true);
-    const { data, error } = await supabase.rpc("previx_list_records", {
+    const categoriasNecessarias: (Categoria | null)[] = categoriaSolicitada === "exames"
+      ? ["exames", "funcionarios", "clinicas"]
+      : [categoriaSolicitada];
+    const respostas = await Promise.all(categoriasNecessarias.map(p_category => supabase.rpc("previx_list_records", {
       p_company_id: empresaAtual.id,
-      p_category: categoriaSolicitada,
-    });
+      p_category,
+    })));
     if (request !== requestId.current) return;
-    if (error) {
-      setErro(`Não foi possível carregar os dados. Aplique a migration de segurança do Supabase: ${error.message}`);
+    const erroResposta = respostas.find(resposta => resposta.error)?.error;
+    if (erroResposta) {
+      setErro(`Não foi possível carregar os dados. Aplique a migration de segurança do Supabase: ${erroResposta.message}`);
       setCarregandoRegistros(false);
       return;
     }
@@ -335,7 +401,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       funcionarios: [], epis: [], extintores: [], inspecoes: [], documentos: [],
       exames: [], clinicas: [], riscos: [], financeiro: [], tecnico: [],
     };
-    for (const linha of data || []) {
+    for (const linha of respostas.flatMap(resposta => resposta.data || [])) {
       if (linha.category in novo) {
         const categoriaLinha = linha.category as Categoria;
         novo[categoriaLinha].push({
@@ -346,7 +412,13 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
         });
       }
     }
-    setRegistros(atual => categoriaSolicitada ? { ...atual, [categoriaSolicitada]: novo[categoriaSolicitada] } : novo);
+    setRegistros(atual => {
+      if (!categoriaSolicitada) return novo;
+      if (categoriaSolicitada === "exames") {
+        return { ...atual, exames: novo.exames, funcionarios: novo.funcionarios, clinicas: novo.clinicas };
+      }
+      return { ...atual, [categoriaSolicitada]: novo[categoriaSolicitada] };
+    });
     setCarregandoRegistros(false);
   }, [categoria, empresaAtual]);
 
@@ -447,9 +519,22 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     setSalvando(true);
     setErro("");
     setMensagem("");
-    const payload = Object.fromEntries(
+    const camposForm = Object.fromEntries(
       Object.entries(form).filter(([, valor]) => valor !== "" && valor !== undefined && valor !== null),
     );
+    const payload: Record<string, any> = categoria === "exames" && editando
+      ? {
+          ...editando,
+          id: undefined,
+          company_id: undefined,
+          created_at: undefined,
+          ...camposForm,
+          funcionario: editando.funcionario || editando.nome,
+          cpf: editando.cpf,
+          status: camposForm.status || editando.status || "Agendado",
+          empresa: empresaAtual.nome,
+        }
+      : { ...camposForm, empresa: empresaAtual.nome };
     if (categoria === "funcionarios" && !editando) {
       const pin = pinAutomatico ? gerarPin() : pinManual.trim();
       if (!/^\d{4}$/.test(pin)) {
@@ -547,6 +632,50 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       setArquivoDocumento(null);
       await carregarRegistros();
     }
+    setSalvando(false);
+  }
+
+  async function confirmarAgendamentoExame() {
+    const funcionario = registros.funcionarios.find(item => item.id === funcionarioExameId);
+    const clinica = registros.clinicas.find(item => item.id === clinicaExameId) || registros.clinicas[0];
+    if (!empresaAtual || !funcionario || !clinica || tiposExameSelecionados.length === 0) {
+      setErro("Selecione um funcionário, uma clínica parceira e pelo menos um tipo de exame.");
+      return;
+    }
+
+    setSalvando(true);
+    setErro("");
+    setMensagem("");
+    const resultados = await Promise.all(tiposExameSelecionados.map(tipo => supabase.rpc("previx_create_record", {
+      p_company_id: empresaAtual.id,
+      p_category: "exames",
+      p_payload: {
+        nome: funcionario.nome,
+        funcionario: funcionario.nome,
+        cpf: funcionario.cpf || "",
+        tipo,
+        data: diaExameSelecionado,
+        resultado: "Aguardando",
+        clinica: clinica.nome,
+        clinica_id: clinica.id,
+        empresa: empresaAtual.nome,
+        status: "Agendado",
+      },
+    })));
+
+    const falha = resultados.find(resultado => resultado.error || !resultado.data);
+    if (falha) {
+      await carregarRegistros();
+      setErro(`Não foi possível concluir todos os agendamentos: ${falha.error?.message || "o Supabase não retornou o identificador do registro."} Verifique a lista antes de tentar novamente.`);
+      setSalvando(false);
+      return;
+    }
+
+    setFuncionarioExameId("");
+    setBuscaFuncionarioExame("");
+    setTiposExameSelecionados([]);
+    setMensagem(`✅ Agendado! ${funcionario.nome} • ${clinica.nome} • ${formatarData(diaExameSelecionado)}`);
+    await carregarRegistros();
     setSalvando(false);
   }
 
@@ -769,26 +898,121 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     link.click();
   }
 
-  async function cadastrarEmpresa(event: FormEvent<HTMLFormElement>) {
+  function gerarSenhaEmpresa() {
+    const bytes = new Uint32Array(1);
+    crypto.getRandomValues(bytes);
+    setEmpresaForm(atual => ({ ...atual, senha: `Previx${String(bytes[0] % 10000).padStart(4, "0")}@` }));
+  }
+
+  function editarEmpresa(empresa: Empresa) {
+    setEmpresaEdicaoId(empresa.id);
+    setEmpresaLoginManual(true);
+    setEmpresaSenhaVisivel(false);
+    setEmpresaForm({
+      nome: empresa.nome,
+      cnpj: empresa.cnpj || "",
+      responsavel: empresa.responsavel || "",
+      telefone: empresa.telefone || "",
+      email: empresa.email || "",
+      login: empresa.login || "",
+      senha: "",
+      status: empresa.status || "Ativa",
+    });
+  }
+
+  function cancelarEdicaoEmpresa() {
+    setEmpresaEdicaoId("");
+    setEmpresaLoginManual(false);
+    setEmpresaSenhaVisivel(false);
+    setEmpresaForm({ nome: "", cnpj: "", responsavel: "", telefone: "", email: "", login: "", senha: "", status: "Ativa" });
+  }
+
+  async function salvarEmpresa(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErro("");
-    const formElement = event.currentTarget;
-    const valores = Object.fromEntries(new FormData(formElement).entries());
-    const nome = String(valores.nome || "").trim();
-    if (!nome) return;
-    const { data, error } = await supabase
-      .from("empresas")
-      .insert({ nome })
-      .select("id, nome")
-      .single();
-    if (error) {
-      setErro(`Não foi possível cadastrar a empresa: ${error.message}`);
+    setSalvandoEmpresa(true);
+    const login = (empresaForm.login || empresaForm.nome)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, "")
+      .slice(0, 40);
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData.session) throw new Error(`Não foi possível validar a sessão administrativa: ${sessionError?.message || "sessão ausente."}`);
+      const response = await fetch("/api/admin/companies", {
+        method: empresaEdicaoId ? "PATCH" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+        body: JSON.stringify({ ...empresaForm, login, id: empresaEdicaoId || undefined }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "erro desconhecido.");
+      const savedCompany = result.company as Empresa;
+      const isCreation = !empresaEdicaoId;
+      if (isCreation) setAcessoInicialEmpresa({ login, email: empresaForm.email, senha: empresaForm.senha });
+      setEmpresas(atual => isCreation
+        ? [...atual, savedCompany].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+        : atual.map(item => item.id === savedCompany.id ? savedCompany : item));
+      if (isCreation) setEmpresaAtual(savedCompany);
+      setMensagem(isCreation
+        ? `Empresa "${savedCompany.nome}" cadastrada. Copie os dados de acesso antes de fechar este aviso.`
+        : `Empresa "${savedCompany.nome}" atualizada. A senha não é armazenada nem exibida; use o campo de senha para redefini-la.`);
+      cancelarEdicaoEmpresa();
+    } catch (error) {
+      setErro(`Não foi possível ${empresaEdicaoId ? "atualizar" : "cadastrar"} a empresa: ${error instanceof Error ? error.message : "falha inesperada."}`);
+    } finally {
+      setSalvandoEmpresa(false);
+    }
+  }
+
+  async function excluirEmpresa(empresa: Empresa) {
+    if (!window.confirm(`Excluir a empresa "${empresa.nome}", o acesso de login e todos os registros associados? Esta ação não pode ser desfeita.`)) return;
+    setErro("");
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !sessionData.session) {
+      setErro(`Não foi possível validar a sessão administrativa: ${sessionError?.message || "sessão ausente."}`);
       return;
     }
-    setEmpresas(atuais => [...atuais, data as Empresa]);
-    setEmpresaAtual(data as Empresa);
-    setMensagem(`Empresa "${nome}" cadastrada.`);
-    formElement.reset();
+    try {
+      const response = await fetch("/api/admin/companies", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+        body: JSON.stringify({ id: empresa.id }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "erro desconhecido.");
+      setEmpresas(atual => atual.filter(item => item.id !== empresa.id));
+      if (empresaAtual?.id === empresa.id) setEmpresaAtual(empresas.find(item => item.id !== empresa.id) || null);
+      if (empresaEdicaoId === empresa.id) cancelarEdicaoEmpresa();
+      setMensagem(`Empresa "${empresa.nome}" e os registros associados foram excluídos.`);
+    } catch (error) {
+      setErro(`Não foi possível excluir a empresa: ${error instanceof Error ? error.message : "falha inesperada."}`);
+    }
+  }
+
+  async function copiarLoginEmpresa(empresa: Empresa) {
+    try {
+      await navigator.clipboard.writeText(`Login: ${empresa.login || "—"}\nE-mail: ${empresa.email || "—"}`);
+      setMensagem(`Login e e-mail de ${empresa.nome} copiados. A senha não é recuperável; redefina-a editando o acesso.`);
+    } catch (error) {
+      setErro(`Não foi possível copiar o acesso: ${error instanceof Error ? error.message : "permissão da área de transferência indisponível."}`);
+    }
+  }
+
+  async function copiarAcessoInicialEmpresa() {
+    if (!acessoInicialEmpresa) return;
+    try {
+      await navigator.clipboard.writeText(`Login: ${acessoInicialEmpresa.login}\nE-mail: ${acessoInicialEmpresa.email}\nSenha inicial: ${acessoInicialEmpresa.senha}`);
+      setMensagem("Acesso inicial copiado. Guarde-o com segurança; a senha não será exibida novamente.");
+    } catch (error) {
+      setErro(`Não foi possível copiar o acesso inicial: ${error instanceof Error ? error.message : "permissão da área de transferência indisponível."}`);
+    }
   }
 
   function imprimirRelatorio(tipo: string) {
@@ -864,6 +1088,35 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     const termo = buscaFuncionarioEpi.trim().toLocaleLowerCase("pt-BR");
     return !termo || `${item.nome || ""} ${item.cpf || ""}`.toLocaleLowerCase("pt-BR").includes(termo);
   });
+  const funcionarioSelecionadoExame = registros.funcionarios.find(item => item.id === funcionarioExameId) || null;
+  const termoFuncionarioExame = buscaFuncionarioExame.trim().toLocaleLowerCase("pt-BR");
+  const digitosFuncionarioExame = buscaFuncionarioExame.replace(/\D/g, "");
+  const funcionariosSugeridosExame = registros.funcionarios.filter(item => {
+    if (!termoFuncionarioExame) return false;
+    const nome = String(item.nome || "").toLocaleLowerCase("pt-BR");
+    const cpf = String(item.cpf || "");
+    return nome.includes(termoFuncionarioExame)
+      || (digitosFuncionarioExame.length > 0 && cpf.replace(/\D/g, "").includes(digitosFuncionarioExame));
+  }).slice(0, 5);
+  const clinicaSelecionadaExame = registros.clinicas.find(item => item.id === clinicaExameId) || registros.clinicas[0] || null;
+  const registrosExameEmDia = registros.exames
+    .filter(item => String(item.data || "").slice(0, 10) === diaExameSelecionado)
+    .sort((a, b) => String(a.funcionario || a.nome || "").localeCompare(String(b.funcionario || b.nome || ""), "pt-BR"));
+  const termoBuscaExames = buscaExames.trim().toLocaleLowerCase("pt-BR");
+  const examesOrdenados = [...registros.exames]
+    .filter(item => !termoBuscaExames || [
+      item.nome, item.funcionario, item.cpf, item.tipo, item.clinica, item.resultado, item.status,
+    ].some(valor => String(valor || "").toLocaleLowerCase("pt-BR").includes(termoBuscaExames))
+      || (buscaExames.replace(/\D/g, "").length > 0 && String(item.cpf || "").replace(/\D/g, "").includes(buscaExames.replace(/\D/g, ""))))
+    .sort((a, b) => String(a.data || "").localeCompare(String(b.data || "")) || String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));
+  const dataMesCalendario = new Date(`${mesCalendario}-01T12:00:00`);
+  const diasNoMesCalendario = new Date(dataMesCalendario.getFullYear(), dataMesCalendario.getMonth() + 1, 0).getDate();
+  const deslocamentoCalendario = (new Date(dataMesCalendario.getFullYear(), dataMesCalendario.getMonth(), 1).getDay() + 6) % 7;
+  const diasCalendario: (string | null)[] = [
+    ...Array.from({ length: deslocamentoCalendario }, () => null),
+    ...Array.from({ length: diasNoMesCalendario }, (_, index) => dataLocalISO(new Date(dataMesCalendario.getFullYear(), dataMesCalendario.getMonth(), index + 1))),
+  ];
+  const mesCalendarioTitulo = dataMesCalendario.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900">
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col bg-slate-900 px-4 py-5 text-white md:flex">
@@ -889,6 +1142,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
               <span className="text-lg font-black text-slate-900 md:hidden">PREVIX SST</span>
               <span className="hidden text-sm font-bold text-slate-500 md:inline">{titulo}</span>
               {!ehAdm && empresaAtual && <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-bold text-teal-800">{empresaAtual.nome}</span>}
+              <span className={`rounded-full px-3 py-1 text-[10px] font-black tracking-wide ${ehAdm ? "bg-blue-100 text-blue-800" : "bg-teal-100 text-teal-800"}`}>{ehAdm ? "ADMIN" : "EMPRESA"}</span>
             </div>
             <div className="flex items-center gap-3">
               {ehAdm && (
@@ -896,7 +1150,14 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                   Empresa
                   <select
                     value={empresaAtual?.id || ""}
-                    onChange={event => setEmpresaAtual(empresas.find(empresa => empresa.id === event.target.value) || null)}
+                    onChange={event => {
+                      setEmpresaAtual(empresas.find(empresa => empresa.id === event.target.value) || null);
+                      setFuncionarioExameId("");
+                      setBuscaFuncionarioExame("");
+                      setTiposExameSelecionados([]);
+                      setClinicaExameId("");
+                      setBuscaExames("");
+                    }}
                     disabled={carregandoEmpresas || empresas.length === 0}
                     className="max-w-48 rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm text-slate-800"
                   >
@@ -930,6 +1191,19 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
             <section role="status" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
               <p><b>PIN de {pinGerado.nome}:</b> <span className="font-mono text-lg font-black tracking-widest">{pinGerado.pin}</span> — anote agora; ele não será exibido novamente.</p>
               <button onClick={() => setPinGerado(null)} className="rounded-lg bg-amber-200 px-3 py-2 text-sm font-bold">Entendi</button>
+            </section>
+          )}
+          {acessoInicialEmpresa && categoria === "empresas" && (
+            <section role="status" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
+              <div>
+                <p className="font-black">Acesso inicial da empresa — copie agora</p>
+                <p className="mt-1 text-sm">Login: <b>{acessoInicialEmpresa.login}</b> · E-mail: <b>{acessoInicialEmpresa.email}</b> · Senha: <b className="font-mono">{acessoInicialEmpresa.senha}</b></p>
+                <p className="mt-1 text-xs">A senha aparece somente nesta sessão e não é salva como texto no banco.</p>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => void copiarAcessoInicialEmpresa()} className="rounded-lg bg-amber-200 px-3 py-2 text-sm font-bold">Copiar acesso</button>
+                <button type="button" onClick={() => setAcessoInicialEmpresa(null)} className="rounded-lg bg-white px-3 py-2 text-sm font-bold">Fechar</button>
+              </div>
             </section>
           )}
 
@@ -983,26 +1257,289 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
               )}
             </div>
           ) : categoria === "empresas" ? (
-            <section>
-              <div className="mb-5">
-                <h1 className="text-2xl font-black">Empresas</h1>
-                <p className="mt-1 text-sm text-slate-500">Empresas cadastradas no PREVIX</p>
-              </div>
-              {ehAdm && (
-                <form onSubmit={cadastrarEmpresa} className="mb-5 grid gap-3 rounded-2xl bg-white p-5 shadow-sm sm:grid-cols-2">
-                  <input name="nome" required placeholder="Nome da empresa" aria-label="Nome da empresa" className={INPUT_CLASS} />
-                  <button type="submit" className="rounded-xl bg-teal-700 px-5 py-3 font-bold text-white hover:bg-teal-800 sm:col-span-2">+ Cadastrar Empresa</button>
-                </form>
-              )}
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {empresas.map(empresa => (
-                  <button key={empresa.id} onClick={() => { setEmpresaAtual(empresa); setCategoria("inicio"); }} className={`rounded-2xl border bg-white p-5 text-left shadow-sm ${empresaAtual.id === empresa.id ? "border-teal-600 ring-2 ring-teal-100" : "border-slate-200"}`}>
-                    <span className="text-2xl">🏢</span>
-                    <span className="mt-2 block font-black">{empresa.nome}</span>
+            ehAdm ? (
+              <section>
+                <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <h1 className="text-2xl font-black">Empresas</h1>
+                    <p className="mt-1 text-sm text-slate-500">Cadastre empresas e gerencie seus acessos ao PREVIX.</p>
+                  </div>
+                  <button type="button" onClick={cancelarEdicaoEmpresa} className="rounded-xl bg-teal-700 px-5 py-3 font-bold text-white hover:bg-teal-800">
+                    + Cadastrar Empresa
                   </button>
-                ))}
-              </div>
-            </section>
+                </div>
+                <form onSubmit={salvarEmpresa} className="mb-5 grid gap-3 rounded-2xl bg-white p-5 shadow-sm sm:grid-cols-2">
+                  <label className="text-xs font-bold text-slate-600 sm:col-span-2">Nome da empresa *
+                    <input required value={empresaForm.nome} onChange={event => {
+                      const nome = event.target.value;
+                      setEmpresaForm(atual => ({
+                        ...atual,
+                        nome,
+                        ...(!empresaLoginManual ? { login: nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9._-]+/g, "").slice(0, 40) } : {}),
+                      }));
+                    }} placeholder="Ex.: NORTE VIDROS" className={`${INPUT_CLASS} mt-1`} />
+                  </label>
+                  <label className="text-xs font-bold text-slate-600">CNPJ
+                    <input value={empresaForm.cnpj} onChange={event => {
+                      const digits = event.target.value.replace(/\D/g, "").slice(0, 14);
+                      const cnpj = digits
+                        .replace(/^(\d{2})(\d)/, "$1.$2")
+                        .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+                        .replace(/\.(\d{3})(\d)/, ".$1/$2")
+                        .replace(/(\d{4})(\d)/, "$1-$2");
+                      setEmpresaForm(atual => ({ ...atual, cnpj }));
+                    }} placeholder="00.000.000/0001-00" inputMode="numeric" className={`${INPUT_CLASS} mt-1`} />
+                  </label>
+                  <label className="text-xs font-bold text-slate-600">Responsável
+                    <input value={empresaForm.responsavel} onChange={event => setEmpresaForm(atual => ({ ...atual, responsavel: event.target.value }))} className={`${INPUT_CLASS} mt-1`} />
+                  </label>
+                  <label className="text-xs font-bold text-slate-600">Telefone
+                    <input type="tel" value={empresaForm.telefone} onChange={event => setEmpresaForm(atual => ({ ...atual, telefone: event.target.value }))} className={`${INPUT_CLASS} mt-1`} />
+                  </label>
+                  <label className="text-xs font-bold text-slate-600">E-mail de acesso Supabase Auth *
+                    <input required type="email" autoComplete="email" value={empresaForm.email} onChange={event => setEmpresaForm(atual => ({ ...atual, email: event.target.value }))} className={`${INPUT_CLASS} mt-1`} />
+                  </label>
+                  <label className="text-xs font-bold text-slate-600">Login identificador *
+                    <input required minLength={2} maxLength={40} pattern="[a-z0-9][a-z0-9._-]{1,39}" value={empresaForm.login} onChange={event => {
+                      setEmpresaLoginManual(true);
+                      setEmpresaForm(atual => ({ ...atual, login: event.target.value.toLowerCase().replace(/\s/g, "") }));
+                    }} placeholder="nortevidros" className={`${INPUT_CLASS} mt-1`} />
+                    <span className="mt-1 block font-normal text-slate-500">Use o e-mail e a senha no login; este identificador é exibido para referência.</span>
+                  </label>
+                  <label className="text-xs font-bold text-slate-600">Senha {empresaEdicaoId ? "(opcional para redefinir)" : "inicial *"}
+                    <span className="mt-1 flex gap-2">
+                      <input required={!empresaEdicaoId} minLength={6} type={empresaSenhaVisivel ? "text" : "password"} autoComplete="new-password" value={empresaForm.senha} onChange={event => setEmpresaForm(atual => ({ ...atual, senha: event.target.value }))} className={INPUT_CLASS} />
+                      <button type="button" onClick={() => setEmpresaSenhaVisivel(visivel => !visivel)} className="shrink-0 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700" aria-label={empresaSenhaVisivel ? "Ocultar senha" : "Mostrar senha"}>{empresaSenhaVisivel ? "Ocultar" : "Mostrar"}</button>
+                    </span>
+                  </label>
+                  <div className="flex items-end gap-2">
+                    <button type="button" onClick={gerarSenhaEmpresa} className="rounded-xl bg-sky-50 px-4 py-2.5 text-sm font-bold text-blue-700 hover:bg-sky-100">Gerar senha</button>
+                    <label className="flex-1 text-xs font-bold text-slate-600">Status
+                      <select value={empresaForm.status} onChange={event => setEmpresaForm(atual => ({ ...atual, status: event.target.value }))} className={`${INPUT_CLASS} mt-1`}>
+                        <option>Ativa</option><option>Inativa</option>
+                      </select>
+                    </label>
+                  </div>
+                  <p className="text-xs text-slate-500 sm:col-span-2">A senha é gerenciada pelo Supabase Auth e nunca é gravada nem exibida na lista. Deixe vazia ao editar para mantê-la.</p>
+                  <div className="flex gap-2 sm:col-span-2">
+                    <button type="submit" disabled={salvandoEmpresa} className="rounded-xl bg-gradient-to-r from-teal-600 to-blue-600 px-5 py-3 font-bold text-white disabled:opacity-60">{salvandoEmpresa ? "Salvando..." : empresaEdicaoId ? "Salvar alterações" : "Cadastrar Empresa"}</button>
+                    {empresaEdicaoId && <button type="button" onClick={cancelarEdicaoEmpresa} className="rounded-xl bg-slate-100 px-5 py-3 font-bold text-slate-700">Cancelar</button>}
+                  </div>
+                </form>
+                <input value={buscaEmpresas} onChange={event => setBuscaEmpresas(event.target.value)} placeholder="Buscar por nome ou CNPJ..." className={`${INPUT_CLASS} mb-4`} />
+                <div className="space-y-3">
+                  {empresas.filter(empresa => {
+                    const termo = buscaEmpresas.trim().toLocaleLowerCase("pt-BR");
+                    return `${empresa.nome} ${empresa.cnpj || ""}`.toLocaleLowerCase("pt-BR").includes(termo)
+                      || (buscaEmpresas.replace(/\D/g, "").length > 0 && String(empresa.cnpj || "").replace(/\D/g, "").includes(buscaEmpresas.replace(/\D/g, "")));
+                  }).map(empresa => (
+                    <article key={empresa.id} className={`rounded-2xl border bg-white p-5 shadow-sm ${empresaAtual?.id === empresa.id ? "border-teal-600 ring-2 ring-teal-100" : "border-slate-200"}`}>
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <button type="button" onClick={() => { setEmpresaAtual(empresa); setCategoria("inicio"); }} className="min-w-0 flex-1 text-left">
+                          <span className="text-2xl">🏢</span>
+                          <span className="mt-2 block font-black">{empresa.nome}</span>
+                          <span className="mt-1 block text-sm text-slate-500">CNPJ: {empresa.cnpj || "—"} · Responsável: {empresa.responsavel || "—"}</span>
+                        </button>
+                        <span className={`rounded-full px-3 py-1 text-xs font-black ${empresa.status === "Inativa" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>{empresa.status || "Ativa"}</span>
+                      </div>
+                      <div className="mt-3 grid gap-1 text-sm text-slate-600 sm:grid-cols-2">
+                        <p><b>Login:</b> {empresa.login || "—"}</p><p><b>E-mail:</b> {empresa.email || "—"}</p><p><b>Telefone:</b> {empresa.telefone || "—"}</p>
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button type="button" onClick={() => editarEmpresa(empresa)} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700">Editar</button>
+                        <button type="button" onClick={() => void excluirEmpresa(empresa)} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700">Excluir</button>
+                        <button type="button" onClick={() => void copiarLoginEmpresa(empresa)} className="rounded-lg bg-teal-50 px-3 py-2 text-xs font-bold text-teal-800">Copiar login e e-mail</button>
+                      </div>
+                    </article>
+                  ))}
+                  {empresas.length === 0 && <p className="rounded-xl bg-white p-6 text-center text-sm text-slate-500">Nenhuma empresa cadastrada.</p>}
+                </div>
+              </section>
+            ) : (
+              <p className="rounded-xl bg-white p-6 text-center text-sm text-slate-600">Esta área é exclusiva para administradores.</p>
+            )
+          ) : categoria === "exames" ? (
+              <section>
+                <div className="mb-5">
+                  <p className="text-xs font-bold uppercase tracking-wider text-teal-700">{empresaAtual.nome}</p>
+                  <h1 className="mt-1 text-2xl font-black">Exames ocupacionais</h1>
+                  <p className="mt-1 text-sm text-slate-500">Agende exames e acompanhe os resultados da empresa.</p>
+                </div>
+                {carregandoRegistros ? (
+                  <p className="rounded-2xl bg-white p-8 text-center font-bold text-slate-500">Carregando exames, funcionários e clínicas...</p>
+                ) : (
+                  <>
+                    <div className="grid items-start gap-4 lg:grid-cols-5">
+                      <section className="rounded-2xl bg-white p-4 shadow-sm lg:col-span-2">
+                        <div className="mb-4 flex items-center justify-between">
+                          <h2 className="text-lg font-black">🗓️ Calendário</h2>
+                          <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-teal-800">{registrosExameEmDia.length} no dia</span>
+                        </div>
+                        <label className="block text-xs font-bold text-slate-600">Clínica parceira
+                          <select value={clinicaSelecionadaExame?.id || ""} onChange={event => setClinicaExameId(event.target.value)} className={`${INPUT_CLASS} mt-1`} disabled={!registros.clinicas.length}>
+                            {!registros.clinicas.length && <option value="">Nenhuma clínica cadastrada</option>}
+                            {registros.clinicas.map(clinica => <option key={clinica.id} value={clinica.id}>{clinica.nome}</option>)}
+                          </select>
+                        </label>
+                        {clinicaSelecionadaExame ? (
+                          <div className="mt-3 rounded-xl bg-cyan-50 p-3">
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <p className="font-black text-slate-800">{clinicaSelecionadaExame.nome}</p>
+                              {convenioVigente(clinicaSelecionadaExame)
+                                ? <span className="rounded-full bg-green-100 px-2.5 py-1 text-[10px] font-black text-green-800">Convênio Vigente</span>
+                                : <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black text-amber-800">Convênio a confirmar</span>}
+                            </div>
+                            <p className="mt-1 text-xs text-slate-600">{clinicaSelecionadaExame.telefone || "Telefone não informado"}</p>
+                            <p className="mt-1 text-xs text-slate-600">{clinicaSelecionadaExame.endereco || "Endereço não informado"}</p>
+                          </div>
+                        ) : (
+                          <div className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+                            Cadastre uma clínica na aba Clínicas para agendar.
+                            <button type="button" onClick={() => setCategoria("clinicas")} className="ml-1 font-black underline">Abrir Clínicas</button>
+                          </div>
+                        )}
+
+                        <div className="mt-5 flex items-center justify-between gap-2">
+                          <button type="button" aria-label="Mês anterior" onClick={() => {
+                            const anterior = new Date(dataMesCalendario.getFullYear(), dataMesCalendario.getMonth() - 1, 1, 12);
+                            const novaData = dataLocalISO(anterior);
+                            setMesCalendario(novaData.slice(0, 7));
+                            setDiaExameSelecionado(novaData);
+                          }} className="rounded-lg border border-slate-200 px-3 py-2 font-black text-slate-700 hover:bg-slate-50">‹</button>
+                          <h3 className="text-center font-black capitalize text-slate-800">{mesCalendarioTitulo}</h3>
+                          <button type="button" aria-label="Próximo mês" onClick={() => {
+                            const proximo = new Date(dataMesCalendario.getFullYear(), dataMesCalendario.getMonth() + 1, 1, 12);
+                            const novaData = dataLocalISO(proximo);
+                            setMesCalendario(novaData.slice(0, 7));
+                            setDiaExameSelecionado(novaData);
+                          }} className="rounded-lg border border-slate-200 px-3 py-2 font-black text-slate-700 hover:bg-slate-50">›</button>
+                        </div>
+                        <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[10px] font-black uppercase text-slate-500">
+                          {["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map(dia => <span key={dia} className="py-2">{dia}</span>)}
+                        </div>
+                        <div className="grid grid-cols-7 gap-1">
+                          {diasCalendario.map((dia, index) => {
+                            if (!dia) return <span key={`vazio-${index}`} />;
+                            const quantidade = registros.exames.filter(item => String(item.data || "").slice(0, 10) === dia).length;
+                            const selecionado = dia === diaExameSelecionado;
+                            const hoje = dia === dataLocalISO(new Date());
+                            return (
+                              <button key={dia} type="button" onClick={() => { setDiaExameSelecionado(dia); setMesCalendario(dia.slice(0, 7)); }} className={`min-h-[64px] rounded-lg border p-1 text-left transition ${selecionado ? "border-teal-700 bg-teal-700 text-white" : quantidade ? "border-teal-100 bg-teal-50 text-teal-900 hover:bg-teal-100" : "border-transparent text-slate-700 hover:bg-slate-50"} ${hoje && !selecionado ? "border-2 border-teal-600" : ""}`}>
+                                <span className="block text-xs font-black">{Number(dia.slice(-2))}</span>
+                                {quantidade > 0 && <span className={`mt-1 block text-[9px] leading-tight ${selecionado ? "text-teal-50" : "text-teal-800"}`}>{quantidade} exame(s)</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="mt-5 border-t border-slate-100 pt-4">
+                          <h3 className="font-black">Exames em {formatarData(diaExameSelecionado)} - {registrosExameEmDia.length}</h3>
+                          {registrosExameEmDia.length ? (
+                            <ul className="mt-3 space-y-2">
+                              {registrosExameEmDia.map(exame => (
+                                <li key={exame.id} className="flex items-start justify-between gap-2 rounded-xl bg-slate-50 p-3 text-sm">
+                                  <span className="min-w-0">🩺 <b>{exame.funcionario || exame.nome}</b><span className="block pl-6 text-xs text-slate-500">{exame.tipo} · {exame.clinica || "Clínica não informada"}</span></span>
+                                  <button type="button" onClick={() => void excluirRegistro(exame)} className="shrink-0 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-700">Excluir</button>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : <p className="mt-2 text-sm text-slate-500">Nenhum exame nesse dia.</p>}
+                        </div>
+                      </section>
+
+                      <section className="rounded-2xl bg-white p-4 shadow-sm lg:col-span-3 md:p-5">
+                        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                          <h2 className="text-lg font-black">📋 Marcar Exame - {formatarData(diaExameSelecionado)}</h2>
+                          <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-black text-teal-800">{tiposExameSelecionados.length} selecionado(s)</span>
+                        </div>
+                        <label className="block text-sm font-bold text-slate-700">Passo 1 - Pesquisar funcionário / CPF
+                          <div className="mt-1 flex gap-2">
+                            <input disabled={!!funcionarioSelecionadoExame} value={buscaFuncionarioExame} onChange={event => setBuscaFuncionarioExame(event.target.value)} placeholder="🔍 Digite nome ou CPF do funcionário..." className={`${INPUT_CLASS} text-base`} />
+                            {funcionarioSelecionadoExame && <button type="button" onClick={() => { setFuncionarioExameId(""); setBuscaFuncionarioExame(""); }} className="rounded-xl border border-slate-200 px-4 font-black text-slate-600" aria-label="Trocar funcionário">×</button>}
+                          </div>
+                        </label>
+                        {funcionarioSelecionadoExame ? (
+                          <div className="mt-2 rounded-xl border border-teal-200 bg-cyan-50 p-3 text-sm">
+                            <p className="font-black text-slate-800">👷 {funcionarioSelecionadoExame.nome}</p>
+                            <p className="mt-1 text-xs text-slate-600">CPF: {formatarCpf(funcionarioSelecionadoExame.cpf)} · Setor: {funcionarioSelecionadoExame.setor || "—"}</p>
+                            <p className="mt-1 text-[11px] text-slate-500">O PIN não é exibido por segurança.</p>
+                          </div>
+                        ) : termoFuncionarioExame ? (
+                          <div className="mt-1 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+                            {funcionariosSugeridosExame.length ? funcionariosSugeridosExame.map(funcionario => (
+                              <button key={funcionario.id} type="button" onClick={() => { setFuncionarioExameId(funcionario.id); setBuscaFuncionarioExame(`${funcionario.nome}${funcionario.cpf ? ` · CPF ${formatarCpf(funcionario.cpf)}` : ""}`); }} className="block w-full rounded-lg px-3 py-2 text-left hover:bg-cyan-50">
+                                <span className="block text-sm font-bold text-slate-800">👷 {funcionario.nome}</span>
+                                <span className="mt-0.5 block text-xs text-slate-500">CPF: {formatarCpf(funcionario.cpf)} · Setor: {funcionario.setor || "—"}</span>
+                              </button>
+                            )) : <p className="p-3 text-sm text-slate-500">Nenhum funcionário encontrado pelo nome ou CPF.</p>}
+                          </div>
+                        ) : <p className="mt-1 text-xs text-slate-500">A seleção do funcionário é obrigatória para confirmar.</p>}
+
+                        <div className="mt-5">
+                          <div className="mb-3">
+                            <h3 className="font-black text-slate-800">Passo 2 - Tipos de exame</h3>
+                            <p className="mt-1 text-xs text-slate-500">Selecione os exames necessários</p>
+                          </div>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {TIPOS_EXAME.map(exame => {
+                              const marcado = tiposExameSelecionados.includes(exame.tipo);
+                              return (
+                                <label key={exame.tipo} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${marcado ? "border-teal-500 bg-cyan-50" : "border-slate-200 bg-white hover:border-teal-200"}`}>
+                                  <input type="checkbox" checked={marcado} onChange={() => setTiposExameSelecionados(atual => marcado ? atual.filter(tipo => tipo !== exame.tipo) : [...atual, exame.tipo])} className="mt-1 h-4 w-4 accent-teal-700" />
+                                  <span className="min-w-0 flex-1">
+                                    <span className="flex flex-wrap items-center justify-between gap-1">
+                                      <b className="text-sm text-slate-800">{exame.tipo}</b>
+                                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-black ${exame.obrigatorio ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-600"}`}>{exame.obrigatorio ? "Obrigatório" : "Opcional"}</span>
+                                    </span>
+                                    <span className="mt-1 block text-xs text-slate-500">{exame.descricao}</span>
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <button type="button" onClick={() => void confirmarAgendamentoExame()} disabled={salvando || !funcionarioSelecionadoExame || !clinicaSelecionadaExame || tiposExameSelecionados.length === 0} className="mt-5 w-full rounded-xl bg-gradient-to-r from-teal-600 to-blue-600 px-4 py-4 text-sm font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
+                          {salvando ? "Agendando..." : `✅ Confirmar agendamento - ${formatarData(diaExameSelecionado)}`}
+                        </button>
+                      </section>
+                    </div>
+
+                    <section className="mt-5 rounded-2xl bg-white p-4 shadow-sm md:p-5">
+                      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                        <h2 className="text-lg font-black">Exames Agendados - Total: {registros.exames.length}</h2>
+                        <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-bold text-teal-800">{examesOrdenados.length} exibido(s)</span>
+                      </div>
+                      <input value={buscaExames} onChange={event => setBuscaExames(event.target.value)} placeholder="Buscar exame por nome, tipo ou CPF..." className={`${INPUT_CLASS} mb-4`} />
+                      {examesOrdenados.length ? (
+                        <div className="space-y-3">
+                          {examesOrdenados.map(exame => {
+                            const resultado = String(exame.resultado || "Aguardando");
+                            const corResultado = /inapto/i.test(resultado) ? "bg-red-100 text-red-800" : /apto/i.test(resultado) ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-900";
+                            return (
+                              <article key={exame.id} className="rounded-xl border border-slate-200 p-4">
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <h3 className="font-black text-slate-800">🩺 {exame.funcionario || exame.nome} <span className="font-semibold text-slate-600">- {exame.tipo}</span></h3>
+                                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
+                                      <span>{formatarData(String(exame.data || ""))}</span>
+                                      <span>{exame.clinica || "Clínica não informada"}</span>
+                                      {exame.cpf && <span>CPF: {formatarCpf(exame.cpf)}</span>}
+                                      <span className={`rounded-full px-2.5 py-1 text-xs font-black ${corResultado}`}>{resultado}</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button type="button" onClick={() => abrirEditar(exame)} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700">Editar</button>
+                                    <button type="button" onClick={() => void excluirRegistro(exame)} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700">Excluir</button>
+                                  </div>
+                                </div>
+                              </article>
+                            );
+                          })}
+                        </div>
+                      ) : <p className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500">Nenhum exame agendado encontrado.</p>}
+                    </section>
+                  </>
+                )}
+              </section>
           ) : (
             <section>
               <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
@@ -1017,14 +1554,6 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                   </button>
                 </div>
               </div>
-
-              {categoria === "exames" && (
-                <div className="mb-4 rounded-2xl bg-gradient-to-r from-sky-100 to-emerald-100 p-4">
-                  <h2 className="font-black">🏥 Clínica parceira</h2>
-                  <p className="mt-1 text-sm text-slate-600">{registros.clinicas[0]?.nome || "Cadastre clínicas na seção Clínicas."} · {registros.clinicas[0]?.telefone || "Sem telefone cadastrado"}</p>
-                  <p className="mt-2 text-xs text-slate-600">Exames vencidos: {contagens.examesVencidos} · Realizados: {contagens.examesRealizados}</p>
-                </div>
-              )}
 
               {categoria === "funcionarios" && (
                 <div className="mb-4">

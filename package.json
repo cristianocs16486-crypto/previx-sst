@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@simplewebauthn/browser": "^13.3.0",
+    "@simplewebauthn/server": "^13.3.3",
     "@supabase/supabase-js": "^2.119.0",
     "autoprefixer": "^10.4.19",
     "jspdf": "^2.5.1",

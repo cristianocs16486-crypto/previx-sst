@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
 import { supabase } from "./supabaseClient";
 
 type Profile = {
@@ -53,12 +54,50 @@ const CATEGORIAS_POR_RELATORIO: Record<string, Categoria[]> = {
   PCMSO: ["exames", "clinicas", "funcionarios", "tecnico"],
 };
 
+const SETORES = ["Vendas", "Caixa", "Estoque", "Limpeza", "Gerência", "Entrega", "Administrativo", "Produção", "Manutenção", "Segurança", "Almoxarifado", "RH", "Outro"];
+
+const TIPOS_INSPECAO = [
+  "NR-01 - Gerenciamento de Riscos Ocupacionais",
+  "NR-05 - CIPA",
+  "NR-06 - EPI / EPC",
+  "NR-07 - PCMSO / Exames",
+  "NR-09 - Avaliação de Exposições",
+  "NR-10 - Eletricidade",
+  "NR-11 - Transporte / Movimentação",
+  "NR-12 - Máquinas e Equipamentos",
+  "NR-17 - Ergonomia",
+  "NR-23 - Proteção Contra Incêndio / Extintores",
+  "NR-26 - Sinalização de Segurança",
+  "NR-33 - Espaço Confinado",
+  "NR-35 - Trabalho em Altura",
+  "Inspeção Geral",
+];
+
+const CATALOGO_RISCOS = [
+  { nome: "Ruído", tipo: "Físico", agente: "Ruído contínuo", limite: "85 dB" },
+  { nome: "Calor", tipo: "Físico", agente: "Calor", limite: "IBUTG" },
+  { nome: "Vibração", tipo: "Físico", agente: "Vibração de mãos e braços", limite: "" },
+  { nome: "Frio", tipo: "Físico", agente: "Baixas temperaturas", limite: "" },
+  { nome: "Poeira", tipo: "Químico", agente: "Poeira total", limite: "8 mg/m3" },
+  { nome: "Fumos de Solda", tipo: "Químico", agente: "Fumos metálicos", limite: "" },
+  { nome: "Solventes / Tintas", tipo: "Químico", agente: "Tolueno / Xileno", limite: "" },
+  { nome: "Produtos de Limpeza", tipo: "Químico", agente: "Cloro / Detergentes", limite: "" },
+  { nome: "Bactérias / Vírus", tipo: "Biológico", agente: "Agentes biológicos", limite: "" },
+  { nome: "Queda de altura", tipo: "Acidente", agente: "Trabalho em altura", limite: "" },
+  { nome: "Eletricidade", tipo: "Acidente", agente: "Eletricidade", limite: "" },
+  { nome: "Máquinas sem proteção", tipo: "Acidente", agente: "Partes móveis", limite: "" },
+  { nome: "Postura inadequada", tipo: "Ergonômico", agente: "Postura", limite: "" },
+  { nome: "Levantamento de peso", tipo: "Ergonômico", agente: "Esforço físico", limite: "" },
+  { nome: "Trabalho repetitivo", tipo: "Ergonômico", agente: "LER/DORT", limite: "" },
+  { nome: "Stress / Pressão", tipo: "Ergonômico", agente: "Psicossocial", limite: "" },
+];
+
 const CAMPOS: Record<Categoria, { chave: string; rotulo: string; tipo?: string; opcoes?: string[] }[]> = {
   funcionarios: [
     { chave: "nome", rotulo: "Nome", tipo: "text" },
     { chave: "cpf", rotulo: "CPF", tipo: "text" },
     { chave: "cargo", rotulo: "Cargo", tipo: "text" },
-    { chave: "setor", rotulo: "Setor", tipo: "text" },
+    { chave: "setor", rotulo: "Setor", tipo: "select", opcoes: SETORES },
     { chave: "telefone", rotulo: "Telefone", tipo: "tel" },
     { chave: "admissao", rotulo: "Data de admissão", tipo: "date" },
   ],
@@ -82,7 +121,8 @@ const CAMPOS: Record<Categoria, { chave: string; rotulo: string; tipo?: string; 
     { chave: "local", rotulo: "Local", tipo: "text" },
     { chave: "responsavel", rotulo: "Responsável", tipo: "text" },
     { chave: "data", rotulo: "Data", tipo: "date" },
-    { chave: "status", rotulo: "Status", tipo: "text" },
+    { chave: "status", rotulo: "Status", tipo: "select", opcoes: ["Pendente", "Em Andamento", "Concluída"] },
+    { chave: "tipo_nr", rotulo: "Tipo NR", tipo: "select", opcoes: TIPOS_INSPECAO },
     { chave: "observacao", rotulo: "Observações", tipo: "textarea" },
   ],
   documentos: [
@@ -132,8 +172,6 @@ const CAMPOS: Record<Categoria, { chave: string; rotulo: string; tipo?: string; 
 
 const INPUT_CLASS = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100";
 
-type MetodoAssinatura = "pin" | "digitada" | "punho";
-
 const CATALOGO_EPIS = [
   { codigo: "C", nome: "Capacete de segurança", icone: "⛑️" },
   { codigo: "B", nome: "Botina de segurança", icone: "🥾" },
@@ -166,6 +204,15 @@ const CATALOGO_EPIS = [
 
 function dataHoje() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function escaparHtml(valor: unknown) {
+  return String(valor ?? "—")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function gerarPin() {
@@ -204,7 +251,10 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
   const [mensagem, setMensagem] = useState("");
   const [pastaAtual, setPastaAtual] = useState("Todas");
   const [filtroStatus, setFiltroStatus] = useState("Todos");
-  const [relatorio, setRelatorio] = useState("");
+  const [filtroSetor, setFiltroSetor] = useState("Todos");
+  const [filtroTipoInspecao, setFiltroTipoInspecao] = useState("Todos");
+  const [buscaFuncionarioEpi, setBuscaFuncionarioEpi] = useState("");
+  const [listaFuncionariosEpiAberta, setListaFuncionariosEpiAberta] = useState(false);
   const requestId = useRef(0);
   const assinaturaCanvas = useRef<HTMLCanvasElement>(null);
   const desenhandoAssinatura = useRef(false);
@@ -219,11 +269,14 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     quantidade: "1",
     data_entrega: dataHoje(),
   });
-  const [metodoAssinatura, setMetodoAssinatura] = useState<MetodoAssinatura>("pin");
   const [pinConfirmacao, setPinConfirmacao] = useState("");
-  const [nomeAssinatura, setNomeAssinatura] = useState("");
   const [consentimento, setConsentimento] = useState(false);
   const [assinaturaFeita, setAssinaturaFeita] = useState(false);
+  const [pinVerificado, setPinVerificado] = useState(false);
+  const [verificandoPin, setVerificandoPin] = useState(false);
+  const [coletandoBiometria, setColetandoBiometria] = useState(false);
+  const [webAuthnToken, setWebAuthnToken] = useState("");
+  const [webAuthnVerificadoEm, setWebAuthnVerificadoEm] = useState("");
   const [arquivoDocumento, setArquivoDocumento] = useState<File | null>(null);
   const [catalogoEpiAberto, setCatalogoEpiAberto] = useState(false);
 
@@ -263,14 +316,15 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
         funcionarios: [], epis: [], extintores: [], inspecoes: [], documentos: [],
         exames: [], clinicas: [], riscos: [], financeiro: [], tecnico: [],
       });
+      setCarregandoRegistros(false);
       return;
     }
+    const categoriaSolicitada = categoria === "inicio" || categoria === "empresas" ? null : categoria;
     setCarregandoRegistros(true);
-    const { data, error } = await supabase
-      .from("previx_records")
-      .select("id, company_id, category, payload, created_at")
-      .eq("company_id", empresaAtual.id)
-      .order("created_at", { ascending: false });
+    const { data, error } = await supabase.rpc("previx_list_records", {
+      p_company_id: empresaAtual.id,
+      p_category: categoriaSolicitada,
+    });
     if (request !== requestId.current) return;
     if (error) {
       setErro(`Não foi possível carregar os dados. Aplique a migration de segurança do Supabase: ${error.message}`);
@@ -292,9 +346,9 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
         });
       }
     }
-    setRegistros(novo);
+    setRegistros(atual => categoriaSolicitada ? { ...atual, [categoriaSolicitada]: novo[categoriaSolicitada] } : novo);
     setCarregandoRegistros(false);
-  }, [empresaAtual]);
+  }, [categoria, empresaAtual]);
 
   useEffect(() => {
     void carregarRegistros();
@@ -322,6 +376,12 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     if (categoria === "documentos" && pastaAtual !== "Todas") {
       lista = lista.filter(item => (item.pasta || "Outros") === pastaAtual);
     }
+    if (categoria === "funcionarios" && filtroSetor !== "Todos") {
+      lista = lista.filter(item => (item.setor || "Outro") === filtroSetor);
+    }
+    if (categoria === "inspecoes" && filtroTipoInspecao !== "Todos") {
+      lista = lista.filter(item => item.tipo_nr === filtroTipoInspecao);
+    }
     if ((categoria === "extintores" || categoria === "documentos") && filtroStatus !== "Todos") {
       lista = lista.filter(item => {
         const vencimento = categoria === "extintores" ? item.proxima_recarga || item.vencimento : item.vencimento;
@@ -334,18 +394,21 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       });
     }
     return lista;
-  }, [busca, categoria, filtroStatus, pastaAtual, registros]);
+  }, [busca, categoria, filtroSetor, filtroTipoInspecao, filtroStatus, pastaAtual, registros]);
 
   function abrirNovo() {
     if (categoria === "inicio" || categoria === "empresas") return;
     setArquivoDocumento(null);
     if (categoria === "epis") {
       setEntregaEpi({ employeeId: "", nome: "", ca: "", tipo: "", quantidade: "1", data_entrega: dataHoje() });
-      setMetodoAssinatura("pin");
+      setBuscaFuncionarioEpi("");
+      setListaFuncionariosEpiAberta(false);
       setPinConfirmacao("");
-      setNomeAssinatura("");
       setConsentimento(false);
       setAssinaturaFeita(false);
+      setPinVerificado(false);
+      setWebAuthnToken("");
+      setWebAuthnVerificadoEm("");
       setEditando(null);
       setModal(true);
       return;
@@ -359,8 +422,8 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     for (const campo of CAMPOS[categoria]) {
       if (campo.tipo === "date") valores[campo.chave] = dataHoje();
     }
-    if (categoria === "funcionarios") valores.setor = "Administrativo";
     if (categoria === "financeiro") valores.status = "Pendente";
+    if (categoria === "inspecoes") valores.status = "Pendente";
     if (categoria === "documentos") valores.pasta = "PGR";
     setForm(valores);
     if (categoria === "funcionarios") {
@@ -394,13 +457,13 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
         setSalvando(false);
         return;
       }
-      const { error } = await supabase.rpc("previx_create_employee", {
+      const { data: employeeId, error } = await supabase.rpc("previx_create_record", {
         p_company_id: empresaAtual.id,
-        p_payload: payload,
-        p_pin: pin,
+        p_category: "funcionarios",
+        p_payload: { ...payload, pin },
       });
-      if (error) {
-        setErro(`Não foi possível cadastrar o funcionário: ${error.message}`);
+      if (error || !employeeId) {
+        setErro(`Não foi possível cadastrar o funcionário${error ? `: ${error.message}` : ": não foi retornado o identificador do registro."}`);
         setSalvando(false);
         return;
       }
@@ -477,7 +540,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
         const { error: cleanupError } = await supabase.storage.from("previx-documents").remove([editando.arquivo_path]);
         if (cleanupError) setErro(`Documento salvo, mas o arquivo anterior não pôde ser removido: ${cleanupError.message}`);
       }
-      setMensagem(`${CATEGORIAS.find(item => item.id === categoria)?.singular || "Registro"} salvo.`);
+      setMensagem("Salvo com sucesso.");
       setModal(false);
       setForm({});
       setEditando(null);
@@ -491,6 +554,80 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     const canvas = assinaturaCanvas.current;
     if (canvas) canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
     setAssinaturaFeita(false);
+  }
+
+  async function verificarPinEntrega() {
+    const funcionario = registros.funcionarios.find(item => item.id === entregaEpi.employeeId);
+    if (!empresaAtual || !funcionario || !/^\d{4}$/.test(pinConfirmacao)) {
+      setErro("Selecione o funcionário e informe o PIN de quatro dígitos.");
+      return;
+    }
+    setVerificandoPin(true);
+    setErro("");
+    setPinVerificado(false);
+    setWebAuthnToken("");
+    setWebAuthnVerificadoEm("");
+    const { data, error } = await supabase.rpc("previx_verify_employee_pin", {
+      p_company_id: empresaAtual.id,
+      p_employee_id: funcionario.id,
+      p_pin: pinConfirmacao,
+    });
+    if (error) setErro(`Não foi possível verificar o PIN: ${error.message}`);
+    else if (data !== true) setErro("PIN incorreto ou temporariamente bloqueado.");
+    else setPinVerificado(true);
+    setVerificandoPin(false);
+  }
+
+  async function coletarAutenticador() {
+    const funcionario = registros.funcionarios.find(item => item.id === entregaEpi.employeeId);
+    if (!empresaAtual || !funcionario || !pinVerificado) {
+      setErro("Verifique primeiro o PIN do funcionário.");
+      return;
+    }
+    if (!window.isSecureContext || !navigator.credentials) {
+      setErro("Este navegador não oferece WebAuthn seguro. Use o domínio HTTPS do painel em um dispositivo compatível.");
+      return;
+    }
+
+    setColetandoBiometria(true);
+    setErro("");
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) throw new Error("Sessão expirada. Entre novamente no PREVIX.");
+
+      const optionsResponse = await fetch("/api/webauthn/options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ companyId: empresaAtual.id, employeeId: funcionario.id, pin: pinConfirmacao }),
+      });
+      const optionsResult = await optionsResponse.json();
+      if (!optionsResponse.ok) throw new Error(optionsResult.error || "Não foi possível iniciar o autenticador.");
+
+      const credential = optionsResult.purpose === "registration"
+        ? await startRegistration({ optionsJSON: optionsResult.options })
+        : await startAuthentication({ optionsJSON: optionsResult.options });
+      const verificationResponse = await fetch("/api/webauthn/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          companyId: empresaAtual.id,
+          employeeId: funcionario.id,
+          pin: pinConfirmacao,
+          challengeId: optionsResult.challengeId,
+          response: credential,
+        }),
+      });
+      const verification = await verificationResponse.json();
+      if (!verificationResponse.ok || verification.verified !== true || typeof verification.token !== "string") {
+        throw new Error(verification.error || "O servidor não confirmou o autenticador.");
+      }
+      setWebAuthnToken(verification.token);
+      setWebAuthnVerificadoEm(verification.verifiedAt);
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : "Não foi possível verificar o autenticador.");
+    } finally {
+      setColetandoBiometria(false);
+    }
   }
 
   function iniciarAssinatura(event: React.PointerEvent<HTMLCanvasElement>) {
@@ -531,16 +668,20 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       setErro("Informe o EPI entregue.");
       return;
     }
+    if (!pinVerificado) {
+      setErro("Verifique o PIN do funcionário antes de continuar.");
+      return;
+    }
+    if (!webAuthnToken) {
+      setErro("Conclua a autenticação local do dispositivo antes de continuar.");
+      return;
+    }
+    if (!assinaturaFeita) {
+      setErro("Solicite a assinatura do funcionário no campo de assinatura.");
+      return;
+    }
     if (!consentimento) {
       setErro("O funcionário precisa confirmar o recebimento do EPI.");
-      return;
-    }
-    if (metodoAssinatura !== "pin" && nomeAssinatura.trim().toLocaleLowerCase("pt-BR") !== String(funcionario.nome).trim().toLocaleLowerCase("pt-BR")) {
-      setErro("Informe o nome completo exatamente como está no cadastro do funcionário.");
-      return;
-    }
-    if (metodoAssinatura === "punho" && !assinaturaFeita) {
-      setErro("Solicite a assinatura do funcionário no campo de assinatura.");
       return;
     }
 
@@ -555,16 +696,20 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       quantidade: Math.max(1, Number(entregaEpi.quantidade) || 1),
       data_entrega: entregaEpi.data_entrega || dataHoje(),
       funcionario: funcionario.nome,
+      empresa_id: empresaAtual.id,
+      empresa: empresaAtual.nome,
+      pinVerificado: true,
+      biometria: { metodo: "WebAuthn", verificado_em: webAuthnVerificadoEm },
+      assinaturaImg: assinaturaCanvas.current?.toDataURL("image/png"),
     };
     const { data: recordId, error } = await supabase.rpc("previx_create_epi_delivery", {
       p_company_id: empresaAtual.id,
       p_employee_id: funcionario.id,
-      p_employee_pin: metodoAssinatura === "punho" ? null : pinConfirmacao.trim(),
+      p_employee_pin: pinConfirmacao.trim(),
       p_payload: payload,
-      p_method: metodoAssinatura,
-      p_typed_name: metodoAssinatura === "pin" ? funcionario.nome : nomeAssinatura.trim(),
-      p_hand_signature: metodoAssinatura === "punho" ? assinaturaCanvas.current?.toDataURL("image/png") : null,
+      p_hand_signature: assinaturaCanvas.current?.toDataURL("image/png"),
       p_consent: consentimento,
+      p_biometric_token: webAuthnToken,
     });
     if (error) {
       setErro(`Não foi possível registrar a entrega: ${error.message}`);
@@ -576,8 +721,12 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       setSalvando(false);
       return;
     }
-    setMensagem(`Entrega registrada para ${funcionario.nome} com confirmação ${metodoAssinatura === "punho" ? "manuscrita" : metodoAssinatura === "digitada" ? "digitada e PIN" : "por PIN"}.`);
+    setMensagem(`Entrega registrada para ${funcionario.nome} com PIN, autenticador WebAuthn e assinatura.`);
     setModal(false);
+    setPinConfirmacao("");
+    setPinVerificado(false);
+    setWebAuthnToken("");
+    setWebAuthnVerificadoEm("");
     await carregarRegistros();
     setSalvando(false);
   }
@@ -643,8 +792,61 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
   }
 
   function imprimirRelatorio(tipo: string) {
-    setRelatorio(tipo);
-    window.setTimeout(() => window.print(), 100);
+    if (!empresaAtual) return;
+    const categorias = tipo === "Painel completo"
+      ? CATEGORIAS.map(item => item.id)
+      : CATEGORIAS_POR_RELATORIO[tipo] || CATEGORIAS.filter(item => item.label === tipo).map(item => item.id);
+    const secoes = categorias.map(categoriaRelatorio => {
+      const definicao = CATEGORIAS.find(item => item.id === categoriaRelatorio);
+      const campos = categoriaRelatorio === "documentos"
+        ? [...CAMPOS.documentos, { chave: "arquivo", rotulo: "Arquivo anexado", tipo: "text" }]
+        : CAMPOS[categoriaRelatorio];
+      const itens = registros[categoriaRelatorio];
+      const linhas = itens.map(item => {
+        const confirmacao = item.assinatura?.metodo === "pin_biometria_assinatura"
+          ? `PIN + verificação WebAuthn + assinatura${typeof item.assinaturaImg === "string" && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(item.assinaturaImg) ? `<br><img alt="Assinatura" src="${item.assinaturaImg}" style="max-width:140px;max-height:45px">` : ""}`
+          : escaparHtml(item.assinatura?.metodo);
+        return `<tr>${campos.map(campo => `<td>${escaparHtml(item[campo.chave])}</td>`).join("")}${categoriaRelatorio === "epis" ? `<td>${confirmacao}</td>` : ""}</tr>`;
+      }).join("");
+      return `<section><h2>${escaparHtml(definicao?.label || categoriaRelatorio)}</h2>${itens.length ? `<table><thead><tr>${campos.map(campo => `<th>${escaparHtml(campo.rotulo)}</th>`).join("")}${categoriaRelatorio === "epis" ? "<th>Confirmação</th>" : ""}</tr></thead><tbody>${linhas}</tbody></table>` : "<p>Nenhum registro cadastrado.</p>"}</section>`;
+    }).join("");
+    const profissional = registros.tecnico[0];
+    const nomeProfissional = profissional?.nome || "Cristiano Vicente";
+    const nomeSeguro = escaparHtml(nomeProfissional);
+    const nomeEmpresa = escaparHtml(empresaAtual.nome);
+    const dataEmissao = new Date().toLocaleString("pt-BR");
+    const incluiPlano = ["PGR", "LTCAT", "PCMSO"].includes(tipo);
+    const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escaparHtml(tipo)} - ${nomeEmpresa}</title><style>
+      *{box-sizing:border-box}body{margin:0;padding:24px;font:14px Arial,sans-serif;color:#172033}.actions{display:flex;justify-content:flex-end;gap:8px;margin:0 auto 16px;max-width:980px}.actions button{border:0;border-radius:8px;background:#0f766e;color:#fff;padding:10px 16px;font-weight:bold;cursor:pointer}.page{max-width:980px;margin:auto}.header{display:grid;grid-template-columns:135px 1fr 135px;align-items:center;gap:14px;border-bottom:4px solid #0f766e;padding-bottom:14px;text-align:center}.logo{height:82px;border:1px dashed #94a3b8;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:11px;font-weight:bold}.brand{color:#0f766e;letter-spacing:3px;font-weight:bold}.header h1{font-size:22px;margin:5px 0}.header p,.muted{color:#64748b;font-size:12px}.company{margin:16px 0;padding:10px;background:#f1f5f9}.tech{padding:10px;border:1px solid #cbd5e1;margin:12px 0}section{margin:18px 0}h2{font-size:16px;color:#0f766e;border-bottom:1px solid #cbd5e1;padding-bottom:6px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #cbd5e1;padding:6px;text-align:left;overflow-wrap:anywhere;vertical-align:top}th{background:#f1f5f9}.plan{min-height:80px;border:1px solid #cbd5e1;padding:10px}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:36px;margin-top:55px}.line{border-top:1px solid #334155;text-align:center;padding-top:7px}.foot{margin-top:22px;border-top:1px solid #cbd5e1;padding-top:10px;font-size:10px;color:#64748b}@media print{@page{size:A4;margin:14mm}.actions{display:none}body{padding:0}section,tr{break-inside:avoid}.header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}@media(max-width:600px){body{padding:12px}.header{grid-template-columns:1fr}.logo{height:55px}.signatures{grid-template-columns:1fr}}
+      </style></head><body><div class="actions"><button onclick="window.print()">Imprimir / Salvar PDF</button></div><main class="page"><header class="header"><div class="logo">LOGO PRESTADORA</div><div><div class="brand">PREVIX SST</div><h1>RELATÓRIO ${escaparHtml(tipo)}</h1><p>Emitido em ${escaparHtml(dataEmissao)}</p></div><div class="logo">LOGO CLIENTE<br>${nomeEmpresa}</div></header><div class="company"><b>Empresa:</b> ${nomeEmpresa}</div><div class="tech"><b>Responsável técnico informado:</b> ${nomeSeguro}<br><b>Função:</b> ${escaparHtml(profissional?.funcao)} · <b>CREA:</b> ${escaparHtml(profissional?.crea)} · <b>MTE:</b> ${escaparHtml(profissional?.mte)}</div>${secoes}${incluiPlano ? `<section><h2>Plano de ação e medidas de controle</h2><div class="plan">Implementar e acompanhar as medidas de controle cadastradas para cada risco. Validar prioridades, responsáveis, prazos e eficácia por profissional habilitado, conforme avaliação específica do ambiente.</div><h2>Conclusão</h2><div class="plan">Este documento reflete os registros disponíveis no PREVIX na data de emissão. A conclusão técnica depende de revisão e validação por profissional habilitado.</div></section>` : ""}<footer class="signatures"><div class="line">${nomeSeguro}<br>Responsável técnico</div><div class="line">${nomeEmpresa}<br>Representante da empresa</div></footer><p class="foot">Relatório gerado pelo PREVIX SST. Revisar os dados e a aplicabilidade técnica antes de usar como documento oficial.</p></main></body></html>`;
+    const reportWindow = window.open("", "_blank");
+    if (!reportWindow) {
+      setErro("O navegador bloqueou a nova aba. Permita pop-ups para gerar o relatório.");
+      return;
+    }
+    reportWindow.opener = null;
+    reportWindow.document.open();
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+  }
+
+  function imprimirTermoEpi(registro: Registro) {
+    if (!empresaAtual) return;
+    const assinatura = typeof registro.assinaturaImg === "string"
+      && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(registro.assinaturaImg)
+      ? `<img class="signature-image" src="${registro.assinaturaImg}" alt="Assinatura do funcionário">`
+      : "<p>Assinatura não disponível.</p>";
+    const reportWindow = window.open("", "_blank");
+    if (!reportWindow) {
+      setErro("O navegador bloqueou a nova aba. Permita pop-ups para gerar o termo.");
+      return;
+    }
+    reportWindow.opener = null;
+    reportWindow.document.open();
+    reportWindow.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Termo de Entrega de EPI - ${escaparHtml(empresaAtual.nome)}</title><style>
+      *{box-sizing:border-box}body{max-width:850px;margin:32px auto;padding:24px;color:#172033;font:14px Arial,sans-serif}.header{display:grid;grid-template-columns:120px 1fr 120px;gap:12px;align-items:center;text-align:center;border-bottom:3px solid #0f766e;padding-bottom:14px}.logo{height:70px;border:1px dashed #94a3b8;display:grid;place-items:center;color:#64748b;font-size:10px;font-weight:bold}.header h1{font-size:20px}.brand{color:#0f766e;font-weight:bold;letter-spacing:2px}.section{margin:18px 0;padding:14px;border:1px solid #cbd5e1;border-radius:8px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.signature-image{display:block;max-width:250px;max-height:100px;margin:12px 0;border-bottom:1px solid #334155}.sign{margin-top:42px;border-top:1px solid #334155;text-align:center;padding-top:8px}.actions{text-align:right;margin-bottom:16px}.actions button{background:#0f766e;color:#fff;border:0;border-radius:8px;padding:10px 16px;font-weight:bold}@media print{@page{size:A4;margin:16mm}.actions{display:none}body{margin:0;padding:0}}@media(max-width:600px){.header{grid-template-columns:1fr}.logo{height:50px}.grid{grid-template-columns:1fr}}
+      </style></head><body><div class="actions"><button onclick="window.print()">Imprimir / Salvar PDF</button></div><header class="header"><div class="logo">LOGO PRESTADORA</div><div><div class="brand">PREVIX SST</div><h1>TERMO DE ENTREGA DE EPI — NR-06</h1><p>${escaparHtml(empresaAtual.nome)}</p></div><div class="logo">LOGO CLIENTE</div></header><section class="section"><h2>Identificação da entrega</h2><div class="grid"><p><b>Funcionário:</b> ${escaparHtml(registro.funcionario)}</p><p><b>EPI:</b> ${escaparHtml(registro.nome)}</p><p><b>CA:</b> ${escaparHtml(registro.ca)}</p><p><b>Tipo / modelo:</b> ${escaparHtml(registro.tipo)}</p><p><b>Quantidade:</b> ${escaparHtml(registro.quantidade)}</p><p><b>Data da entrega:</b> ${escaparHtml(registro.data_entrega)}</p></div></section><section class="section"><h2>Confirmação</h2><p>PIN validado: ${registro.pinVerificado === true ? "Sim" : "Não"}</p><p>Verificação do dispositivo: WebAuthn · ${escaparHtml(registro.biometria?.verificado_em)}</p><p>Recebimento confirmado: ${registro.assinatura?.consentimento === true ? "Sim" : "Não"}</p>${assinatura}<div class="sign">${escaparHtml(registro.funcionario)}<br>Assinatura do funcionário</div></section><p>Termo de registro da entrega de EPI. Confirme se os dados e procedimentos correspondem ao evento real antes de arquivar.</p></body></html>`);
+    reportWindow.document.close();
   }
 
   const titulo = categoria === "inicio"
@@ -658,10 +860,10 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     if (termoEpi.length === 1) return item.codigo.toLocaleLowerCase("pt-BR") === termoEpi;
     return item.nome.toLocaleLowerCase("pt-BR").includes(termoEpi) || item.codigo.toLocaleLowerCase("pt-BR").startsWith(termoEpi);
   });
-  const categoriasRelatorio = relatorio === "Painel completo"
-    ? CATEGORIAS.map(item => item.id)
-    : CATEGORIAS_POR_RELATORIO[relatorio] || CATEGORIAS.filter(item => item.label === relatorio).map(item => item.id);
-
+  const funcionariosSugeridos = registros.funcionarios.filter(item => {
+    const termo = buscaFuncionarioEpi.trim().toLocaleLowerCase("pt-BR");
+    return !termo || `${item.nome || ""} ${item.cpf || ""}`.toLocaleLowerCase("pt-BR").includes(termo);
+  });
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900">
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col bg-slate-900 px-4 py-5 text-white md:flex">
@@ -824,6 +1026,60 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                 </div>
               )}
 
+              {categoria === "funcionarios" && (
+                <div className="mb-4">
+                  <label className="mb-1 block text-xs font-bold text-slate-500">Filtrar por setor</label>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => setFiltroSetor("Todos")} className={`rounded-full px-3 py-1.5 text-xs font-bold ${filtroSetor === "Todos" ? "bg-teal-700 text-white" : "bg-white text-slate-700"}`}>
+                      Todos ({registros.funcionarios.length})
+                    </button>
+                    {SETORES.map(setor => {
+                      const total = registros.funcionarios.filter(item => (item.setor || "Outro") === setor).length;
+                      return <button key={setor} onClick={() => setFiltroSetor(setor)} className={`rounded-full px-3 py-1.5 text-xs font-bold ${filtroSetor === setor ? "bg-teal-700 text-white" : "bg-white text-slate-700"}`}>{setor} ({total})</button>;
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {categoria === "inspecoes" && (
+                <label className="mb-3 block max-w-xl text-xs font-bold text-slate-500">Filtrar por Tipo NR
+                  <select value={filtroTipoInspecao} onChange={event => setFiltroTipoInspecao(event.target.value)} className={`${INPUT_CLASS} mt-1`}>
+                    <option>Todos</option>
+                    {TIPOS_INSPECAO.map(tipo => <option key={tipo}>{tipo}</option>)}
+                  </select>
+                </label>
+              )}
+
+              {categoria === "riscos" && (
+                <section className="mb-4 rounded-2xl bg-white p-4 shadow-sm">
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {["PGR", "LTCAT", "PCMSO"].map(tipo => (
+                      <button key={tipo} onClick={() => imprimirRelatorio(tipo)} className="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-teal-800">Gerar {tipo}</button>
+                    ))}
+                  </div>
+                  <h2 className="font-black">Catálogo de riscos ocupacionais</h2>
+                  <p className="mt-1 text-xs text-slate-500">Selecione um risco para preencher o cadastro. Revise e complete o GHE/setor e as medidas de controle conforme avaliação profissional.</p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                    {CATALOGO_RISCOS.map(risco => (
+                      <article key={risco.nome} className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 p-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold">{risco.nome}</p>
+                          <p className="truncate text-xs text-slate-500">{risco.tipo} · {risco.agente}</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setEditando(null);
+                            setForm({ nome: risco.nome, tipo: risco.tipo, agente: risco.agente, limite: risco.limite, ghe: "", epi: "" });
+                            setModal(true);
+                          }}
+                          className="shrink-0 rounded-lg bg-teal-50 px-3 py-2 text-xs font-bold text-teal-800"
+                        >+ Adicionar</button>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              )}
+
               {categoria === "documentos" && (
                 <div className="mb-3 flex flex-wrap gap-2">
                   <select value={pastaAtual} onChange={event => setPastaAtual(event.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
@@ -858,7 +1114,10 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                     <article key={registro.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <h2 className="font-extrabold">{registro.nome || registro.titulo || registro.descricao || registro.localizacao || registro.ghe || "Registro"}</h2>
+                          <h2 className="font-extrabold">
+                            {categoria === "epis" && <span className="mr-2" aria-hidden="true">{CATALOGO_EPIS.find(item => item.nome === registro.nome)?.icone || "🦺"}</span>}
+                            {registro.nome || registro.titulo || registro.descricao || registro.localizacao || registro.ghe || "Registro"}
+                          </h2>
                           <div className="mt-2 grid gap-x-6 gap-y-1 text-sm text-slate-600 sm:grid-cols-2">
                             {CAMPOS[categoria].filter(campo => campo.chave !== "nome" || !registro.titulo).map(campo => {
                               const valor = registro[campo.chave];
@@ -873,17 +1132,17 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                             {categoria === "epis" && registro.assinatura && (
                               <>
                                 <p className="font-semibold text-teal-800">
-                                  Confirmação: {registro.assinatura.metodo === "pin" ? "PIN" : registro.assinatura.metodo === "digitada" ? "Assinatura digitada + PIN" : registro.assinatura.metodo === "punho" ? "Assinatura manuscrita" : "Sem confirmação verificável"}
+                                  Confirmação: {registro.assinatura.metodo === "pin_biometria_assinatura" ? "PIN + verificação WebAuthn + Assinatura" : registro.assinatura.metodo === "pin" ? "PIN" : registro.assinatura.metodo === "digitada" ? "Assinatura digitada + PIN" : registro.assinatura.metodo === "punho" ? "Assinatura manuscrita" : "Sem confirmação verificável"}
                                   {registro.assinatura.confirmado_em ? ` · ${new Date(registro.assinatura.confirmado_em).toLocaleString("pt-BR")}` : ""}
                                 </p>
-                                {registro.assinatura.metodo === "punho" && typeof registro.assinatura.imagem === "string" && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(registro.assinatura.imagem) && (
-                                  <img src={registro.assinatura.imagem} alt={`Assinatura de ${registro.assinatura.nome || "funcionário"}`} className="mt-2 max-h-24 max-w-xs rounded border border-slate-200 bg-white p-2" />
+                                {typeof (registro.assinaturaImg || registro.assinatura.imagem) === "string" && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(registro.assinaturaImg || registro.assinatura.imagem) && (
+                                  <img src={registro.assinaturaImg || registro.assinatura.imagem} alt={`Assinatura de ${registro.assinatura.nome || "funcionário"}`} className="mt-2 max-h-24 max-w-xs rounded border border-slate-200 bg-white p-2" />
                                 )}
                               </>
                             )}
                           </div>
                         </div>
-                        {categoria !== "epis" && <div className="flex gap-2">
+                        {categoria === "epis" ? <button onClick={() => imprimirTermoEpi(registro)} className="rounded-lg bg-teal-50 px-3 py-2 text-xs font-bold text-teal-800">📄 Termo PDF</button> : <div className="flex gap-2">
                           <button onClick={() => abrirEditar(registro)} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200">Editar</button>
                           <button onClick={() => void excluirRegistro(registro)} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100">Excluir</button>
                         </div>}
@@ -906,11 +1165,25 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                 <button type="button" onClick={() => setModal(false)} aria-label="Fechar" className="rounded-lg px-3 py-1 text-xl text-slate-500 hover:bg-slate-100">×</button>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className="text-xs font-bold text-slate-600 sm:col-span-2">Funcionário
-                  <select required value={entregaEpi.employeeId} onChange={event => setEntregaEpi(atual => ({ ...atual, employeeId: event.target.value }))} className={`${INPUT_CLASS} mt-1`}>
-                    <option value="">Selecione</option>
-                    {registros.funcionarios.map(item => <option key={item.id} value={item.id}>{item.nome}</option>)}
-                  </select>
+                <label className="relative text-xs font-bold text-slate-600 sm:col-span-2">Buscar funcionário por nome ou CPF
+                  <input
+                    required
+                    value={buscaFuncionarioEpi}
+                    onFocus={() => setListaFuncionariosEpiAberta(true)}
+                    onChange={event => { setBuscaFuncionarioEpi(event.target.value); setEntregaEpi(atual => ({ ...atual, employeeId: "" })); setPinVerificado(false); setWebAuthnToken(""); setWebAuthnVerificadoEm(""); limparAssinatura(); setListaFuncionariosEpiAberta(true); }}
+                    placeholder="Digite nome ou CPF"
+                    className={`${INPUT_CLASS} mt-1`}
+                  />
+                  {listaFuncionariosEpiAberta && (
+                    <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+                      {funcionariosSugeridos.length ? funcionariosSugeridos.map(funcionario => (
+                        <button key={funcionario.id} type="button" onMouseDown={event => event.preventDefault()} onClick={() => { setEntregaEpi(atual => ({ ...atual, employeeId: funcionario.id })); setBuscaFuncionarioEpi(`${funcionario.nome}${funcionario.cpf ? ` · ${funcionario.cpf}` : ""}`); setPinConfirmacao(""); setPinVerificado(false); setWebAuthnToken(""); setWebAuthnVerificadoEm(""); limparAssinatura(); setListaFuncionariosEpiAberta(false); }} className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-teal-50">
+                          <span className="font-bold">{funcionario.nome}</span>{funcionario.cpf && <span className="ml-2 text-slate-500">{funcionario.cpf}</span>}
+                        </button>
+                      )) : <p className="p-3 text-xs text-slate-500">Nenhum funcionário encontrado.</p>}
+                    </div>
+                  )}
+                  {entregaEpi.employeeId && <span className="mt-1 block text-xs text-teal-700">Funcionário selecionado</span>}
                 </label>
                 <label className="relative text-xs font-bold text-slate-600">EPI entregue
                   <input
@@ -919,6 +1192,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                     onFocus={() => setCatalogoEpiAberto(true)}
                     onChange={event => { setEntregaEpi(atual => ({ ...atual, nome: event.target.value })); setCatalogoEpiAberto(true); }}
                     placeholder="Digite o EPI ou uma sigla (C, B, L...)"
+                    disabled={pinVerificado}
                     className={`${INPUT_CLASS} mt-1`}
                   />
                   {catalogoEpiAberto && (
@@ -942,43 +1216,40 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                   )}
                 </label>
                 <label className="text-xs font-bold text-slate-600">Certificado de Aprovação (CA)
-                  <input value={entregaEpi.ca} onChange={event => setEntregaEpi(atual => ({ ...atual, ca: event.target.value }))} className={`${INPUT_CLASS} mt-1`} />
+                  <input disabled={pinVerificado} value={entregaEpi.ca} onChange={event => setEntregaEpi(atual => ({ ...atual, ca: event.target.value }))} className={`${INPUT_CLASS} mt-1`} />
                 </label>
                 <label className="text-xs font-bold text-slate-600">Tipo / modelo
-                  <input value={entregaEpi.tipo} onChange={event => setEntregaEpi(atual => ({ ...atual, tipo: event.target.value }))} className={`${INPUT_CLASS} mt-1`} />
+                  <input disabled={pinVerificado} value={entregaEpi.tipo} onChange={event => setEntregaEpi(atual => ({ ...atual, tipo: event.target.value }))} className={`${INPUT_CLASS} mt-1`} />
                 </label>
                 <label className="text-xs font-bold text-slate-600">Quantidade
-                  <input required min="1" type="number" value={entregaEpi.quantidade} onChange={event => setEntregaEpi(atual => ({ ...atual, quantidade: event.target.value }))} className={`${INPUT_CLASS} mt-1`} />
+                  <input disabled={pinVerificado} required min="1" type="number" value={entregaEpi.quantidade} onChange={event => setEntregaEpi(atual => ({ ...atual, quantidade: event.target.value }))} className={`${INPUT_CLASS} mt-1`} />
                 </label>
                 <label className="text-xs font-bold text-slate-600">Data de entrega
-                  <input required type="date" value={entregaEpi.data_entrega} onChange={event => setEntregaEpi(atual => ({ ...atual, data_entrega: event.target.value }))} className={`${INPUT_CLASS} mt-1`} />
+                  <input disabled={pinVerificado} required type="date" value={entregaEpi.data_entrega} onChange={event => setEntregaEpi(atual => ({ ...atual, data_entrega: event.target.value }))} className={`${INPUT_CLASS} mt-1`} />
                 </label>
               </div>
-              <fieldset className="mt-4">
-                <legend className="text-sm font-bold text-slate-700">Confirmação do recebimento</legend>
-                <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                  {([
-                    ["pin", "PIN"],
-                    ["digitada", "Assinatura digitada + PIN"],
-                    ["punho", "Assinatura manuscrita"],
-                  ] as const).map(([metodo, texto]) => (
-                    <label key={metodo} className={`cursor-pointer rounded-lg border p-3 text-xs font-bold ${metodoAssinatura === metodo ? "border-teal-600 bg-teal-50 text-teal-900" : "border-slate-200 text-slate-600"}`}>
-                      <input type="radio" name="metodo-assinatura" value={metodo} checked={metodoAssinatura === metodo} onChange={() => { setMetodoAssinatura(metodo); setPinConfirmacao(""); setNomeAssinatura(""); limparAssinatura(); }} className="mr-2" />
-                      {texto}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-              {metodoAssinatura !== "punho" ? (
-                <label className="mt-3 block text-xs font-bold text-slate-600">PIN do funcionário
-                  <input required inputMode="numeric" autoComplete="off" maxLength={4} pattern="[0-9]{4}" value={pinConfirmacao} onChange={event => setPinConfirmacao(event.target.value.replace(/\D/g, "").slice(0, 4))} className={`${INPUT_CLASS} mt-1`} />
+              <fieldset className="mt-4 rounded-xl border border-slate-200 p-4">
+                <legend className="px-1 text-sm font-bold text-slate-700">2. Verificar PIN</legend>
+                <label className="block text-xs font-bold text-slate-600">PIN de 4 dígitos
+                  <input required inputMode="numeric" autoComplete="off" maxLength={4} pattern="[0-9]{4}" value={pinConfirmacao} onChange={event => { setPinConfirmacao(event.target.value.replace(/\D/g, "").slice(0, 4)); setPinVerificado(false); setWebAuthnToken(""); setWebAuthnVerificadoEm(""); }} className={`${INPUT_CLASS} mt-1`} />
                 </label>
-              ) : (
-                <>
-                  <label className="mt-3 block text-xs font-bold text-slate-600">Nome completo do funcionário
-                    <input required value={nomeAssinatura} onChange={event => setNomeAssinatura(event.target.value)} className={`${INPUT_CLASS} mt-1`} />
-                  </label>
-                  <p className="mt-3 text-xs font-semibold text-slate-600">Assinatura manuscrita (dedo ou caneta)</p>
+                <button type="button" onClick={() => void verificarPinEntrega()} disabled={verificandoPin || !entregaEpi.employeeId || pinConfirmacao.length !== 4} className="mt-2 rounded-lg bg-teal-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
+                  {verificandoPin ? "Verificando..." : "Verificar PIN"}
+                </button>
+                {pinVerificado && <p role="status" className="mt-2 text-sm font-bold text-green-700">PIN verificado no Supabase.</p>}
+              </fieldset>
+              <fieldset className="mt-3 rounded-xl border border-slate-200 p-4">
+                <legend className="px-1 text-sm font-bold text-slate-700">3. Autenticar dispositivo</legend>
+                <button type="button" onClick={() => void coletarAutenticador()} disabled={!pinVerificado || coletandoBiometria || !!webAuthnToken} className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
+                  {coletandoBiometria ? "Aguardando dispositivo..." : webAuthnToken ? "Autenticador verificado" : "Coletar autenticação do dispositivo"}
+                </button>
+                {webAuthnVerificadoEm && <p role="status" className="mt-2 text-sm font-bold text-green-700">Verificação local WebAuthn confirmada · {new Date(webAuthnVerificadoEm).toLocaleString("pt-BR")}</p>}
+                <p className="mt-2 text-xs text-slate-500">A autenticação é verificada criptograficamente no servidor. O dispositivo pode confirmar com biometria ou PIN/bloqueio de tela; o navegador não informa qual método local foi usado.</p>
+              </fieldset>
+              {webAuthnToken && (
+                <fieldset className="mt-3 rounded-xl border border-slate-200 p-4">
+                  <legend className="px-1 text-sm font-bold text-slate-700">4. Assinatura do funcionário</legend>
+                  <p className="text-xs text-slate-500">Assine usando o dedo, caneta ou mouse.</p>
                   <canvas
                     ref={assinaturaCanvas}
                     width={500}
@@ -987,19 +1258,19 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                     onPointerMove={desenharAssinatura}
                     onPointerUp={() => { desenhandoAssinatura.current = false; }}
                     onPointerCancel={() => { desenhandoAssinatura.current = false; }}
-                    className="mt-1 h-36 w-full touch-none rounded-lg border border-slate-300 bg-white"
+                    className="mt-2 h-36 w-full touch-none rounded-lg border border-slate-300 bg-white"
                     aria-label="Campo de assinatura manuscrita"
                   />
                   <button type="button" onClick={limparAssinatura} className="mt-2 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700">Limpar assinatura</button>
-                </>
+                </fieldset>
               )}
               <label className="mt-4 flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-700">
                 <input required type="checkbox" checked={consentimento} onChange={event => setConsentimento(event.target.checked)} className="mt-0.5" />
                 Confirmo que o funcionário recebeu o EPI descrito e autorizou o registro desta confirmação.
               </label>
-              <p className="mt-3 rounded-lg bg-sky-50 p-3 text-xs text-sky-900">O PIN é validado no servidor e não é salvo junto à entrega. A assinatura manuscrita é uma imagem fornecida neste dispositivo, não uma verificação biométrica.</p>
+              <p className="mt-3 rounded-lg bg-sky-50 p-3 text-xs text-sky-900">A entrega exige PIN validado, WebAuthn real e assinatura manuscrita. Não há fallback biométrico simulado.</p>
               <div className="mt-5 flex gap-2">
-                <button type="submit" disabled={salvando || registros.funcionarios.length === 0} className="flex-1 rounded-xl bg-teal-700 px-4 py-3 font-bold text-white disabled:opacity-60">{salvando ? "Registrando..." : "Confirmar entrega"}</button>
+                <button type="submit" disabled={salvando || !pinVerificado || !webAuthnToken || !assinaturaFeita || !consentimento} className="flex-1 rounded-xl bg-teal-700 px-4 py-3 font-bold text-white disabled:opacity-60">{salvando ? "Registrando..." : "5. Salvar entrega"}</button>
                 <button type="button" onClick={() => setModal(false)} className="rounded-xl bg-slate-100 px-4 py-3 font-bold text-slate-700">Cancelar</button>
               </div>
             </form>
@@ -1016,14 +1287,14 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                   {campo.tipo === "textarea" ? (
                     <textarea value={form[campo.chave] || ""} onChange={event => setForm(atual => ({ ...atual, [campo.chave]: event.target.value }))} className={`${INPUT_CLASS} mt-1 min-h-24`} />
                   ) : campo.tipo === "select" ? (
-                    <select value={form[campo.chave] || ""} onChange={event => setForm(atual => ({ ...atual, [campo.chave]: event.target.value }))} className={`${INPUT_CLASS} mt-1`}>
+                    <select required={categoria === "funcionarios" && campo.chave === "setor"} value={form[campo.chave] || ""} onChange={event => setForm(atual => ({ ...atual, [campo.chave]: event.target.value }))} className={`${INPUT_CLASS} mt-1`}>
                       <option value="">Selecione</option>
                       {campo.opcoes?.map(opcao => <option key={opcao}>{opcao}</option>)}
                     </select>
                   ) : (
                     <input
                       type={campo.tipo || "text"}
-                      required={campo.chave === "nome" || campo.chave === "titulo" || campo.chave === "descricao"}
+                      required={campo.chave === "nome" || campo.chave === "titulo" || campo.chave === "descricao" || (categoria === "funcionarios" && campo.chave === "setor")}
                       value={form[campo.chave] || ""}
                       onChange={event => setForm(atual => ({ ...atual, [campo.chave]: event.target.value }))}
                       className={`${INPUT_CLASS} mt-1`}
@@ -1070,52 +1341,6 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
         </div>
       )}
 
-      {relatorio && empresaAtual && (
-        <section className="print-report hidden">
-          <div className="report-heading">
-            <div className="report-logo-placeholder"><span>LOGO DA PRESTADORA</span></div>
-            <div className="report-title">
-              <p>PREVIX SST</p>
-              <h1>{relatorio === "Painel completo" ? "Relatório geral" : `Relatório ${relatorio}`}</h1>
-              <span>Emitido em {new Date().toLocaleDateString("pt-BR")}</span>
-            </div>
-            <div className="report-logo-placeholder"><span>LOGO DO CLIENTE</span><strong>{empresaAtual.nome}</strong></div>
-          </div>
-          <div className="report-company-line"><b>Empresa / cliente:</b> {empresaAtual.nome}</div>
-          {categoriasRelatorio.map(categoriaRelatorio => {
-            const definicao = CATEGORIAS.find(item => item.id === categoriaRelatorio);
-            const campos = categoriaRelatorio === "documentos"
-              ? [...CAMPOS.documentos, { chave: "arquivo", rotulo: "Arquivo anexado", tipo: "text" }]
-              : CAMPOS[categoriaRelatorio];
-            const itens = registros[categoriaRelatorio];
-            return (
-              <section key={categoriaRelatorio} className="report-section">
-                <h2>{definicao?.icone} {definicao?.label || categoriaRelatorio}</h2>
-                {itens.length === 0 ? <p className="report-empty">Nenhum registro cadastrado.</p> : (
-                  <table>
-                    <thead><tr>{campos.map(campo => <th key={campo.chave}>{campo.rotulo}</th>)}{categoriaRelatorio === "epis" && <th>Confirmação</th>}</tr></thead>
-                    <tbody>
-                      {itens.map(item => (
-                        <tr key={item.id}>
-                          {campos.map(campo => <td key={campo.chave}>{item[campo.chave] === undefined || item[campo.chave] === null || item[campo.chave] === "" ? "—" : String(item[campo.chave])}</td>)}
-                          {categoriaRelatorio === "epis" && (
-                            <td>
-                              {item.assinatura?.metodo === "pin" ? "PIN" : item.assinatura?.metodo === "digitada" ? "Nome + PIN" : item.assinatura?.metodo === "punho" ? "Manuscrita" : "—"}
-                              {item.assinatura?.confirmado_em && <><br />{new Date(item.assinatura.confirmado_em).toLocaleString("pt-BR")}</>}
-                              {item.assinatura?.metodo === "punho" && typeof item.assinatura.imagem === "string" && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(item.assinatura.imagem) && <img className="report-signature" src={item.assinatura.imagem} alt={`Assinatura de ${item.assinatura.nome || "funcionário"}`} />}
-                            </td>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </section>
-            );
-          })}
-          <p className="report-disclaimer">Relatório gerado com base nos dados cadastrados no PREVIX SST. Revise as informações antes de utilizar este documento como registro oficial.</p>
-        </section>
-      )}
     </div>
   );
 }

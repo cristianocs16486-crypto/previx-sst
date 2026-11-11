@@ -2,7 +2,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 
-// ============ LOGIN ============
 function Login({ onEntrar }: any) {
   const [tipo, setTipo] = useState("empresa");
   const [email, setEmail] = useState("");
@@ -17,6 +16,7 @@ function Login({ onEntrar }: any) {
       if (modoCadastro) {
         const { data, error } = await supabase.auth.signUp({ email, password: senha });
         if (error) throw error;
+        if (!data.user) throw new Error("Não foi possível criar usuário. Verifique o e-mail.");
         const { error: pError } = await supabase.from("profiles").insert({
           id: data.user.id, email, nome, tipo
         });
@@ -26,6 +26,7 @@ function Login({ onEntrar }: any) {
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha });
         if (error) throw error;
+        if (!data.user) throw new Error("Usuário não encontrado.");
         const { data: profile } = await supabase.from("profiles").select("*").eq("id", data.user.id).single();
         if (!profile) throw new Error("Perfil não encontrado. Fala com o ADM.");
         if (profile.tipo !== tipo) {
@@ -62,7 +63,6 @@ function Login({ onEntrar }: any) {
   );
 }
 
-// ============ PAINEL ADM ============
 function PainelADM({ usuario, sair }: any) {
   const [tipoCad, setTipoCad] = useState("empresa");
   const [nome, setNome] = useState("");
@@ -82,9 +82,11 @@ function PainelADM({ usuario, sair }: any) {
     if (!nome || !email || !senha) return alert("Preenche tudo");
     const { data, error } = await supabase.auth.signUp({ email, password: senha });
     if (error) return alert(error.message);
+    if (!data.user) return alert("Não foi possível criar usuário. Verifique o e-mail.");
     const userId = data.user.id;
     if (tipoCad === "empresa") {
       const { data: emp } = await supabase.from("empresas").insert({ nome }).select().single();
+      if (!emp) return alert("Erro ao criar empresa");
       await supabase.from("profiles").insert({ id: userId, email, nome, tipo: "empresa", empresa_id: emp.id });
       alert(`Empresa ${nome} cadastrada!`);
     } else {
@@ -119,7 +121,6 @@ function PainelADM({ usuario, sair }: any) {
   );
 }
 
-// ============ PAINEL SST ============
 function PainelSST({ titulo, filtro, sair, usuario }: any) {
   const [funcionarios, setFuncionarios] = useState<any[]>([]);
   const [extintores, setExtintores] = useState<any[]>([]);

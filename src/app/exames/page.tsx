@@ -1,51 +1,31 @@
-'use client'
-import { useEffect, useState } from 'react'
+"use client";
+import { useState, useEffect } from "react";
+import { supabase } from "../supabaseClient";
 export default function Exames() {
-  const [lista, setLista] = useState<any[]>([])
-  const [funcionario, setFuncionario] = useState('')
-  const [tipo, setTipo] = useState('')
-  const [data, setData] = useState('')
-  const [resultado, setResultado] = useState('Apto')
-  const [msg, setMsg] = useState('')
+  const [lista, setLista] = useState<any[]>([]);
+  const [funcionario, setFuncionario] = useState("");
+  const [tipo, setTipo] = useState("Admissional");
+  const [dataExame, setDataExame] = useState("");
   async function carregar() {
-    const r = await fetch('/api/exames', { cache: 'no-store' })
-    const d = await r.json().catch(() => [])
-    setLista(Array.isArray(d) ? d : [])
+    const { data } = await supabase.from("exames").select("*").order("created_at", { ascending: false });
+    setLista(data || []);
   }
-  useEffect(() => { carregar() }, [])
-  async function salvar(e: any) {
-    e.preventDefault()
-    setMsg('Salvando...')
-    const r = await fetch('/api/exames', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ funcionario, tipo, data, resultado }) })
-    const d = await r.json().catch(() => ({}))
-    if (r.ok) { setMsg('Salvo!'); setFuncionario(''); setTipo(''); setData(''); carregar() }
-    else setMsg('Erro: ' + (d.error || 'não salvou'))
+  useEffect(() => { carregar(); }, []);
+  async function salvar() {
+    if (!funcionario) return alert("Digite o funcionário");
+    await supabase.from("exames").insert({ funcionario, tipo, data_exame: dataExame || null });
+    setFuncionario(""); setDataExame(""); carregar();
   }
-  async function excluir(id: string) {
-    if (!confirm('Excluir?')) return
-    await fetch('/api/exames?id=' + id, { method: 'DELETE' })
-    carregar()
-  }
-  const input = { padding: 10, borderRadius: 8, border: '1px solid #ddd', width: '100%' } as any
   return (
-    <div style={{ maxWidth: 600, margin: '0 auto', padding: 20, fontFamily: 'sans-serif' }}>
-      <h1 style={{ fontSize: 24, fontWeight: 700 }}>Exames</h1>
-      <form onSubmit={salvar} style={{ background: '#f9fafb', padding: 16, borderRadius: 12, marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <input style={input} value={funcionario} onChange={e => setFuncionario(e.target.value)} placeholder="Nome do funcionário" />
-        <input style={input} value={tipo} onChange={e => setTipo(e.target.value)} placeholder="Tipo - ex: Admissional" />
-        <input style={input} type="date" value={data} onChange={e => setData(e.target.value)} />
-        <select style={input} value={resultado} onChange={e => setResultado(e.target.value)}><option>Apto</option><option>Inapto</option></select>
-        <button style={{ background: '#16a34a', color: '#fff', padding: 12, borderRadius: 8, border: 'none', fontWeight: 700 }}>Salvar Exame</button>
-        {msg && <p style={{ fontSize: 13 }}>{msg}</p>}
-      </form>
-      <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {lista.map((x: any) => (
-          <div key={x.id} style={{ border: '1px solid #eee', padding: 14, borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div><p style={{ fontWeight: 600, margin: 0 }}>{x.funcionario} - {x.tipo}</p><p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>{String(x.data).slice(0, 10)} - {x.resultado}</p></div>
-            <button onClick={() => excluir(x.id)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '8px 12px', borderRadius: 8 }}>Excluir</button>
-          </div>
-        ))}
+    <div className="p-4 max-w-3xl mx-auto bg-gray-100 min-h-screen">
+      <h1 className="text-2xl font-black">🩺 Exames</h1>
+      <div className="bg-white p-4 rounded-2xl shadow mt-4 flex flex-col gap-2">
+        <input value={funcionario} onChange={e => setFuncionario(e.target.value)} placeholder="Funcionário" className="border rounded-xl px-3 py-3" />
+        <select value={tipo} onChange={e => setTipo(e.target.value)} className="border rounded-xl px-3 py-3"><option>Admissional</option><option>Periódico</option><option>Demissional</option><option>Retorno ao trabalho</option></select>
+        <input type="date" value={dataExame} onChange={e => setDataExame(e.target.value)} className="border rounded-xl px-3 py-3" />
+        <button onClick={salvar} className="bg-blue-600 text-white py-3 rounded-xl font-bold">Salvar Exame</button>
       </div>
+      {lista.map((e: any) => <div key={e.id} className="bg-white p-3 rounded-xl mt-2 shadow">{e.funcionario} - {e.tipo} - {e.data_exame || ""}</div>)}
     </div>
-  )
+  );
 }

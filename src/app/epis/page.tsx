@@ -1,59 +1,31 @@
-'use client'
-import { useEffect, useState } from 'react'
+"use client";
+import { useState, useEffect } from "react";
+import { supabase } from "../supabaseClient";
 export default function Epis() {
-  const [lista, setLista] = useState<any[]>([])
-  const [funcs, setFuncs] = useState<any[]>([])
-  const [funcionarioId, setFuncionarioId] = useState('')
-  const [nomeEpi, setNomeEpi] = useState('')
-  const [ca, setCa] = useState('')
-  const [data, setData] = useState('')
-  const [msg, setMsg] = useState('')
+  const [lista, setLista] = useState<any[]>([]);
+  const [nome, setNome] = useState("");
+  const [funcionario, setFuncionario] = useState("");
+  const [dataEntrega, setDataEntrega] = useState("");
   async function carregar() {
-    const r = await fetch('/api/epis', { cache: 'no-store' })
-    const d = await r.json().catch(() => [])
-    setLista(Array.isArray(d) ? d : [])
-    const rf = await fetch('/api/funcionarios', { cache: 'no-store' })
-    const df = await rf.json().catch(() => [])
-    setFuncs(Array.isArray(df) ? df : [])
+    const { data } = await supabase.from("epis").select("*").order("created_at", { ascending: false });
+    setLista(data || []);
   }
-  useEffect(() => { carregar() }, [])
-  async function salvar(e: any) {
-    e.preventDefault()
-    setMsg('Salvando...')
-    const func = funcs.find((f: any) => f.id === funcionarioId)
-    const r = await fetch('/api/epis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ funcionarioId, funcionarioNome: func?.nome || '', nomeEpi, ca, data }) })
-    const d = await r.json().catch(() => ({}))
-    if (r.ok) { setMsg('Salvo!'); setNomeEpi(''); setCa(''); setData(''); carregar() }
-    else setMsg('Erro: ' + (d.error || 'não salvou'))
+  useEffect(() => { carregar(); }, []);
+  async function salvar() {
+    if (!nome || !funcionario) return alert("Preenche nome do EPI e funcionário");
+    await supabase.from("epis").insert({ nome, funcionario, data_entrega: dataEntrega || null });
+    setNome(""); setFuncionario(""); setDataEntrega(""); carregar();
   }
-  async function excluir(id: string) {
-    if (!confirm('Excluir?')) return
-    await fetch('/api/epis?id=' + id, { method: 'DELETE' })
-    carregar()
-  }
-  const input = { padding: 10, borderRadius: 8, border: '1px solid #ddd', width: '100%' } as any
   return (
-    <div style={{ maxWidth: 600, margin: '0 auto', padding: 20, fontFamily: 'sans-serif' }}>
-      <h1 style={{ fontSize: 24, fontWeight: 700 }}>EPI&apos;s</h1>
-      <form onSubmit={salvar} style={{ background: '#f9fafb', padding: 16, borderRadius: 12, marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <select style={input} value={funcionarioId} onChange={e => setFuncionarioId(e.target.value)}>
-          <option value="">Selecione o funcionário</option>
-          {funcs.map((f: any) => <option key={f.id} value={f.id}>{f.nome}</option>)}
-        </select>
-        <input style={input} value={nomeEpi} onChange={e => setNomeEpi(e.target.value)} placeholder="Nome do EPI - ex: Capacete" />
-        <input style={input} value={ca} onChange={e => setCa(e.target.value)} placeholder="CA" />
-        <input style={input} type="date" value={data} onChange={e => setData(e.target.value)} />
-        <button style={{ background: '#16a34a', color: '#fff', padding: 12, borderRadius: 8, border: 'none', fontWeight: 700 }}>Salvar EPI</button>
-        {msg && <p style={{ fontSize: 13 }}>{msg}</p>}
-      </form>
-      <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {lista.map((x: any) => (
-          <div key={x.id} style={{ border: '1px solid #eee', padding: 14, borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div><p style={{ fontWeight: 600, margin: 0 }}>{x.nomeEpi} - CA: {x.ca}</p><p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>{x.funcionarioNome || x.funcionario?.nome || ''} - {x.data}</p></div>
-            <button onClick={() => excluir(x.id)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '8px 12px', borderRadius: 8 }}>Excluir</button>
-          </div>
-        ))}
+    <div className="p-4 max-w-3xl mx-auto bg-gray-100 min-h-screen">
+      <h1 className="text-2xl font-black">🦺 EPIs</h1>
+      <div className="bg-white p-4 rounded-2xl shadow mt-4 flex flex-col gap-2">
+        <input value={nome} onChange={e => setNome(e.target.value)} placeholder="EPI ex: Capacete" className="border rounded-xl px-3 py-3" />
+        <input value={funcionario} onChange={e => setFuncionario(e.target.value)} placeholder="Funcionário que recebeu" className="border rounded-xl px-3 py-3" />
+        <input type="date" value={dataEntrega} onChange={e => setDataEntrega(e.target.value)} className="border rounded-xl px-3 py-3" />
+        <button onClick={salvar} className="bg-green-500 text-white py-3 rounded-xl font-bold">Registrar Entrega</button>
       </div>
+      {lista.map((e: any) => <div key={e.id} className="bg-white p-3 rounded-xl mt-2 shadow">{e.nome} - {e.funcionario} - {e.data_entrega || ""}</div>)}
     </div>
-  )
+  );
 }

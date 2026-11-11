@@ -1,183 +1,82 @@
-import { useState, useMemo } from "react";
+"use client";
+import { useState, useEffect } from "react";
+import { supabase } from "../supabaseClient";
 
-const STORAGE_KEY = "previx_extintores";
+export default function ExtintoresPage() {
+  const [extintores, setExtintores] = useState<any[]>([]);
+  const [local, setLocal] = useState("");
+  const [proximaRecarga, setProximaRecarga] = useState("");
+  const [tipo, setTipo] = useState("PQS 6kg");
+  const [loading, setLoading] = useState(true);
 
-function load() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-  } catch {
-    return [];
+  async function carregar() {
+    const { data } = await supabase.from("extintores").select("*").order("created_at", { ascending: false });
+    setExtintores(data || []);
+    setLoading(false);
   }
-}
 
-function diasPara(data) {
-  if (!data) return null;
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  const d = new Date(data + "T00:00:00");
-  return Math.ceil((d - hoje) / (1000 * 60 * 60 * 24));
-}
+  useEffect(() => { carregar(); }, []);
 
-function statusExtintor(e) {
-  const dias = diasPara(e.proximaRecarga || e.vencimento);
-  if (dias === null) return { label: "SEM DATA", dias: 0, cor: "bg-gray-100" };
-  if (dias < 0) return { label: `VENCIDO - ${Math.abs(dias)} dias`, dias, cor: "bg-red-100" };
-  if (dias <= 30) return { label: `A VENCER - ${dias} dias`, dias, cor: "bg-yellow-100" };
-  return { label: `EM DIA - ${dias} dias`, dias, cor: "bg-green-100" };
-}
+  async function salvar() {
+    if (!local) return alert("Digite o local");
+    const { error } = await supabase.from("extintores").insert({
+      local,
+      proxima_recarga: proximaRecarga || null,
+      tipo,
+    });
+    if (error) return alert(error.message);
+    setLocal(""); setProximaRecarga(""); setTipo("PQS 6kg");
+    carregar();
+  }
 
-function formataData(data) {
-  if (!data) return "-";
-  return new Date(data + "T00:00:00").toLocaleDateString("pt-BR");
-}
+  async function excluir(id: string) {
+    if (!confirm("Excluir esse extintor?")) return;
+    await supabase.from("extintores").delete().eq("id", id);
+    carregar();
+  }
 
-export default function Extintores() {
-  const [lista, setLista] = useState(load);
-  const [filtro, setFiltro] = useState("todos");
-  const [busca, setBusca] = useState("");
-  const [mostraForm, setMostraForm] = useState(false);
-  const [editando, setEditando] = useState(null);
-
-  const [form, setForm] = useState({
-    local: "",
-    tipo: "PQS 6kg",
-    vencimento: "",
-    ultimaRecarga: "",
-    proximaRecarga: "",
+  const alertas = extintores.filter((e: any) => {
+    if (!e.proxima_recarga) return false;
+    const dias = Math.ceil((new Date(e.proxima_recarga).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+    return dias <= 30;
   });
 
-  function salvar() {
-    if (!form.local) return alert("Preencha o local");
-    if (!form.proximaRecarga) return alert("Preencha a Próxima Recarga");
-
-    let nova;
-    if (editando) {
-      nova = lista.map((x) => (x.id === editando ? { ...form, id: editando } : x));
-    } else {
-      nova = [...lista, { ...form, id: Date.now().toString() }];
-    }
-    setLista(nova);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(nova));
-    setMostraForm(false);
-    setEditando(null);
-    setForm({ local: "", tipo: "PQS 6kg", vencimento: "", ultimaRecarga: "", proximaRecarga: "" });
-  }
-
-  function excluir(id) {
-    if (!confirm("Excluir este extintor?")) return;
-    const nova = lista.filter((x) => x.id !== id);
-    setLista(nova);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(nova));
-  }
-
-  function editar(e) {
-    setForm(e);
-    setEditando(e.id);
-    setMostraForm(true);
-  }
-
-  const filtrada = useMemo(() => {
-    return lista.filter((e) => {
-      const st = statusExtintor(e);
-      if (filtro === "vencido" && st.dias >= 0) return false;
-      if (filtro === "a-vencer" && !(st.dias >= 0 && st.dias <= 30)) return false;
-      if (filtro === "em-dia" && st.dias <= 30) return false;
-      if (busca && !e.local.toLowerCase().includes(busca.toLowerCase())) return false;
-      return true;
-    });
-  }, [lista, filtro, busca]);
-
-  const totalVencido = lista.filter((e) => statusExtintor(e).dias < 0).length;
-  const totalAVencer = lista.filter((e) => {
-    const d = statusExtintor(e).dias;
-    return d >= 0 && d <= 30;
-  }).length;
-  const totalEmDia = lista.filter((e) => statusExtintor(e).dias > 30).length;
+  if (loading) return <div className="p-10 text-center font-bold">Carregando...</div>;
 
   return (
-    <div className="bg-white rounded-3xl p-5">
-      <div className="flex justify-between items-start">
-        <div>
-          <h2 className="text-2xl font-black lowercase">extintores</h2>
-          <p className="text-gray-400">Total: {lista.length}</p>
-        </div>
-        <div className="flex gap-2">
-          <button className="bg-red-600 text-white px-4 py-3 rounded-2xl font-bold text-sm">
-            PDF Extintores
-          </button>
-          <button
-            onClick={() => setMostraForm(true)}
-            className="bg-gradient-to-r from-teal-600 to-blue-600 text-white px-4 py-3 rounded-2xl font-bold text-sm"
-          >
-            + Adicionar
-          </button>
-        </div>
-      </div>
+    <div className="p-4 max-w-4xl mx-auto bg-gray-100 min-h-screen">
+      <h1 className="text-2xl font-black">🧯 Extintores</h1>
 
-      <div className="flex gap-2 mt-4 flex-wrap">
-        <button onClick={() => setFiltro("todos")} className="bg-gray-100 px-3 py-1 rounded-full text-sm font-bold">Todos ({lista.length})</button>
-        <button onClick={() => setFiltro("vencido")} className="bg-red-100 px-3 py-1 rounded-full text-sm font-bold">🔴 Vencido ({totalVencido})</button>
-        <button onClick={() => setFiltro("a-vencer")} className="bg-yellow-100 px-3 py-1 rounded-full text-sm font-bold">🟡 A Vencer ({totalAVencer})</button>
-        <button onClick={() => setFiltro("em-dia")} className="bg-green-100 px-3 py-1 rounded-full text-sm font-bold">🟢 Em Dia ({totalEmDia})</button>
-      </div>
-
-      <input
-        value={busca}
-        onChange={(e) => setBusca(e.target.value)}
-        placeholder="Buscar em extintores..."
-        className="w-full border rounded-xl px-3 py-2 mt-4"
-      />
-
-      {mostraForm && (
-        <div className="border rounded-2xl p-4 mt-4 bg-gray-50">
-          <h3 className="font-bold mb-3">{editando ? "Editar Extintor" : "Novo Extintor"}</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <input placeholder="Local - Ex: ADMINISTRATIVO" value={form.local} onChange={(e) => setForm({ ...form, local: e.target.value })} className="border rounded-xl px-3 py-2 col-span-2" />
-            <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} className="border rounded-xl px-3 py-2">
-              <option>PQS 6kg</option>
-              <option>PQS 4kg</option>
-              <option>CO2 6kg</option>
-              <option>AP 10L</option>
-            </select>
-            <input type="date" value={form.vencimento} onChange={(e) => setForm({ ...form, vencimento: e.target.value })} className="border rounded-xl px-3 py-2" />
-            <div className="col-span-2 grid grid-cols-2 gap-3">
-              <label className="block">
-                <span className="text-xs font-bold text-gray-500">ÚLTIMA RECARGA</span>
-                <input type="date" value={form.ultimaRecarga} onChange={(e) => setForm({ ...form, ultimaRecarga: e.target.value })} className="border rounded-xl px-3 py-2 w-full" />
-              </label>
-              <label className="block">
-                <span className="text-xs font-bold text-red-600">PRÓXIMA RECARGA *</span>
-                <input type="date" value={form.proximaRecarga} onChange={(e) => setForm({ ...form, proximaRecarga: e.target.value })} className="border rounded-xl px-3 py-2 w-full border-red-300" />
-              </label>
-            </div>
-          </div>
-          <div className="flex gap-2 mt-3">
-            <button onClick={salvar} className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold">Salvar</button>
-            <button onClick={() => setMostraForm(false)} className="bg-gray-200 px-4 py-2 rounded-xl font-bold">Cancelar</button>
-          </div>
+      {alertas.length > 0 && (
+        <div className="bg-red-100 border border-red-300 p-4 rounded-2xl mt-4">
+          <p className="font-black text-red-700">🔔 {alertas.length} extintor(es) vencendo em 30 dias!</p>
+          {alertas.map((a: any) => <p key={a.id} className="text-sm">• {a.local} - {a.proxima_recarga}</p>)}
         </div>
       )}
 
-      <div className="space-y-2 mt-4">
-        {filtrada.map((e) => {
-          const st = statusExtintor(e);
-          return (
-            <div key={e.id} className={`${st.cor} rounded-2xl p-3 flex justify-between items-center`}>
-              <div>
-                <p className="font-black uppercase">{e.local} <span className="text-xs font-bold bg-black/10 px-2 py-1 rounded-full">{st.label}</span></p>
-                <p className="text-sm text-gray-500">
-                  {e.local} • Tipo: {e.tipo} • Venc: {formataData(e.vencimento)} • Recarga: {formataData(e.proximaRecarga)}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => editar(e)} className="bg-blue-100 px-3 py-1 rounded-lg font-bold text-sm">Editar</button>
-                <button onClick={() => excluir(e.id)} className="bg-red-100 px-3 py-1 rounded-lg font-bold text-sm">Excluir</button>
-              </div>
-            </div>
-          );
-        })}
-        {filtrada.length === 0 && <p className="text-center text-gray-400 py-4">Nenhum extintor encontrado</p>}
+      <div className="bg-white p-4 rounded-2xl shadow mt-4 flex flex-col gap-2">
+        <input value={local} onChange={e => setLocal(e.target.value)} placeholder="Local ex: Cozinha" className="border rounded-xl px-3 py-3" />
+        <select value={tipo} onChange={e => setTipo(e.target.value)} className="border rounded-xl px-3 py-3">
+          <option>PQS 6kg</option>
+          <option>CO2 6kg</option>
+          <option>Água 10L</option>
+          <option>Espuma</option>
+        </select>
+        <label className="text-sm font-bold">Próxima Recarga:</label>
+        <input type="date" value={proximaRecarga} onChange={e => setProximaRecarga(e.target.value)} className="border rounded-xl px-3 py-3" />
+        <button onClick={salvar} className="bg-green-500 text-white py-3 rounded-xl font-bold">Salvar Extintor</button>
       </div>
+
+      {extintores.map((e: any) => (
+        <div key={e.id} className="bg-white p-3 rounded-xl mt-2 shadow flex justify-between items-center">
+          <div>
+            <p className="font-bold">{e.local} - {e.tipo || ""}</p>
+            <p className="text-sm text-gray-500">Próxima Recarga: {e.proxima_recarga || "—"}</p>
+          </div>
+          <button onClick={() => excluir(e.id)} className="bg-red-100 text-red-600 px-3 py-2 rounded-lg font-bold text-sm">Excluir</button>
+        </div>
+      ))}
+      {extintores.length === 0 && <p className="text-gray-400 text-sm mt-4 text-center">Nenhum extintor ainda.</p>}
     </div>
   );
 }

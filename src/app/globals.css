@@ -1,3 +1,54 @@
 ﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@media print {
+  body {
+    background: #fff !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .print-report,
+  .print-report * {
+    visibility: visible !important;
+  }
+
+  .print-report {
+    position: absolute;
+    inset: 0;
+    display: block !important;
+    padding: 32px;
+    background: #fff;
+    color: #111827;
+    font: 12pt Arial, sans-serif;
+  }
+
+  .print-report h1 {
+    margin-bottom: 12px;
+    font-size: 22pt;
+  }
+
+  .print-report h2 {
+    margin: 8px 0;
+    font-size: 16pt;
+  }
+
+  .print-report h3 {
+    margin: 18px 0 8px;
+    font-size: 13pt;
+  }
+
+  .print-report p {
+    margin: 4px 0;
+  }
+
+  .report-disclaimer {
+    margin-top: 32px !important;
+    border-top: 1px solid #cbd5e1;
+    padding-top: 12px;
+    font-size: 9pt;
+  }
+}

@@ -46,6 +46,13 @@ const CATEGORIAS: { id: Categoria; label: string; icone: string; singular: strin
   { id: "tecnico", label: "Responsável técnico", icone: "🧑‍🔧", singular: "Responsável técnico" },
 ];
 
+const CATEGORIAS_POR_RELATORIO: Record<string, Categoria[]> = {
+  PGR: ["riscos", "funcionarios", "epis", "extintores", "documentos", "tecnico"],
+  LTCAT: ["tecnico", "funcionarios", "riscos", "documentos"],
+  LIP: ["tecnico", "funcionarios", "riscos"],
+  PCMSO: ["exames", "clinicas", "funcionarios", "tecnico"],
+};
+
 const CAMPOS: Record<Categoria, { chave: string; rotulo: string; tipo?: string; opcoes?: string[] }[]> = {
   funcionarios: [
     { chave: "nome", rotulo: "Nome", tipo: "text" },
@@ -68,6 +75,7 @@ const CAMPOS: Record<Categoria, { chave: string; rotulo: string; tipo?: string; 
     { chave: "tipo", rotulo: "Tipo (PQS, CO2, água...)", tipo: "text" },
     { chave: "vencimento", rotulo: "Vencimento", tipo: "date" },
     { chave: "ultima_recarga", rotulo: "Última recarga", tipo: "date" },
+    { chave: "proxima_recarga", rotulo: "Data da próxima recarga", tipo: "date" },
   ],
   inspecoes: [
     { chave: "titulo", rotulo: "Título", tipo: "text" },
@@ -81,7 +89,6 @@ const CAMPOS: Record<Categoria, { chave: string; rotulo: string; tipo?: string; 
     { chave: "titulo", rotulo: "Título", tipo: "text" },
     { chave: "pasta", rotulo: "Pasta", tipo: "select", opcoes: ["PGR", "PCMSO", "ASO / Exames", "Laudos", "Treinamentos", "Outros"] },
     { chave: "vencimento", rotulo: "Vencimento", tipo: "date" },
-    { chave: "arquivo", rotulo: "Nome / link do arquivo", tipo: "text" },
   ],
   exames: [
     { chave: "nome", rotulo: "Funcionário", tipo: "text" },
@@ -126,6 +133,36 @@ const CAMPOS: Record<Categoria, { chave: string; rotulo: string; tipo?: string; 
 const INPUT_CLASS = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100";
 
 type MetodoAssinatura = "pin" | "digitada" | "punho";
+
+const CATALOGO_EPIS = [
+  { codigo: "C", nome: "Capacete de segurança", icone: "⛑️" },
+  { codigo: "B", nome: "Botina de segurança", icone: "🥾" },
+  { codigo: "L", nome: "Luva de proteção", icone: "🧤" },
+  { codigo: "O", nome: "Óculos de proteção", icone: "🥽" },
+  { codigo: "P", nome: "Protetor auricular", icone: "🎧" },
+  { codigo: "M", nome: "Máscara descartável", icone: "😷" },
+  { codigo: "R", nome: "Respirador semifacial", icone: "😷" },
+  { codigo: "V", nome: "Protetor facial / viseira", icone: "🛡️" },
+  { codigo: "A", nome: "Avental de proteção", icone: "🥼" },
+  { codigo: "C", nome: "Cinturão de segurança", icone: "🦺" },
+  { codigo: "C", nome: "Colete refletivo", icone: "🦺" },
+  { codigo: "P", nome: "Perneira de proteção", icone: "🦵" },
+  { codigo: "M", nome: "Mangote de proteção", icone: "🦾" },
+  { codigo: "C", nome: "Capuz de proteção", icone: "🥷" },
+  { codigo: "P", nome: "Protetor solar", icone: "🧴" },
+  { codigo: "P", nome: "Protetor facial para solda", icone: "🥽" },
+  { codigo: "L", nome: "Luva para alta temperatura", icone: "🧤" },
+  { codigo: "L", nome: "Luva química", icone: "🧤" },
+  { codigo: "L", nome: "Luva anticorte", icone: "🧤" },
+  { codigo: "B", nome: "Bota impermeável", icone: "🥾" },
+  { codigo: "T", nome: "Talabarte de segurança", icone: "🪢" },
+  { codigo: "T", nome: "Trava-quedas", icone: "🪢" },
+  { codigo: "A", nome: "Abafador tipo concha", icone: "🎧" },
+  { codigo: "M", nome: "Macacão de proteção", icone: "🥼" },
+  { codigo: "C", nome: "Calçado ocupacional", icone: "🥾" },
+  { codigo: "J", nome: "Jaqueta térmica", icone: "🧥" },
+  { codigo: "P", nome: "Capacete com protetor facial", icone: "⛑️" },
+];
 
 function dataHoje() {
   return new Date().toISOString().slice(0, 10);
@@ -187,6 +224,8 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
   const [nomeAssinatura, setNomeAssinatura] = useState("");
   const [consentimento, setConsentimento] = useState(false);
   const [assinaturaFeita, setAssinaturaFeita] = useState(false);
+  const [arquivoDocumento, setArquivoDocumento] = useState<File | null>(null);
+  const [catalogoEpiAberto, setCatalogoEpiAberto] = useState(false);
 
   const carregarEmpresas = useCallback(async () => {
     setCarregandoEmpresas(true);
@@ -285,7 +324,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     }
     if ((categoria === "extintores" || categoria === "documentos") && filtroStatus !== "Todos") {
       lista = lista.filter(item => {
-        const vencimento = item.vencimento;
+        const vencimento = categoria === "extintores" ? item.proxima_recarga || item.vencimento : item.vencimento;
         if (!vencimento) return filtroStatus === "Sem data";
         const dias = Math.ceil((new Date(`${vencimento}T00:00:00`).getTime() - new Date(`${dataHoje()}T00:00:00`).getTime()) / 86400000);
         if (filtroStatus === "Vencido") return dias < 0;
@@ -299,6 +338,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
 
   function abrirNovo() {
     if (categoria === "inicio" || categoria === "empresas") return;
+    setArquivoDocumento(null);
     if (categoria === "epis") {
       setEntregaEpi({ employeeId: "", nome: "", ca: "", tipo: "", quantidade: "1", data_entrega: dataHoje() });
       setMetodoAssinatura("pin");
@@ -333,6 +373,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
 
   function abrirEditar(registro: Registro) {
     setEditando(registro);
+    setArquivoDocumento(null);
     setForm(Object.fromEntries(CAMPOS[categoria as Categoria].map(campo => [campo.chave, registro[campo.chave] ?? ""])));
     setModal(true);
   }
@@ -371,6 +412,45 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       setSalvando(false);
       return;
     }
+    let novoArquivoPath: string | null = null;
+    if (categoria === "documentos" && arquivoDocumento) {
+      const extensao = arquivoDocumento.name.split(".").pop()?.toLowerCase() || "";
+      const extensoesPermitidas = ["pdf", "png", "jpg", "jpeg", "webp", "doc", "docx", "xls", "xlsx"];
+      if (!extensoesPermitidas.includes(extensao) || arquivoDocumento.size > 20 * 1024 * 1024) {
+        setErro("Selecione PDF, imagem, Word ou Excel de até 20 MB.");
+        setSalvando(false);
+        return;
+      }
+      novoArquivoPath = `${empresaAtual.id}/${crypto.randomUUID()}.${extensao}`;
+      const tiposPorExtensao: Record<string, string> = {
+        pdf: "application/pdf",
+        png: "image/png",
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        webp: "image/webp",
+        doc: "application/msword",
+        docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        xls: "application/vnd.ms-excel",
+        xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      };
+      const { error: uploadError } = await supabase.storage
+        .from("previx-documents")
+        .upload(novoArquivoPath, arquivoDocumento, { contentType: arquivoDocumento.type || tiposPorExtensao[extensao], upsert: false });
+      if (uploadError) {
+        setErro(`Não foi possível enviar o documento: ${uploadError.message}. Verifique se a migration de documentos foi aplicada.`);
+        setSalvando(false);
+        return;
+      }
+      payload.arquivo = arquivoDocumento.name;
+      payload.arquivo_path = novoArquivoPath;
+      payload.arquivo_tipo = arquivoDocumento.type;
+      payload.arquivo_tamanho = arquivoDocumento.size;
+    } else if (categoria === "documentos" && editando?.arquivo_path) {
+      payload.arquivo = editando.arquivo;
+      payload.arquivo_path = editando.arquivo_path;
+      payload.arquivo_tipo = editando.arquivo_tipo;
+      payload.arquivo_tamanho = editando.arquivo_tamanho;
+    }
     let resultado: { data: any; error: any };
     if (editando) {
       resultado = await supabase.rpc("previx_update_record", {
@@ -386,12 +466,22 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       });
     }
     if (resultado.error || (editando && resultado.data !== true)) {
-      setErro(`Não foi possível salvar${resultado.error ? `: ${resultado.error.message}` : ": registro não encontrado ou não autorizado."}`);
+      let falhaLimpeza = "";
+      if (novoArquivoPath) {
+        const { error: cleanupError } = await supabase.storage.from("previx-documents").remove([novoArquivoPath]);
+        if (cleanupError) falhaLimpeza = ` O arquivo enviado também não pôde ser removido: ${cleanupError.message}`;
+      }
+      setErro(`Não foi possível salvar${resultado.error ? `: ${resultado.error.message}` : ": registro não encontrado ou não autorizado."}${falhaLimpeza}`);
     } else {
+      if (novoArquivoPath && editando?.arquivo_path) {
+        const { error: cleanupError } = await supabase.storage.from("previx-documents").remove([editando.arquivo_path]);
+        if (cleanupError) setErro(`Documento salvo, mas o arquivo anterior não pôde ser removido: ${cleanupError.message}`);
+      }
       setMensagem(`${CATEGORIAS.find(item => item.id === categoria)?.singular || "Registro"} salvo.`);
       setModal(false);
       setForm({});
       setEditando(null);
+      setArquivoDocumento(null);
       await carregarRegistros();
     }
     setSalvando(false);
@@ -503,8 +593,31 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       setErro(`Não foi possível excluir${error ? `: ${error.message}` : ": registro não encontrado ou não autorizado."}`);
       return;
     }
+    if (typeof registro.arquivo_path === "string") {
+      const { error: storageError } = await supabase.storage.from("previx-documents").remove([registro.arquivo_path]);
+      if (storageError) {
+        setErro(`Registro excluído, mas o documento ${registro.arquivo || "anexado"} não pôde ser removido: ${storageError.message}`);
+      }
+    }
     setMensagem("Registro excluído.");
     await carregarRegistros();
+  }
+
+  async function abrirDocumento(registro: Registro) {
+    if (!empresaAtual || typeof registro.arquivo_path !== "string" || !registro.arquivo_path.startsWith(`${empresaAtual.id}/`)) {
+      setErro("O documento não possui um caminho válido para esta empresa.");
+      return;
+    }
+    const { data, error } = await supabase.storage.from("previx-documents").createSignedUrl(registro.arquivo_path, 60);
+    if (error || !data?.signedUrl) {
+      setErro(`Não foi possível abrir o documento: ${error?.message || "link protegido indisponível."}`);
+      return;
+    }
+    const link = document.createElement("a");
+    link.href = data.signedUrl;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.click();
   }
 
   async function cadastrarEmpresa(event: FormEvent<HTMLFormElement>) {
@@ -539,6 +652,15 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     : categoria === "empresas"
       ? "Empresas"
       : CATEGORIAS.find(item => item.id === categoria)?.label || "";
+  const termoEpi = entregaEpi.nome.trim().toLocaleLowerCase("pt-BR");
+  const episSugeridos = CATALOGO_EPIS.filter(item => {
+    if (!termoEpi) return true;
+    if (termoEpi.length === 1) return item.codigo.toLocaleLowerCase("pt-BR") === termoEpi;
+    return item.nome.toLocaleLowerCase("pt-BR").includes(termoEpi) || item.codigo.toLocaleLowerCase("pt-BR").startsWith(termoEpi);
+  });
+  const categoriasRelatorio = relatorio === "Painel completo"
+    ? CATEGORIAS.map(item => item.id)
+    : CATEGORIAS_POR_RELATORIO[relatorio] || CATEGORIAS.filter(item => item.label === relatorio).map(item => item.id);
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900">
@@ -651,6 +773,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                     <h2 className="font-black">Laudos em 1 clique</h2>
                     <p className="mt-1 text-xs text-slate-500">Gera uma versão para impressão com os registros atuais da empresa.</p>
                     <div className="mt-4 flex flex-wrap gap-2">
+                      <button onClick={() => imprimirRelatorio("Painel completo")} className="rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-bold text-white">Gerar relatório completo em PDF</button>
                       {["PGR", "LTCAT", "LIP", "PCMSO"].map(tipo => <button key={tipo} onClick={() => imprimirRelatorio(tipo)} className="rounded-xl px-4 py-2.5 text-sm font-bold text-white" style={{ background: tipo === "PGR" ? "#0d9488" : tipo === "LTCAT" ? "#2563eb" : tipo === "LIP" ? "#d97706" : "#16a34a" }}>Gerar {tipo}</button>)}
                     </div>
                   </section>
@@ -685,9 +808,12 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                   <p className="text-xs font-bold uppercase tracking-wider text-teal-700">{empresaAtual.nome}</p>
                   <h1 className="mt-1 text-2xl font-black">{titulo}</h1>
                 </div>
-                <button onClick={abrirNovo} className="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-teal-800">
-                  {categoria === "epis" ? "＋ Registrar entrega de EPI" : categoria === "tecnico" ? "Editar dados técnicos" : `+ Cadastrar ${CATEGORIAS.find(item => item.id === categoria)?.singular}`}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => imprimirRelatorio(titulo)} className="rounded-xl border border-teal-700 px-4 py-2.5 text-sm font-bold text-teal-800 hover:bg-teal-50">📄 Gerar PDF</button>
+                  <button onClick={abrirNovo} className="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-teal-800">
+                    {categoria === "epis" ? "＋ Registrar entrega de EPI" : categoria === "tecnico" ? "Editar dados técnicos" : `+ Cadastrar ${CATEGORIAS.find(item => item.id === categoria)?.singular}`}
+                  </button>
+                </div>
               </div>
 
               {categoria === "exames" && (
@@ -716,6 +842,10 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                 </div>
               )}
 
+              {categoria === "extintores" && (
+                <p className="mb-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">Cadastre a data programada para a próxima recarga para acompanhar vencimentos e incluir a informação nos relatórios.</p>
+              )}
+
               <input value={busca} onChange={event => setBusca(event.target.value)} placeholder={`Buscar ${titulo.toLocaleLowerCase("pt-BR")}...`} className={`${INPUT_CLASS} mb-4`} />
 
               {carregandoRegistros ? (
@@ -735,6 +865,11 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                               if (valor === undefined || valor === null || valor === "") return null;
                               return <p key={campo.chave}><span className="font-semibold text-slate-500">{campo.rotulo}:</span> {String(valor)}</p>;
                             })}
+                            {categoria === "documentos" && registro.arquivo && (
+                              <button type="button" onClick={() => void abrirDocumento(registro)} className="text-left font-bold text-teal-700 underline">
+                                📎 Abrir arquivo: {registro.arquivo}
+                              </button>
+                            )}
                             {categoria === "epis" && registro.assinatura && (
                               <>
                                 <p className="font-semibold text-teal-800">
@@ -777,8 +912,34 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                     {registros.funcionarios.map(item => <option key={item.id} value={item.id}>{item.nome}</option>)}
                   </select>
                 </label>
-                <label className="text-xs font-bold text-slate-600">EPI entregue
-                  <input required value={entregaEpi.nome} onChange={event => setEntregaEpi(atual => ({ ...atual, nome: event.target.value }))} className={`${INPUT_CLASS} mt-1`} />
+                <label className="relative text-xs font-bold text-slate-600">EPI entregue
+                  <input
+                    required
+                    value={entregaEpi.nome}
+                    onFocus={() => setCatalogoEpiAberto(true)}
+                    onChange={event => { setEntregaEpi(atual => ({ ...atual, nome: event.target.value })); setCatalogoEpiAberto(true); }}
+                    placeholder="Digite o EPI ou uma sigla (C, B, L...)"
+                    className={`${INPUT_CLASS} mt-1`}
+                  />
+                  {catalogoEpiAberto && (
+                    <div role="listbox" aria-label="Catálogo de EPIs" className="absolute left-0 right-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+                      {episSugeridos.length ? episSugeridos.map((item, index) => (
+                        <button
+                          key={`${item.nome}-${index}`}
+                          type="button"
+                          role="option"
+                          aria-selected={entregaEpi.nome === item.nome}
+                          onMouseDown={event => event.preventDefault()}
+                          onClick={() => { setEntregaEpi(atual => ({ ...atual, nome: item.nome })); setCatalogoEpiAberto(false); }}
+                          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm hover:bg-teal-50"
+                        >
+                          <span className="text-xl" aria-hidden="true">{item.icone}</span>
+                          <span className="flex-1 font-semibold text-slate-800">{item.nome}</span>
+                          <span className="rounded bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-500">{item.codigo}</span>
+                        </button>
+                      )) : <p className="p-3 text-xs text-slate-500">Nenhum item encontrado. Você pode informar outro EPI no campo.</p>}
+                    </div>
+                  )}
                 </label>
                 <label className="text-xs font-bold text-slate-600">Certificado de Aprovação (CA)
                   <input value={entregaEpi.ca} onChange={event => setEntregaEpi(atual => ({ ...atual, ca: event.target.value }))} className={`${INPUT_CLASS} mt-1`} />
@@ -886,7 +1047,20 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                 <p className="mt-2 text-xs text-slate-500">O PIN será armazenado como hash e mostrado apenas uma vez após o cadastro.</p>
               </fieldset>
             )}
-            {categoria === "documentos" && <p className="mt-3 rounded-lg bg-sky-50 p-3 text-xs text-sky-900">Informe metadados ou um link de arquivo protegido. O anexo não é enviado para armazenamento público.</p>}
+            {categoria === "documentos" && (
+              <label className="mt-3 block text-xs font-bold text-slate-600">
+                Arquivo da máquina (PDF, imagem, Word ou Excel; até 20 MB)
+                <input
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx"
+                  onChange={event => setArquivoDocumento(event.target.files?.[0] || null)}
+                  className={`${INPUT_CLASS} mt-1`}
+                />
+                <span className="mt-1 block font-normal text-slate-500">
+                  {arquivoDocumento?.name || (editando?.arquivo ? `Arquivo atual: ${editando.arquivo}. Selecione outro para substituir.` : "O documento será armazenado em área privada da empresa.")}
+                </span>
+              </label>
+            )}
             <div className="mt-5 flex gap-2">
               <button type="submit" disabled={salvando} className="flex-1 rounded-xl bg-teal-700 px-4 py-3 font-bold text-white disabled:opacity-60">{salvando ? "Salvando..." : "Salvar"}</button>
               <button type="button" onClick={() => setModal(false)} className="rounded-xl bg-slate-100 px-4 py-3 font-bold text-slate-700">Cancelar</button>
@@ -898,19 +1072,48 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
 
       {relatorio && empresaAtual && (
         <section className="print-report hidden">
-          <h1>PREVIX SST — {relatorio}</h1>
-          <h2>{empresaAtual.nome}</h2>
-          <p>Emitido em {new Date().toLocaleDateString("pt-BR")}</p>
-          <hr />
-          <h3>Responsável técnico</h3>
-          {registros.tecnico[0] ? CAMPOS.tecnico.map(campo => <p key={campo.chave}>{campo.rotulo}: {registros.tecnico[0][campo.chave] || "—"}</p>) : <p>Dados do responsável técnico não cadastrados.</p>}
-          <h3>Funcionários</h3>
-          {registros.funcionarios.map(item => <p key={item.id}>{item.nome} — {item.cargo || "Cargo não informado"} — Setor: {item.setor || "—"}</p>)}
-          <h3>Riscos cadastrados</h3>
-          {registros.riscos.map(item => <p key={item.id}>{item.ghe || "GHE"} — {item.nome} ({item.tipo || "Tipo não informado"}): {item.agente || "Agente não informado"}</p>)}
-          <h3>Documentos registrados</h3>
-          {registros.documentos.map(item => <p key={item.id}>{item.titulo} — {item.pasta || "Outros"} — Vencimento: {item.vencimento || "—"}</p>)}
-          <p className="report-disclaimer">Relatório gerado a partir dos dados cadastrados no PREVIX. Deve ser revisado por profissional habilitado antes de uso oficial.</p>
+          <div className="report-heading">
+            <div className="report-logo-placeholder"><span>LOGO DA PRESTADORA</span></div>
+            <div className="report-title">
+              <p>PREVIX SST</p>
+              <h1>{relatorio === "Painel completo" ? "Relatório geral" : `Relatório ${relatorio}`}</h1>
+              <span>Emitido em {new Date().toLocaleDateString("pt-BR")}</span>
+            </div>
+            <div className="report-logo-placeholder"><span>LOGO DO CLIENTE</span><strong>{empresaAtual.nome}</strong></div>
+          </div>
+          <div className="report-company-line"><b>Empresa / cliente:</b> {empresaAtual.nome}</div>
+          {categoriasRelatorio.map(categoriaRelatorio => {
+            const definicao = CATEGORIAS.find(item => item.id === categoriaRelatorio);
+            const campos = categoriaRelatorio === "documentos"
+              ? [...CAMPOS.documentos, { chave: "arquivo", rotulo: "Arquivo anexado", tipo: "text" }]
+              : CAMPOS[categoriaRelatorio];
+            const itens = registros[categoriaRelatorio];
+            return (
+              <section key={categoriaRelatorio} className="report-section">
+                <h2>{definicao?.icone} {definicao?.label || categoriaRelatorio}</h2>
+                {itens.length === 0 ? <p className="report-empty">Nenhum registro cadastrado.</p> : (
+                  <table>
+                    <thead><tr>{campos.map(campo => <th key={campo.chave}>{campo.rotulo}</th>)}{categoriaRelatorio === "epis" && <th>Confirmação</th>}</tr></thead>
+                    <tbody>
+                      {itens.map(item => (
+                        <tr key={item.id}>
+                          {campos.map(campo => <td key={campo.chave}>{item[campo.chave] === undefined || item[campo.chave] === null || item[campo.chave] === "" ? "—" : String(item[campo.chave])}</td>)}
+                          {categoriaRelatorio === "epis" && (
+                            <td>
+                              {item.assinatura?.metodo === "pin" ? "PIN" : item.assinatura?.metodo === "digitada" ? "Nome + PIN" : item.assinatura?.metodo === "punho" ? "Manuscrita" : "—"}
+                              {item.assinatura?.confirmado_em && <><br />{new Date(item.assinatura.confirmado_em).toLocaleString("pt-BR")}</>}
+                              {item.assinatura?.metodo === "punho" && typeof item.assinatura.imagem === "string" && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(item.assinatura.imagem) && <img className="report-signature" src={item.assinatura.imagem} alt={`Assinatura de ${item.assinatura.nome || "funcionário"}`} />}
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </section>
+            );
+          })}
+          <p className="report-disclaimer">Relatório gerado com base nos dados cadastrados no PREVIX SST. Revise as informações antes de utilizar este documento como registro oficial.</p>
         </section>
       )}
     </div>

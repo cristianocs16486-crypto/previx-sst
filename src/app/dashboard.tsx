@@ -14,10 +14,6 @@ type Profile = {
 type Empresa = {
   id: string;
   nome: string;
-  cnpj?: string | null;
-  responsavel?: string | null;
-  telefone?: string | null;
-  email?: string | null;
 };
 
 type Registro = Record<string, any> & {
@@ -129,8 +125,16 @@ const CAMPOS: Record<Categoria, { chave: string; rotulo: string; tipo?: string; 
 
 const INPUT_CLASS = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100";
 
+type MetodoAssinatura = "pin" | "digitada" | "punho";
+
 function dataHoje() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function gerarPin() {
+  const bytes = new Uint32Array(1);
+  crypto.getRandomValues(bytes);
+  return String(1000 + (bytes[0] % 9000));
 }
 
 function CardIndicador({ titulo, valor, icone, cor, onClick }: { titulo: string; valor: number | string; icone: string; cor: string; onClick?: () => void }) {
@@ -165,11 +169,29 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
   const [filtroStatus, setFiltroStatus] = useState("Todos");
   const [relatorio, setRelatorio] = useState("");
   const requestId = useRef(0);
+  const assinaturaCanvas = useRef<HTMLCanvasElement>(null);
+  const desenhandoAssinatura = useRef(false);
+  const [pinAutomatico, setPinAutomatico] = useState(true);
+  const [pinManual, setPinManual] = useState("");
+  const [pinGerado, setPinGerado] = useState<{ nome: string; pin: string } | null>(null);
+  const [entregaEpi, setEntregaEpi] = useState({
+    employeeId: "",
+    nome: "",
+    ca: "",
+    tipo: "",
+    quantidade: "1",
+    data_entrega: dataHoje(),
+  });
+  const [metodoAssinatura, setMetodoAssinatura] = useState<MetodoAssinatura>("pin");
+  const [pinConfirmacao, setPinConfirmacao] = useState("");
+  const [nomeAssinatura, setNomeAssinatura] = useState("");
+  const [consentimento, setConsentimento] = useState(false);
+  const [assinaturaFeita, setAssinaturaFeita] = useState(false);
 
   const carregarEmpresas = useCallback(async () => {
     setCarregandoEmpresas(true);
     setErro("");
-    let query = supabase.from("empresas").select("id, nome, cnpj, responsavel, telefone, email").order("nome");
+    let query = supabase.from("empresas").select("id, nome").order("nome");
     if (!ehAdm) {
       if (!usuario.empresa_id) {
         setEmpresas([]);
@@ -277,6 +299,17 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
 
   function abrirNovo() {
     if (categoria === "inicio" || categoria === "empresas") return;
+    if (categoria === "epis") {
+      setEntregaEpi({ employeeId: "", nome: "", ca: "", tipo: "", quantidade: "1", data_entrega: dataHoje() });
+      setMetodoAssinatura("pin");
+      setPinConfirmacao("");
+      setNomeAssinatura("");
+      setConsentimento(false);
+      setAssinaturaFeita(false);
+      setEditando(null);
+      setModal(true);
+      return;
+    }
     if (categoria === "tecnico" && registros.tecnico[0]) {
       abrirEditar(registros.tecnico[0]);
       return;
@@ -290,6 +323,11 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     if (categoria === "financeiro") valores.status = "Pendente";
     if (categoria === "documentos") valores.pasta = "PGR";
     setForm(valores);
+    if (categoria === "funcionarios") {
+      setPinAutomatico(true);
+      setPinManual("");
+      setPinGerado(null);
+    }
     setModal(true);
   }
 
@@ -308,24 +346,47 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     const payload = Object.fromEntries(
       Object.entries(form).filter(([, valor]) => valor !== "" && valor !== undefined && valor !== null),
     );
-    let resultado;
-    if (editando) {
-      resultado = await supabase
-        .from("previx_records")
-        .update({ payload })
-        .eq("id", editando.id)
-        .eq("company_id", empresaAtual.id)
-        .select("id")
-        .single();
-    } else {
-      resultado = await supabase
-        .from("previx_records")
-        .insert({ company_id: empresaAtual.id, category: categoria, payload })
-        .select("id")
-        .single();
+    if (categoria === "funcionarios" && !editando) {
+      const pin = pinAutomatico ? gerarPin() : pinManual.trim();
+      if (!/^\d{4}$/.test(pin)) {
+        setErro("O PIN precisa ter exatamente quatro dígitos.");
+        setSalvando(false);
+        return;
+      }
+      const { error } = await supabase.rpc("previx_create_employee", {
+        p_company_id: empresaAtual.id,
+        p_payload: payload,
+        p_pin: pin,
+      });
+      if (error) {
+        setErro(`Não foi possível cadastrar o funcionário: ${error.message}`);
+        setSalvando(false);
+        return;
+      }
+      setPinGerado({ nome: String(payload.nome || "Funcionário"), pin });
+      setMensagem("Funcionário cadastrado. Guarde o PIN: ele será exibido somente agora.");
+      setModal(false);
+      setForm({});
+      await carregarRegistros();
+      setSalvando(false);
+      return;
     }
-    if (resultado.error) {
-      setErro(`Não foi possível salvar: ${resultado.error.message}`);
+    let resultado: { data: any; error: any };
+    if (editando) {
+      resultado = await supabase.rpc("previx_update_record", {
+        p_company_id: empresaAtual.id,
+        p_record_id: editando.id,
+        p_payload: payload,
+      });
+    } else {
+      resultado = await supabase.rpc("previx_create_record", {
+        p_company_id: empresaAtual.id,
+        p_category: categoria,
+        p_payload: payload,
+      });
+    }
+    if (resultado.error || (editando && resultado.data !== true)) {
+      setErro(`Não foi possível salvar${resultado.error ? `: ${resultado.error.message}` : ": registro não encontrado ou não autorizado."}`);
     } else {
       setMensagem(`${CATEGORIAS.find(item => item.id === categoria)?.singular || "Registro"} salvo.`);
       setModal(false);
@@ -336,16 +397,110 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     setSalvando(false);
   }
 
+  function limparAssinatura() {
+    const canvas = assinaturaCanvas.current;
+    if (canvas) canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
+    setAssinaturaFeita(false);
+  }
+
+  function iniciarAssinatura(event: React.PointerEvent<HTMLCanvasElement>) {
+    const canvas = assinaturaCanvas.current;
+    if (!canvas) return;
+    desenhandoAssinatura.current = true;
+    canvas.setPointerCapture(event.pointerId);
+    const rect = canvas.getBoundingClientRect();
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.beginPath();
+    ctx.moveTo((event.clientX - rect.left) * canvas.width / rect.width, (event.clientY - rect.top) * canvas.height / rect.height);
+  }
+
+  function desenharAssinatura(event: React.PointerEvent<HTMLCanvasElement>) {
+    const canvas = assinaturaCanvas.current;
+    if (!canvas || !desenhandoAssinatura.current) return;
+    const rect = canvas.getBoundingClientRect();
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#0f172a";
+    ctx.lineTo((event.clientX - rect.left) * canvas.width / rect.width, (event.clientY - rect.top) * canvas.height / rect.height);
+    ctx.stroke();
+    setAssinaturaFeita(true);
+  }
+
+  async function salvarEntregaEpi(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!empresaAtual) return;
+    const funcionario = registros.funcionarios.find(item => item.id === entregaEpi.employeeId);
+    if (!funcionario) {
+      setErro("Selecione um funcionário cadastrado nesta empresa.");
+      return;
+    }
+    if (!entregaEpi.nome.trim()) {
+      setErro("Informe o EPI entregue.");
+      return;
+    }
+    if (!consentimento) {
+      setErro("O funcionário precisa confirmar o recebimento do EPI.");
+      return;
+    }
+    if (metodoAssinatura !== "pin" && nomeAssinatura.trim().toLocaleLowerCase("pt-BR") !== String(funcionario.nome).trim().toLocaleLowerCase("pt-BR")) {
+      setErro("Informe o nome completo exatamente como está no cadastro do funcionário.");
+      return;
+    }
+    if (metodoAssinatura === "punho" && !assinaturaFeita) {
+      setErro("Solicite a assinatura do funcionário no campo de assinatura.");
+      return;
+    }
+
+    setSalvando(true);
+    setErro("");
+    setMensagem("");
+
+    const payload = {
+      nome: entregaEpi.nome.trim(),
+      ca: entregaEpi.ca.trim(),
+      tipo: entregaEpi.tipo.trim(),
+      quantidade: Math.max(1, Number(entregaEpi.quantidade) || 1),
+      data_entrega: entregaEpi.data_entrega || dataHoje(),
+      funcionario: funcionario.nome,
+    };
+    const { data: recordId, error } = await supabase.rpc("previx_create_epi_delivery", {
+      p_company_id: empresaAtual.id,
+      p_employee_id: funcionario.id,
+      p_employee_pin: metodoAssinatura === "punho" ? null : pinConfirmacao.trim(),
+      p_payload: payload,
+      p_method: metodoAssinatura,
+      p_typed_name: metodoAssinatura === "pin" ? funcionario.nome : nomeAssinatura.trim(),
+      p_hand_signature: metodoAssinatura === "punho" ? assinaturaCanvas.current?.toDataURL("image/png") : null,
+      p_consent: consentimento,
+    });
+    if (error) {
+      setErro(`Não foi possível registrar a entrega: ${error.message}`);
+      setSalvando(false);
+      return;
+    }
+    if (!recordId) {
+      setErro("PIN incorreto. A entrega não foi registrada.");
+      setSalvando(false);
+      return;
+    }
+    setMensagem(`Entrega registrada para ${funcionario.nome} com confirmação ${metodoAssinatura === "punho" ? "manuscrita" : metodoAssinatura === "digitada" ? "digitada e PIN" : "por PIN"}.`);
+    setModal(false);
+    await carregarRegistros();
+    setSalvando(false);
+  }
+
   async function excluirRegistro(registro: Registro) {
     if (!empresaAtual || categoria === "inicio" || categoria === "empresas") return;
     if (!window.confirm(`Excluir "${registro.nome || registro.titulo || registro.descricao || "este registro"}"?`)) return;
-    const { error } = await supabase
-      .from("previx_records")
-      .delete()
-      .eq("id", registro.id)
-      .eq("company_id", empresaAtual.id);
-    if (error) {
-      setErro(`Não foi possível excluir: ${error.message}`);
+    const { data, error } = await supabase.rpc("previx_delete_record", {
+      p_company_id: empresaAtual.id,
+      p_record_id: registro.id,
+    });
+    if (error || data !== true) {
+      setErro(`Não foi possível excluir${error ? `: ${error.message}` : ": registro não encontrado ou não autorizado."}`);
       return;
     }
     setMensagem("Registro excluído.");
@@ -361,14 +516,8 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     if (!nome) return;
     const { data, error } = await supabase
       .from("empresas")
-      .insert({
-        nome,
-        cnpj: String(valores.cnpj || "").trim() || null,
-        responsavel: String(valores.responsavel || "").trim() || null,
-        telefone: String(valores.telefone || "").trim() || null,
-        email: String(valores.email || "").trim() || null,
-      })
-      .select("id, nome, cnpj, responsavel, telefone, email")
+      .insert({ nome })
+      .select("id, nome")
       .single();
     if (error) {
       setErro(`Não foi possível cadastrar a empresa: ${error.message}`);
@@ -453,6 +602,12 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
         <main className="mx-auto max-w-7xl p-4 md:p-8">
           {erro && <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{erro}</div>}
           {mensagem && <div role="status" className="mb-4 rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800">{mensagem}</div>}
+          {pinGerado && (
+            <section role="status" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
+              <p><b>PIN de {pinGerado.nome}:</b> <span className="font-mono text-lg font-black tracking-widest">{pinGerado.pin}</span> — anote agora; ele não será exibido novamente.</p>
+              <button onClick={() => setPinGerado(null)} className="rounded-lg bg-amber-200 px-3 py-2 text-sm font-bold">Entendi</button>
+            </section>
+          )}
 
           {!empresaAtual && !carregandoEmpresas ? (
             <section className="rounded-2xl bg-white p-8 text-center shadow-sm">
@@ -511,10 +666,6 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
               {ehAdm && (
                 <form onSubmit={cadastrarEmpresa} className="mb-5 grid gap-3 rounded-2xl bg-white p-5 shadow-sm sm:grid-cols-2">
                   <input name="nome" required placeholder="Nome da empresa" aria-label="Nome da empresa" className={INPUT_CLASS} />
-                  <input name="cnpj" placeholder="CNPJ" aria-label="CNPJ" className={INPUT_CLASS} />
-                  <input name="responsavel" placeholder="Responsável" aria-label="Responsável" className={INPUT_CLASS} />
-                  <input name="telefone" placeholder="Telefone" aria-label="Telefone" className={INPUT_CLASS} />
-                  <input name="email" type="email" placeholder="E-mail de contato" aria-label="E-mail de contato" className={INPUT_CLASS} />
                   <button type="submit" className="rounded-xl bg-teal-700 px-5 py-3 font-bold text-white hover:bg-teal-800 sm:col-span-2">+ Cadastrar Empresa</button>
                 </form>
               )}
@@ -523,8 +674,6 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                   <button key={empresa.id} onClick={() => { setEmpresaAtual(empresa); setCategoria("inicio"); }} className={`rounded-2xl border bg-white p-5 text-left shadow-sm ${empresaAtual.id === empresa.id ? "border-teal-600 ring-2 ring-teal-100" : "border-slate-200"}`}>
                     <span className="text-2xl">🏢</span>
                     <span className="mt-2 block font-black">{empresa.nome}</span>
-                    {empresa.cnpj && <span className="mt-1 block text-xs text-slate-500">CNPJ: {empresa.cnpj}</span>}
-                    {empresa.responsavel && <span className="mt-1 block text-xs text-slate-500">Responsável: {empresa.responsavel}</span>}
                   </button>
                 ))}
               </div>
@@ -537,7 +686,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                   <h1 className="mt-1 text-2xl font-black">{titulo}</h1>
                 </div>
                 <button onClick={abrirNovo} className="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-teal-800">
-                  {categoria === "tecnico" ? "Editar dados técnicos" : `+ Cadastrar ${CATEGORIAS.find(item => item.id === categoria)?.singular}`}
+                  {categoria === "epis" ? "＋ Registrar entrega de EPI" : categoria === "tecnico" ? "Editar dados técnicos" : `+ Cadastrar ${CATEGORIAS.find(item => item.id === categoria)?.singular}`}
                 </button>
               </div>
 
@@ -586,12 +735,23 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                               if (valor === undefined || valor === null || valor === "") return null;
                               return <p key={campo.chave}><span className="font-semibold text-slate-500">{campo.rotulo}:</span> {String(valor)}</p>;
                             })}
+                            {categoria === "epis" && registro.assinatura && (
+                              <>
+                                <p className="font-semibold text-teal-800">
+                                  Confirmação: {registro.assinatura.metodo === "pin" ? "PIN" : registro.assinatura.metodo === "digitada" ? "Assinatura digitada + PIN" : registro.assinatura.metodo === "punho" ? "Assinatura manuscrita" : "Sem confirmação verificável"}
+                                  {registro.assinatura.confirmado_em ? ` · ${new Date(registro.assinatura.confirmado_em).toLocaleString("pt-BR")}` : ""}
+                                </p>
+                                {registro.assinatura.metodo === "punho" && typeof registro.assinatura.imagem === "string" && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(registro.assinatura.imagem) && (
+                                  <img src={registro.assinatura.imagem} alt={`Assinatura de ${registro.assinatura.nome || "funcionário"}`} className="mt-2 max-h-24 max-w-xs rounded border border-slate-200 bg-white p-2" />
+                                )}
+                              </>
+                            )}
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                        {categoria !== "epis" && <div className="flex gap-2">
                           <button onClick={() => abrirEditar(registro)} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200">Editar</button>
                           <button onClick={() => void excluirRegistro(registro)} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100">Excluir</button>
-                        </div>
+                        </div>}
                       </div>
                     </article>
                   ))}
@@ -604,6 +764,85 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
 
       {modal && categoria !== "inicio" && categoria !== "empresas" && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-4" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setModal(false); }}>
+          {categoria === "epis" ? (
+            <form onSubmit={salvarEntregaEpi} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl sm:rounded-2xl">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-black">Registrar entrega de EPI</h2>
+                <button type="button" onClick={() => setModal(false)} aria-label="Fechar" className="rounded-lg px-3 py-1 text-xl text-slate-500 hover:bg-slate-100">×</button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-xs font-bold text-slate-600 sm:col-span-2">Funcionário
+                  <select required value={entregaEpi.employeeId} onChange={event => setEntregaEpi(atual => ({ ...atual, employeeId: event.target.value }))} className={`${INPUT_CLASS} mt-1`}>
+                    <option value="">Selecione</option>
+                    {registros.funcionarios.map(item => <option key={item.id} value={item.id}>{item.nome}</option>)}
+                  </select>
+                </label>
+                <label className="text-xs font-bold text-slate-600">EPI entregue
+                  <input required value={entregaEpi.nome} onChange={event => setEntregaEpi(atual => ({ ...atual, nome: event.target.value }))} className={`${INPUT_CLASS} mt-1`} />
+                </label>
+                <label className="text-xs font-bold text-slate-600">Certificado de Aprovação (CA)
+                  <input value={entregaEpi.ca} onChange={event => setEntregaEpi(atual => ({ ...atual, ca: event.target.value }))} className={`${INPUT_CLASS} mt-1`} />
+                </label>
+                <label className="text-xs font-bold text-slate-600">Tipo / modelo
+                  <input value={entregaEpi.tipo} onChange={event => setEntregaEpi(atual => ({ ...atual, tipo: event.target.value }))} className={`${INPUT_CLASS} mt-1`} />
+                </label>
+                <label className="text-xs font-bold text-slate-600">Quantidade
+                  <input required min="1" type="number" value={entregaEpi.quantidade} onChange={event => setEntregaEpi(atual => ({ ...atual, quantidade: event.target.value }))} className={`${INPUT_CLASS} mt-1`} />
+                </label>
+                <label className="text-xs font-bold text-slate-600">Data de entrega
+                  <input required type="date" value={entregaEpi.data_entrega} onChange={event => setEntregaEpi(atual => ({ ...atual, data_entrega: event.target.value }))} className={`${INPUT_CLASS} mt-1`} />
+                </label>
+              </div>
+              <fieldset className="mt-4">
+                <legend className="text-sm font-bold text-slate-700">Confirmação do recebimento</legend>
+                <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                  {([
+                    ["pin", "PIN"],
+                    ["digitada", "Assinatura digitada + PIN"],
+                    ["punho", "Assinatura manuscrita"],
+                  ] as const).map(([metodo, texto]) => (
+                    <label key={metodo} className={`cursor-pointer rounded-lg border p-3 text-xs font-bold ${metodoAssinatura === metodo ? "border-teal-600 bg-teal-50 text-teal-900" : "border-slate-200 text-slate-600"}`}>
+                      <input type="radio" name="metodo-assinatura" value={metodo} checked={metodoAssinatura === metodo} onChange={() => { setMetodoAssinatura(metodo); setPinConfirmacao(""); setNomeAssinatura(""); limparAssinatura(); }} className="mr-2" />
+                      {texto}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              {metodoAssinatura !== "punho" ? (
+                <label className="mt-3 block text-xs font-bold text-slate-600">PIN do funcionário
+                  <input required inputMode="numeric" autoComplete="off" maxLength={4} pattern="[0-9]{4}" value={pinConfirmacao} onChange={event => setPinConfirmacao(event.target.value.replace(/\D/g, "").slice(0, 4))} className={`${INPUT_CLASS} mt-1`} />
+                </label>
+              ) : (
+                <>
+                  <label className="mt-3 block text-xs font-bold text-slate-600">Nome completo do funcionário
+                    <input required value={nomeAssinatura} onChange={event => setNomeAssinatura(event.target.value)} className={`${INPUT_CLASS} mt-1`} />
+                  </label>
+                  <p className="mt-3 text-xs font-semibold text-slate-600">Assinatura manuscrita (dedo ou caneta)</p>
+                  <canvas
+                    ref={assinaturaCanvas}
+                    width={500}
+                    height={140}
+                    onPointerDown={iniciarAssinatura}
+                    onPointerMove={desenharAssinatura}
+                    onPointerUp={() => { desenhandoAssinatura.current = false; }}
+                    onPointerCancel={() => { desenhandoAssinatura.current = false; }}
+                    className="mt-1 h-36 w-full touch-none rounded-lg border border-slate-300 bg-white"
+                    aria-label="Campo de assinatura manuscrita"
+                  />
+                  <button type="button" onClick={limparAssinatura} className="mt-2 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700">Limpar assinatura</button>
+                </>
+              )}
+              <label className="mt-4 flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-700">
+                <input required type="checkbox" checked={consentimento} onChange={event => setConsentimento(event.target.checked)} className="mt-0.5" />
+                Confirmo que o funcionário recebeu o EPI descrito e autorizou o registro desta confirmação.
+              </label>
+              <p className="mt-3 rounded-lg bg-sky-50 p-3 text-xs text-sky-900">O PIN é validado no servidor e não é salvo junto à entrega. A assinatura manuscrita é uma imagem fornecida neste dispositivo, não uma verificação biométrica.</p>
+              <div className="mt-5 flex gap-2">
+                <button type="submit" disabled={salvando || registros.funcionarios.length === 0} className="flex-1 rounded-xl bg-teal-700 px-4 py-3 font-bold text-white disabled:opacity-60">{salvando ? "Registrando..." : "Confirmar entrega"}</button>
+                <button type="button" onClick={() => setModal(false)} className="rounded-xl bg-slate-100 px-4 py-3 font-bold text-slate-700">Cancelar</button>
+              </div>
+            </form>
+          ) : (
           <form onSubmit={salvarRegistro} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl sm:rounded-2xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-black">{editando ? "Editar" : "Cadastrar"} {CATEGORIAS.find(item => item.id === categoria)?.singular}</h2>
@@ -632,13 +871,28 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                 </label>
               ))}
             </div>
-            {categoria === "epis" && <p className="mt-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">Este cadastro registra a entrega. PIN, assinatura e biometria precisam de um fluxo de verificação próprio; não são simulados nem armazenados como credenciais neste formulário.</p>}
+            {categoria === "funcionarios" && !editando && (
+              <fieldset className="mt-4 rounded-xl border border-slate-200 p-4">
+                <legend className="px-1 text-sm font-bold text-slate-700">PIN para confirmação de EPI</legend>
+                <label className="mr-5 inline-flex items-center gap-2 text-sm text-slate-700">
+                  <input type="radio" checked={pinAutomatico} onChange={() => setPinAutomatico(true)} />
+                  Gerar PIN automaticamente
+                </label>
+                <label className="mt-2 inline-flex items-center gap-2 text-sm text-slate-700 sm:mt-0">
+                  <input type="radio" checked={!pinAutomatico} onChange={() => setPinAutomatico(false)} />
+                  Definir PIN
+                </label>
+                {!pinAutomatico && <input required inputMode="numeric" autoComplete="off" maxLength={4} pattern="[0-9]{4}" aria-label="PIN de quatro dígitos" placeholder="4 dígitos" value={pinManual} onChange={event => setPinManual(event.target.value.replace(/\D/g, "").slice(0, 4))} className={`${INPUT_CLASS} mt-3`} />}
+                <p className="mt-2 text-xs text-slate-500">O PIN será armazenado como hash e mostrado apenas uma vez após o cadastro.</p>
+              </fieldset>
+            )}
             {categoria === "documentos" && <p className="mt-3 rounded-lg bg-sky-50 p-3 text-xs text-sky-900">Informe metadados ou um link de arquivo protegido. O anexo não é enviado para armazenamento público.</p>}
             <div className="mt-5 flex gap-2">
               <button type="submit" disabled={salvando} className="flex-1 rounded-xl bg-teal-700 px-4 py-3 font-bold text-white disabled:opacity-60">{salvando ? "Salvando..." : "Salvar"}</button>
               <button type="button" onClick={() => setModal(false)} className="rounded-xl bg-slate-100 px-4 py-3 font-bold text-slate-700">Cancelar</button>
             </div>
           </form>
+          )}
         </div>
       )}
 
@@ -646,7 +900,6 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
         <section className="print-report hidden">
           <h1>PREVIX SST — {relatorio}</h1>
           <h2>{empresaAtual.nome}</h2>
-          {empresaAtual.cnpj && <p>CNPJ: {empresaAtual.cnpj}</p>}
           <p>Emitido em {new Date().toLocaleDateString("pt-BR")}</p>
           <hr />
           <h3>Responsável técnico</h3>

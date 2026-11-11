@@ -54,11 +54,11 @@ function Login({ onEntrar, erroInicial }: { onEntrar: (profile: Profile) => void
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-800 to-cyan-500 p-4">
-      <section className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-700 text-3xl">🛡️</div>
-        <h1 className="text-center text-3xl font-black tracking-tight text-slate-900">PREVIX</h1>
-        <p className="mb-6 mt-1 text-center text-sm text-slate-500">Gestão de SST simples, segura e completa</p>
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-teal-500 to-blue-600 p-4">
+      <section className="w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-blue-600 text-2xl">🛡️</div>
+        <h1 className="text-center text-2xl font-black tracking-tight text-slate-900">PREVIX SST</h1>
+        <p className="mb-5 mt-1 text-center text-xs text-teal-700">Prevenção que Protege</p>
 
         {(erroInicial || erro) && (
           <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -67,7 +67,7 @@ function Login({ onEntrar, erroInicial }: { onEntrar: (profile: Profile) => void
         )}
 
         <form onSubmit={handleLogin}>
-          <label htmlFor="email" className="mb-1 block text-xs font-extrabold text-slate-700">E-MAIL</label>
+          <label htmlFor="email" className="mb-1 block text-xs font-bold text-slate-600">Login</label>
           <input
             id="email"
             type="email"
@@ -75,10 +75,10 @@ function Login({ onEntrar, erroInicial }: { onEntrar: (profile: Profile) => void
             required
             value={email}
             onChange={event => setEmail(event.target.value)}
-            placeholder="seu@email.com"
-            className="mb-4 w-full rounded-xl border-2 border-slate-200 px-4 py-3 outline-none focus:border-blue-600"
+            placeholder="E-mail"
+            className="mb-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-600"
           />
-          <label htmlFor="senha" className="mb-1 block text-xs font-extrabold text-slate-700">SENHA</label>
+          <label htmlFor="senha" className="mb-1 block text-xs font-bold text-slate-600">Senha</label>
           <input
             id="senha"
             type="password"
@@ -87,22 +87,20 @@ function Login({ onEntrar, erroInicial }: { onEntrar: (profile: Profile) => void
             value={senha}
             onChange={event => setSenha(event.target.value)}
             placeholder="Sua senha"
-            className="mb-5 w-full rounded-xl border-2 border-slate-200 px-4 py-3 outline-none focus:border-blue-600"
+            className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-600"
           />
           <button
             type="submit"
             disabled={loading || !supabaseConfigured}
-            className="w-full rounded-xl bg-blue-700 py-3 font-black text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-lg bg-gradient-to-r from-teal-600 to-blue-600 py-2.5 text-sm font-black text-white hover:from-teal-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? "Entrando..." : "ENTRAR"}
           </button>
         </form>
 
-        <p className="mt-5 text-center text-xs text-slate-400">Acesso restrito. Somente o administrador cria contas.</p>
-        <div className="mt-5 rounded-xl border border-sky-200 bg-sky-50 p-3 text-center text-sm text-slate-600">
-          <b className="text-sky-900">Precisa de ajuda? Fale com o suporte</b>
-          <p className="mt-1">WhatsApp: (82) 99999-0000</p>
-          <p>suporte@previx.com.br</p>
+        <div className="mt-3 rounded-lg bg-slate-50 p-2 text-center text-xs text-slate-600">
+          <b className="text-slate-800">Suporte</b>
+          <p className="mt-1">suporte@previx.com.br</p>
         </div>
       </section>
     </main>

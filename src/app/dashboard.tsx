@@ -550,7 +550,9 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
         p_payload: { ...payload, pin },
       });
       if (error || typeof employeeId !== "string" || !employeeId) {
-        setErro(`Não foi possível cadastrar o funcionário${error ? `: ${error.message}` : ": não foi retornado o identificador do registro."}`);
+        setErro(`Não foi possível cadastrar o funcionário${error
+          ? `: ${error.message}`
+          : ": o Supabase não retornou o ID. Aplique a migration previx_create_record_returns_id no projeto Supabase."}`);
         setSalvando(false);
         return;
       }
@@ -628,7 +630,12 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
         const { error: cleanupError } = await supabase.storage.from("previx-documents").remove([novoArquivoPath]);
         if (cleanupError) falhaLimpeza = ` O arquivo enviado também não pôde ser removido: ${cleanupError.message}`;
       }
-      setErro(`Não foi possível salvar${resultado.error ? `: ${resultado.error.message}` : ": registro não encontrado ou não autorizado."}${falhaLimpeza}`);
+      const detalheFalha = resultado.error
+        ? `: ${resultado.error.message}`
+        : editando
+          ? ": registro não encontrado ou não autorizado."
+          : ": o Supabase não retornou o ID. Aplique a migration previx_create_record_returns_id no projeto Supabase.";
+      setErro(`Não foi possível salvar${detalheFalha}${falhaLimpeza}`);
     } else {
       if (novoArquivoPath && editando?.arquivo_path) {
         const { error: cleanupError } = await supabase.storage.from("previx-documents").remove([editando.arquivo_path]);

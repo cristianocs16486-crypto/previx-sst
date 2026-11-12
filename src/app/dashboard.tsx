@@ -371,15 +371,16 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     if (categoria !== "empresas") setAcessoInicialEmpresa(null);
   }, [categoria]);
 
-  const carregarRegistros = useCallback(async () => {
+  const carregarRegistros = useCallback(async (): Promise<Record<Categoria, Registro[]> | null> => {
     const request = ++requestId.current;
     if (!empresaAtual) {
-      setRegistros({
+      const vazio: Record<Categoria, Registro[]> = {
         funcionarios: [], epis: [], extintores: [], inspecoes: [], documentos: [],
         exames: [], clinicas: [], riscos: [], financeiro: [], tecnico: [],
-      });
+      };
+      setRegistros(vazio);
       setCarregandoRegistros(false);
-      return;
+      return vazio;
     }
     const categoriaSolicitada = categoria === "inicio" || categoria === "empresas" ? null : categoria;
     setCarregandoRegistros(true);
@@ -390,12 +391,12 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       p_company_id: empresaAtual.id,
       p_category,
     })));
-    if (request !== requestId.current) return;
+    if (request !== requestId.current) return null;
     const erroResposta = respostas.find(resposta => resposta.error)?.error;
     if (erroResposta) {
       setErro(`Não foi possível carregar os dados. Aplique a migration de segurança do Supabase: ${erroResposta.message}`);
       setCarregandoRegistros(false);
-      return;
+      return null;
     }
     const novo: Record<Categoria, Registro[]> = {
       funcionarios: [], epis: [], extintores: [], inspecoes: [], documentos: [],
@@ -420,6 +421,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       return { ...atual, [categoriaSolicitada]: novo[categoriaSolicitada] };
     });
     setCarregandoRegistros(false);
+    return novo;
   }, [categoria, empresaAtual]);
 
   useEffect(() => {
@@ -547,16 +549,20 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
         p_category: "funcionarios",
         p_payload: { ...payload, pin },
       });
-      if (error || !employeeId) {
+      if (error || typeof employeeId !== "string" || !employeeId) {
         setErro(`Não foi possível cadastrar o funcionário${error ? `: ${error.message}` : ": não foi retornado o identificador do registro."}`);
         setSalvando(false);
         return;
       }
       setPinGerado({ nome: String(payload.nome || "Funcionário"), pin });
-      setMensagem("Funcionário cadastrado. Guarde o PIN: ele será exibido somente agora.");
       setModal(false);
       setForm({});
-      await carregarRegistros();
+      const registrosAtualizados = await carregarRegistros();
+      if (!registrosAtualizados?.funcionarios.some(registro => registro.id === employeeId)) {
+        setErro("O Supabase confirmou o cadastro, mas o funcionário não apareceu na lista atualizada. Não tente cadastrar novamente antes de atualizar a lista.");
+      } else {
+        setMensagem("Funcionário cadastrado. Guarde o PIN: ele será exibido somente agora.");
+      }
       setSalvando(false);
       return;
     }
@@ -613,7 +619,10 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
         p_payload: payload,
       });
     }
-    if (resultado.error || (editando && resultado.data !== true)) {
+    const recordId = editando
+      ? resultado.data === true ? editando.id : ""
+      : typeof resultado.data === "string" ? resultado.data : "";
+    if (resultado.error || !recordId) {
       let falhaLimpeza = "";
       if (novoArquivoPath) {
         const { error: cleanupError } = await supabase.storage.from("previx-documents").remove([novoArquivoPath]);
@@ -625,12 +634,16 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
         const { error: cleanupError } = await supabase.storage.from("previx-documents").remove([editando.arquivo_path]);
         if (cleanupError) setErro(`Documento salvo, mas o arquivo anterior não pôde ser removido: ${cleanupError.message}`);
       }
-      setMensagem("Salvo com sucesso.");
       setModal(false);
       setForm({});
       setEditando(null);
       setArquivoDocumento(null);
-      await carregarRegistros();
+      const registrosAtualizados = await carregarRegistros();
+      if (!registrosAtualizados?.[categoria as Categoria].some(registro => registro.id === recordId)) {
+        setErro("O Supabase confirmou a gravação, mas o registro não apareceu na lista atualizada. Não repita o cadastro antes de atualizar a lista.");
+      } else {
+        setMensagem("Salvo com sucesso.");
+      }
     }
     setSalvando(false);
   }
@@ -663,7 +676,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       },
     })));
 
-    const falha = resultados.find(resultado => resultado.error || !resultado.data);
+    const falha = resultados.find(resultado => resultado.error || typeof resultado.data !== "string" || !resultado.data);
     if (falha) {
       await carregarRegistros();
       setErro(`Não foi possível concluir todos os agendamentos: ${falha.error?.message || "o Supabase não retornou o identificador do registro."} Verifique a lista antes de tentar novamente.`);
@@ -671,11 +684,16 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       return;
     }
 
+    const idsCriados = resultados.map(resultado => resultado.data as string);
     setFuncionarioExameId("");
     setBuscaFuncionarioExame("");
     setTiposExameSelecionados([]);
-    setMensagem(`✅ Agendado! ${funcionario.nome} • ${clinica.nome} • ${formatarData(diaExameSelecionado)}`);
-    await carregarRegistros();
+    const registrosAtualizados = await carregarRegistros();
+    if (!registrosAtualizados || !idsCriados.every(id => registrosAtualizados.exames.some(registro => registro.id === id))) {
+      setErro("O Supabase confirmou o agendamento, mas os exames não apareceram na lista atualizada. Atualize a lista antes de tentar novamente.");
+    } else {
+      setMensagem(`✅ Agendado! ${funcionario.nome} • ${clinica.nome} • ${formatarData(diaExameSelecionado)}`);
+    }
     setSalvando(false);
   }
 
@@ -850,13 +868,17 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       setSalvando(false);
       return;
     }
-    setMensagem(`Entrega registrada para ${funcionario.nome} com PIN, autenticador WebAuthn e assinatura.`);
     setModal(false);
     setPinConfirmacao("");
     setPinVerificado(false);
     setWebAuthnToken("");
     setWebAuthnVerificadoEm("");
-    await carregarRegistros();
+    const registrosAtualizados = await carregarRegistros();
+    if (!registrosAtualizados?.epis.some(registro => registro.id === recordId)) {
+      setErro("O Supabase confirmou a entrega, mas ela não apareceu na lista atualizada. Não repita o registro antes de atualizar a lista.");
+    } else {
+      setMensagem(`Entrega registrada para ${funcionario.nome} com PIN, autenticador WebAuthn e assinatura.`);
+    }
     setSalvando(false);
   }
 

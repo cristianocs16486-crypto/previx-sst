@@ -164,9 +164,8 @@ const CAMPOS: Record<Categoria, { chave: string; rotulo: string; tipo?: string; 
   extintores: [
     { chave: "localizacao", rotulo: "Localização", tipo: "text" },
     { chave: "tipo", rotulo: "Tipo (PQS, CO2, água...)", tipo: "text" },
-    { chave: "vencimento", rotulo: "Vencimento", tipo: "date" },
     { chave: "ultima_recarga", rotulo: "Última recarga", tipo: "date" },
-    { chave: "proxima_recarga", rotulo: "Data da próxima recarga", tipo: "date" },
+    { chave: "proxima_recarga", rotulo: "Próxima recarga", tipo: "date" },
   ],
   inspecoes: [
     { chave: "titulo", rotulo: "Título", tipo: "text" },
@@ -548,9 +547,9 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     };
 
     adicionarAvisos("extintores", registros.extintores, item => ({
-      data: item.proxima_recarga || item.vencimento,
+      data: item.proxima_recarga,
       titulo: `Prazo de extintor · ${item.localizacao || "local não informado"}`,
-      detalhe: `Próxima recarga: ${formatarData(String(item.proxima_recarga || item.vencimento || ""))}`,
+      detalhe: `Próxima recarga: ${formatarData(String(item.proxima_recarga || ""))}`,
     }));
     adicionarAvisos("documentos", registros.documentos, item => ({
       data: item.vencimento,
@@ -587,9 +586,9 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
 
   const extintoresDaEmpresa = registros.extintores.filter(item => item.company_id === empresaAtual?.id);
   const contagemExtintores = {
-    vencidos: extintoresDaEmpresa.filter(item => statusPrazo(item.proxima_recarga || item.vencimento) === "Vencido").length,
-    aVencer: extintoresDaEmpresa.filter(item => statusPrazo(item.proxima_recarga || item.vencimento) === "A vencer").length,
-    emDia: extintoresDaEmpresa.filter(item => statusPrazo(item.proxima_recarga || item.vencimento) === "Em dia").length,
+    vencidos: extintoresDaEmpresa.filter(item => statusPrazo(item.proxima_recarga) === "Vencido").length,
+    aVencer: extintoresDaEmpresa.filter(item => statusPrazo(item.proxima_recarga) === "A vencer").length,
+    emDia: extintoresDaEmpresa.filter(item => statusPrazo(item.proxima_recarga) === "Em dia").length,
   };
 
   const listaAtual = useMemo(() => {
@@ -611,7 +610,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     }
     if ((categoria === "extintores" || categoria === "documentos") && filtroStatus !== "Todos") {
       lista = lista.filter(item => {
-        const vencimento = categoria === "extintores" ? item.proxima_recarga || item.vencimento : item.vencimento;
+        const vencimento = categoria === "extintores" ? item.proxima_recarga : item.vencimento;
         return statusPrazo(vencimento) === filtroStatus;
       });
     }
@@ -1540,8 +1539,8 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     ? telefoneDigitado
     : [10, 11].includes(telefoneDigitado.length) ? `55${telefoneDigitado}` : "";
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-cyan-50 to-blue-100 text-slate-900">
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-blue-950 px-4 py-5 text-white md:flex">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-100 via-teal-50 to-lime-100 text-slate-900">
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col bg-gradient-to-b from-emerald-950 via-green-900 to-teal-950 px-4 py-5 text-white md:flex">
         <div className="mb-6 flex items-center gap-3 px-2">
           <Image src="/logo.png" alt="Logo PREVIX SST" width={1920} height={1280} priority className="h-12 w-12 shrink-0 rounded-xl bg-white p-1 object-contain shadow-lg" />
           <div>
@@ -1550,20 +1549,20 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
           </div>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto">
-          <button onClick={() => setCategoria("inicio")} className={`w-full rounded-xl px-3 py-2.5 text-left text-sm font-bold transition ${categoria === "inicio" ? "bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-md shadow-teal-950/20" : "text-slate-300 hover:bg-white/10 hover:text-white"}`}>🏠 <span className="ml-2">Início</span></button>
+          <button onClick={() => setCategoria("inicio")} className={`w-full rounded-xl px-3 py-2.5 text-left text-sm font-bold transition ${categoria === "inicio" ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-950/20" : "text-slate-300 hover:bg-white/10 hover:text-white"}`}>🏠 <span className="ml-2">Início</span></button>
           {CATEGORIAS.filter(item => item.id !== "tecnico").map(item => (
-            <button key={item.id} onClick={() => setCategoria(item.id)} className={`w-full rounded-xl px-3 py-2.5 text-left text-sm font-bold transition ${categoria === item.id ? "bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-md shadow-teal-950/20" : "text-slate-300 hover:bg-white/10 hover:text-white"}`}>
+            <button key={item.id} onClick={() => setCategoria(item.id)} className={`w-full rounded-xl px-3 py-2.5 text-left text-sm font-bold transition ${categoria === item.id ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-950/20" : "text-slate-300 hover:bg-white/10 hover:text-white"}`}>
               {item.icone}<span className="ml-2">{item.label}</span>
             </button>
           ))}
-          <button onClick={() => setCategoria("tecnico")} className={`w-full rounded-xl px-3 py-2.5 text-left text-sm font-bold transition ${categoria === "tecnico" ? "bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-md shadow-teal-950/20" : "text-slate-300 hover:bg-white/10 hover:text-white"}`}>🧑‍🔧 <span className="ml-2">Responsável técnico</span></button>
-          {ehAdm && <button onClick={() => setCategoria("empresas")} className={`w-full rounded-xl px-3 py-2.5 text-left text-sm font-bold transition ${categoria === "empresas" ? "bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-md shadow-teal-950/20" : "text-slate-300 hover:bg-white/10 hover:text-white"}`}>🏢 <span className="ml-2">Empresas</span></button>}
+          <button onClick={() => setCategoria("tecnico")} className={`w-full rounded-xl px-3 py-2.5 text-left text-sm font-bold transition ${categoria === "tecnico" ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-950/20" : "text-slate-300 hover:bg-white/10 hover:text-white"}`}>🧑‍🔧 <span className="ml-2">Responsável técnico</span></button>
+          {ehAdm && <button onClick={() => setCategoria("empresas")} className={`w-full rounded-xl px-3 py-2.5 text-left text-sm font-bold transition ${categoria === "empresas" ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-950/20" : "text-slate-300 hover:bg-white/10 hover:text-white"}`}>🏢 <span className="ml-2">Empresas</span></button>}
         </nav>
         <button onClick={onSair} className="mt-4 rounded-xl px-3 py-3 text-left text-sm font-bold text-red-200 transition hover:bg-red-500/15 hover:text-red-100">↪ <span className="ml-2">Sair</span></button>
       </aside>
 
       <div className="md:pl-64">
-        <header className="sticky top-0 z-10 border-b-2 border-cyan-300 bg-gradient-to-r from-blue-50 via-white to-violet-50 px-4 py-3 shadow-md shadow-blue-950/10 backdrop-blur md:px-8">
+        <header className="sticky top-0 z-10 border-b-2 border-emerald-300 bg-gradient-to-r from-emerald-100 via-teal-50 to-lime-100 px-4 py-3 shadow-md shadow-emerald-950/10 backdrop-blur md:px-8">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 md:hidden">
@@ -1656,13 +1655,13 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
           </div>
         </header>
 
-        <nav className="sticky top-[57px] z-[9] flex gap-1 overflow-x-auto border-b border-cyan-100 bg-white/95 p-2 shadow-sm md:hidden">
-          <button onClick={() => setCategoria("inicio")} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${categoria === "inicio" ? "bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-cyan-50"}`}>🏠 Início</button>
+        <nav className="sticky top-[57px] z-[9] flex gap-1 overflow-x-auto border-b border-emerald-200 bg-emerald-50/95 p-2 shadow-sm md:hidden">
+          <button onClick={() => setCategoria("inicio")} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${categoria === "inicio" ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm" : "text-slate-600 hover:bg-emerald-100"}`}>🏠 Início</button>
           {CATEGORIAS.filter(item => item.id !== "tecnico").map(item => (
-            <button key={item.id} onClick={() => setCategoria(item.id)} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${categoria === item.id ? "bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-cyan-50"}`}>{item.icone} {item.label}</button>
+            <button key={item.id} onClick={() => setCategoria(item.id)} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${categoria === item.id ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm" : "text-slate-600 hover:bg-emerald-100"}`}>{item.icone} {item.label}</button>
           ))}
-          <button onClick={() => setCategoria("tecnico")} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${categoria === "tecnico" ? "bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-cyan-50"}`}>🧑‍🔧 Técnico</button>
-          {ehAdm && <button onClick={() => setCategoria("empresas")} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${categoria === "empresas" ? "bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-cyan-50"}`}>🏢 Empresas</button>}
+          <button onClick={() => setCategoria("tecnico")} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${categoria === "tecnico" ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm" : "text-slate-600 hover:bg-emerald-100"}`}>🧑‍🔧 Técnico</button>
+          {ehAdm && <button onClick={() => setCategoria("empresas")} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${categoria === "empresas" ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm" : "text-slate-600 hover:bg-emerald-100"}`}>🏢 Empresas</button>}
         </nav>
 
         <main className="mx-auto max-w-7xl p-4 md:p-8">
@@ -1689,17 +1688,17 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
           )}
 
           {!empresaAtual && !carregandoEmpresas ? (
-            <section className="rounded-2xl bg-white p-8 text-center shadow-sm">
+            <section className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-teal-50 to-lime-50 p-8 text-center shadow-sm">
               <div className="text-4xl">🏢</div>
               <h1 className="mt-3 text-xl font-black">{ehAdm ? "Cadastre sua primeira empresa" : "Empresa não vinculada"}</h1>
               <p className="mt-2 text-sm text-slate-500">{ehAdm ? "Use a seção Empresas para começar a organizar os dados." : "Peça ao administrador para vincular sua conta a uma empresa."}</p>
               {ehAdm && <button onClick={() => setCategoria("empresas")} className="mt-5 rounded-xl bg-teal-700 px-5 py-3 font-bold text-white">Abrir Empresas</button>}
             </section>
           ) : !empresaAtual ? (
-            <p className="rounded-xl bg-white p-6 text-center font-bold text-slate-500">Carregando empresas...</p>
+            <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center font-bold text-slate-600">Carregando empresas...</p>
           ) : categoria === "inicio" ? (
             <div>
-              <section className="rounded-2xl border border-cyan-100 bg-gradient-to-r from-white via-cyan-50 to-blue-50 p-6 shadow-sm md:p-8">
+              <section className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-lime-50 p-6 shadow-sm md:p-8">
                 <p className="text-sm font-black tracking-wide text-teal-700">PAINEL DE SST</p>
                 <h1 className="mt-2 text-3xl font-black">Olá, {usuario.nome || "bem-vindo(a)"}! 👋</h1>
                 <p className="mt-2 font-medium text-slate-600">{empresaAtual.nome}</p>
@@ -1713,12 +1712,12 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                     <CardIndicador titulo="Riscos PGR" valor={contagens.riscos} icone="⚠️" cor="linear-gradient(135deg,#d97706 0%,#f97316 55%,#dc2626 100%)" onClick={() => setCategoria("riscos")} />
                   </section>
                   <section className="mt-5 grid gap-4 lg:grid-cols-2">
-                    <div className="rounded-2xl bg-white p-5 shadow-sm">
+                    <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-5 shadow-sm">
                       <h2 className="font-black">👨‍🔧 Responsável técnico do laudo</h2>
                       <p className="mt-2 text-sm text-slate-500">{registros.tecnico[0]?.nome || "Cadastre os dados do responsável técnico."}</p>
                       <button onClick={() => setCategoria("tecnico")} className="mt-4 rounded-lg bg-teal-50 px-4 py-2 text-sm font-bold text-teal-800">Editar dados técnicos</button>
                     </div>
-                    <div className="rounded-2xl bg-white p-5 shadow-sm">
+                    <div className="rounded-2xl border border-lime-200 bg-gradient-to-br from-lime-50 to-emerald-50 p-5 shadow-sm">
                       <h2 className="font-black">💰 Financeiro</h2>
                       <p className="mt-2 text-sm text-slate-600">Total: <b>{contagens.totalFinanceiro.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</b></p>
                       <p className="text-sm text-slate-600">Recebido: <b>{contagens.totalRecebido.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</b></p>
@@ -1726,7 +1725,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                       <p className="mt-2 text-xs text-slate-400">Exames vencidos: {contagens.examesVencidos} · Realizados: {contagens.examesRealizados}</p>
                     </div>
                   </section>
-                  <section className="mt-5 rounded-2xl bg-white p-5 shadow-sm">
+                  <section className="mt-5 rounded-2xl border border-teal-200 bg-gradient-to-br from-teal-50 via-emerald-50 to-lime-50 p-5 shadow-sm">
                     <h2 className="font-black">Laudos em 1 clique</h2>
                     <p className="mt-1 text-xs text-slate-500">Gera uma versão para impressão com os registros atuais da empresa.</p>
                     <div className="mt-4 flex flex-wrap gap-2">
@@ -1749,7 +1748,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                     + Cadastrar Empresa
                   </button>
                 </div>
-                <form onSubmit={salvarEmpresa} className="mb-5 grid gap-3 rounded-2xl bg-white p-5 shadow-sm sm:grid-cols-2">
+                <form onSubmit={salvarEmpresa} className="mb-5 grid gap-3 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-teal-50 to-lime-50 p-5 shadow-sm sm:grid-cols-2">
                   <label className="text-xs font-bold text-slate-600 sm:col-span-2">Nome da empresa *
                     <input required value={empresaForm.nome} onChange={event => {
                       const nome = event.target.value;
@@ -1814,7 +1813,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                     return `${empresa.nome} ${empresa.cnpj || ""}`.toLocaleLowerCase("pt-BR").includes(termo)
                       || (buscaEmpresas.replace(/\D/g, "").length > 0 && String(empresa.cnpj || "").replace(/\D/g, "").includes(buscaEmpresas.replace(/\D/g, "")));
                   }).map(empresa => (
-                    <article key={empresa.id} className={`rounded-2xl border bg-white p-5 shadow-sm ${empresaAtual?.id === empresa.id ? "border-teal-600 ring-2 ring-teal-100" : "border-slate-200"}`}>
+                    <article key={empresa.id} className={`rounded-2xl border bg-gradient-to-br from-emerald-50 via-teal-50 to-lime-50 p-5 shadow-sm ${empresaAtual?.id === empresa.id ? "border-emerald-600 ring-2 ring-emerald-100" : "border-emerald-200"}`}>
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <button type="button" onClick={() => { setEmpresaAtual(empresa); setCategoria("inicio"); }} className="min-w-0 flex-1 text-left">
                           <span className="text-2xl">🏢</span>
@@ -1833,11 +1832,11 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                       </div>
                     </article>
                   ))}
-                  {empresas.length === 0 && <p className="rounded-xl bg-white p-6 text-center text-sm text-slate-500">Nenhuma empresa cadastrada.</p>}
+                  {empresas.length === 0 && <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center text-sm text-slate-600">Nenhuma empresa cadastrada.</p>}
                 </div>
               </section>
             ) : (
-              <p className="rounded-xl bg-white p-6 text-center text-sm text-slate-600">Esta área é exclusiva para administradores.</p>
+              <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center text-sm text-slate-600">Esta área é exclusiva para administradores.</p>
             )
           ) : categoria === "exames" ? (
               <section>
@@ -1847,11 +1846,11 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                   <p className="mt-1 text-sm text-slate-500">Agende exames e acompanhe os resultados da empresa.</p>
                 </div>
                 {carregandoRegistros ? (
-                  <p className="rounded-2xl bg-white p-8 text-center font-bold text-slate-500">Carregando exames, funcionários e clínicas...</p>
+                  <p className="rounded-2xl border border-emerald-200 bg-emerald-50 p-8 text-center font-bold text-slate-600">Carregando exames, funcionários e clínicas...</p>
                 ) : (
                   <>
                     <div className="grid items-start gap-4 lg:grid-cols-5">
-                      <section className="rounded-2xl bg-white p-4 shadow-sm lg:col-span-2">
+                      <section className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-teal-50 to-lime-50 p-4 shadow-sm lg:col-span-2">
                         <div className="mb-4 flex items-center justify-between">
                           <h2 className="text-lg font-black">🗓️ Calendário</h2>
                           <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-teal-800">{registrosExameEmDia.length} no dia</span>
@@ -1927,7 +1926,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                         </div>
                       </section>
 
-                      <section className="rounded-2xl bg-white p-4 shadow-sm lg:col-span-3 md:p-5">
+                      <section className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-teal-50 to-lime-50 p-4 shadow-sm lg:col-span-3 md:p-5">
                         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                           <h2 className="text-lg font-black">📋 Marcar Exame - {formatarData(diaExameSelecionado)}</h2>
                           <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-black text-teal-800">{tiposExameSelecionados.length} selecionado(s)</span>
@@ -1984,7 +1983,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                       </section>
                     </div>
 
-                    <section className="mt-5 rounded-2xl bg-white p-4 shadow-sm md:p-5">
+                    <section className="mt-5 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-teal-50 to-lime-50 p-4 shadow-sm md:p-5">
                       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                         <h2 className="text-lg font-black">Exames Agendados - Total: {registros.exames.length}</h2>
                         <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-bold text-teal-800">{examesOrdenados.length} exibido(s)</span>
@@ -2040,12 +2039,12 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                 <div className="mb-4">
                   <label className="mb-1 block text-xs font-bold text-slate-500">Filtrar por setor</label>
                   <div className="flex flex-wrap gap-2">
-                    <button onClick={() => { setFiltroSetor("Todos"); setBusca(""); setListarTodosFuncionarios(true); }} className={`rounded-full px-3 py-1.5 text-xs font-bold ${filtroSetor === "Todos" && listarTodosFuncionarios ? "bg-gradient-to-r from-teal-600 to-blue-600 text-white shadow-sm" : "bg-gradient-to-r from-teal-50 to-blue-50 text-slate-700"}`}>
+                    <button onClick={() => { setFiltroSetor("Todos"); setBusca(""); setListarTodosFuncionarios(true); }} className={`rounded-full px-3 py-1.5 text-xs font-bold ${filtroSetor === "Todos" && listarTodosFuncionarios ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm" : "bg-gradient-to-r from-emerald-50 to-lime-50 text-slate-700"}`}>
                       Listar todos ({registros.funcionarios.length})
                     </button>
                     {SETORES.map(setor => {
                       const total = registros.funcionarios.filter(item => (item.setor || "Outro") === setor).length;
-                      return <button key={setor} onClick={() => { setFiltroSetor(setor); setListarTodosFuncionarios(true); }} className={`rounded-full px-3 py-1.5 text-xs font-bold ${filtroSetor === setor ? "bg-gradient-to-r from-teal-600 to-blue-600 text-white shadow-sm" : "bg-gradient-to-r from-teal-50 to-blue-50 text-slate-700"}`}>{setor} ({total})</button>;
+                      return <button key={setor} onClick={() => { setFiltroSetor(setor); setListarTodosFuncionarios(true); }} className={`rounded-full px-3 py-1.5 text-xs font-bold ${filtroSetor === setor ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm" : "bg-gradient-to-r from-emerald-50 to-lime-50 text-slate-700"}`}>{setor} ({total})</button>;
                     })}
                   </div>
                 </div>
@@ -2061,7 +2060,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
               )}
 
               {categoria === "riscos" && (
-                <section className="mb-4 rounded-2xl bg-white p-4 shadow-sm">
+                <section className="mb-4 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-teal-50 to-lime-50 p-4 shadow-sm">
                   <div className="mb-3 flex flex-wrap gap-2">
                     {["PGR", "LTCAT", "PCMSO"].map(tipo => (
                       <button key={tipo} onClick={() => imprimirRelatorio(tipo)} className="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-teal-800">Gerar {tipo}</button>
@@ -2069,12 +2068,12 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                   </div>
                   <h2 className="font-black">Catálogo de riscos ocupacionais</h2>
                   <p className="mt-1 text-xs text-slate-500">Selecione um risco para preencher o cadastro. Revise e complete o GHE/setor e as medidas de controle conforme avaliação profissional.</p>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="mt-3 divide-y divide-emerald-100 overflow-hidden rounded-xl border border-emerald-200 bg-white/50">
                     {CATALOGO_RISCOS.map(risco => (
-                      <article key={risco.nome} className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 p-3">
+                      <article key={risco.nome} className="flex flex-col gap-3 p-3 transition hover:bg-emerald-100/70 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-bold">{risco.nome}</p>
-                          <p className="truncate text-xs text-slate-500">{risco.tipo} · {risco.agente}</p>
+                          <p className="text-sm font-bold">{risco.nome}</p>
+                          <p className="mt-0.5 text-xs text-slate-600">{risco.tipo} · {risco.agente}</p>
                         </div>
                         <button
                           onClick={() => {
@@ -2082,7 +2081,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                             setForm({ nome: risco.nome, tipo: risco.tipo, agente: risco.agente, limite: risco.limite, ghe: "", epi: "" });
                             setModal(true);
                           }}
-                          className="shrink-0 rounded-lg bg-teal-50 px-3 py-2 text-xs font-bold text-teal-800"
+                          className="shrink-0 self-start rounded-lg bg-gradient-to-r from-emerald-100 to-teal-100 px-3 py-2 text-xs font-bold text-emerald-900 transition hover:from-emerald-200 hover:to-teal-200 sm:self-auto"
                         >+ Adicionar</button>
                       </article>
                     ))}
@@ -2121,25 +2120,25 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                       <span className="text-xs font-black">🟢 Em dia</span><strong className="text-2xl">{contagemExtintores.emDia}</strong>
                     </div>
                   </div>
-                  <p className="mb-3 rounded-lg border border-cyan-100 bg-cyan-50 p-3 text-xs text-cyan-900">O status considera primeiro a próxima recarga cadastrada e, se ausente, usa a data de vencimento.</p>
+                  <p className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">O status considera somente a data da próxima recarga. A última recarga fica registrada como histórico.</p>
                 </>
               )}
 
               <div className="mb-4 flex flex-col gap-2 sm:flex-row">
-                <input value={busca} onChange={event => setBusca(event.target.value)} placeholder={`Buscar ${titulo.toLocaleLowerCase("pt-BR")}...`} className="w-full flex-1 rounded-xl border border-cyan-200 bg-gradient-to-r from-teal-50 via-cyan-50 to-blue-50 px-3 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-cyan-100" />
-                {categoria === "funcionarios" && <button type="button" onClick={() => { setBusca(""); setFiltroSetor("Todos"); setListarTodosFuncionarios(true); }} className="rounded-xl bg-gradient-to-r from-teal-600 to-blue-600 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">Listar todos</button>}
+                <input value={busca} onChange={event => setBusca(event.target.value)} placeholder={`Buscar ${titulo.toLocaleLowerCase("pt-BR")}...`} className="w-full flex-1 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-lime-50 px-3 py-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" />
+                {categoria === "funcionarios" && <button type="button" onClick={() => { setBusca(""); setFiltroSetor("Todos"); setListarTodosFuncionarios(true); }} className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">Listar todos</button>}
               </div>
 
               {carregandoRegistros ? (
-                <p className="rounded-xl border border-cyan-200 bg-gradient-to-r from-teal-50 to-blue-50 p-6 text-center font-bold text-slate-600">Carregando dados...</p>
+                <p className="rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-lime-50 p-6 text-center font-bold text-slate-600">Carregando dados...</p>
               ) : categoria === "funcionarios" && !busca.trim() && !listarTodosFuncionarios ? (
-                <p className="rounded-xl border border-cyan-200 bg-gradient-to-r from-teal-50 via-cyan-50 to-blue-50 p-6 text-center text-sm font-semibold text-slate-600">Digite um nome na pesquisa ou use “Listar todos” para consultar os funcionários.</p>
+                <p className="rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-lime-50 p-6 text-center text-sm font-semibold text-slate-600">Digite um nome na pesquisa ou use “Listar todos” para consultar os funcionários.</p>
               ) : listaAtual.length === 0 ? (
-                <p className="rounded-xl border border-cyan-200 bg-gradient-to-r from-teal-50 to-blue-50 p-6 text-center text-sm text-slate-600">Nenhum registro encontrado.</p>
+                <p className="rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-lime-50 p-6 text-center text-sm text-slate-600">Nenhum registro encontrado.</p>
               ) : (
                 <div className="space-y-3">
                   {listaAtual.map(registro => {
-                    const statusExtintor = categoria === "extintores" ? statusPrazo(registro.proxima_recarga || registro.vencimento) : null;
+                    const statusExtintor = categoria === "extintores" ? statusPrazo(registro.proxima_recarga) : null;
                     const classesStatusExtintor = statusExtintor === "Vencido"
                       ? "border-red-200 bg-red-100 text-red-800"
                       : statusExtintor === "A vencer"
@@ -2148,7 +2147,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                           ? "border-emerald-200 bg-emerald-100 text-emerald-800"
                           : "border-slate-200 bg-slate-100 text-slate-600";
                     return (
-                      <article key={registro.id} className="rounded-2xl border border-cyan-200 bg-gradient-to-br from-teal-50 via-cyan-50 to-blue-50 p-4 shadow-sm shadow-cyan-900/10">
+                      <article key={registro.id} className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-teal-50 to-lime-50 p-4 shadow-sm shadow-emerald-900/10">
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
@@ -2158,8 +2157,20 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                               </h2>
                               {statusExtintor && <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${classesStatusExtintor}`}>{statusExtintor}</span>}
                             </div>
+                            {categoria === "extintores" && (
+                              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                <div className="rounded-xl border border-teal-200 bg-teal-100/70 px-3 py-2">
+                                  <span className="block text-[10px] font-black uppercase tracking-wide text-teal-800">Última recarga</span>
+                                  <strong className="mt-0.5 block text-sm text-slate-800">{registro.ultima_recarga ? formatarData(String(registro.ultima_recarga)) : "Não informada"}</strong>
+                                </div>
+                                <div className={`rounded-xl border px-3 py-2 ${classesStatusExtintor}`}>
+                                  <span className="block text-[10px] font-black uppercase tracking-wide">Próxima recarga</span>
+                                  <strong className="mt-0.5 block text-sm">{registro.proxima_recarga ? formatarData(String(registro.proxima_recarga)) : "Não informada"}</strong>
+                                </div>
+                              </div>
+                            )}
                             <div className="mt-2 grid gap-x-6 gap-y-1 text-sm text-slate-600 sm:grid-cols-2">
-                              {CAMPOS[categoria].filter(campo => campo.chave !== "nome" || !registro.titulo).map(campo => {
+                              {CAMPOS[categoria].filter(campo => (campo.chave !== "nome" || !registro.titulo) && (categoria !== "extintores" || (campo.chave !== "ultima_recarga" && campo.chave !== "proxima_recarga"))).map(campo => {
                                 const valor = registro[campo.chave];
                                 if (valor === undefined || valor === null || valor === "") return null;
                                 return <p key={campo.chave}><span className="font-semibold text-slate-500">{campo.rotulo}:</span> {String(valor)}</p>;
@@ -2200,7 +2211,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       {modal && categoria !== "inicio" && categoria !== "empresas" && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-4" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setModal(false); }}>
           {categoria === "epis" ? (
-            <form onSubmit={salvarEntregaEpi} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl sm:rounded-2xl">
+            <form onSubmit={salvarEntregaEpi} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-teal-50 to-lime-50 p-5 shadow-2xl sm:rounded-2xl">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-black">Registrar entrega de EPI</h2>
                 <button type="button" onClick={() => setModal(false)} aria-label="Fechar" className="rounded-lg px-3 py-1 text-xl text-slate-500 hover:bg-slate-100">×</button>
@@ -2316,7 +2327,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
               </div>
             </form>
           ) : (
-          <form onSubmit={salvarRegistro} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl sm:rounded-2xl">
+          <form onSubmit={salvarRegistro} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-teal-50 to-lime-50 p-5 shadow-2xl sm:rounded-2xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-black">{editando ? "Editar" : "Cadastrar"} {CATEGORIAS.find(item => item.id === categoria)?.singular}</h2>
               <button type="button" onClick={() => setModal(false)} aria-label="Fechar" className="rounded-lg px-3 py-1 text-xl text-slate-500 hover:bg-slate-100">×</button>

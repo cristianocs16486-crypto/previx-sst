@@ -320,6 +320,152 @@ function formatarValorRelatorio(valor: unknown): string {
   return String(valor);
 }
 
+const ESTILOS_DOCUMENTO_PDF = `
+  :root{--navy:#082f49;--blue:#12345a;--teal:#0d9488;--cyan:#06b6d4;--ink:#172b4d;--muted:#60748a;--line:#dbe5ef}
+  *{box-sizing:border-box}
+  body{margin:0;background:#edf3f8;color:var(--ink);font:13px/1.5 Arial,Helvetica,sans-serif}
+  .actions{position:sticky;top:0;z-index:2;display:flex;justify-content:flex-end;gap:10px;padding:12px max(16px,calc((100vw - 980px)/2));background:#fff;border-bottom:1px solid var(--line);box-shadow:0 3px 14px #17324d12}
+  .actions button{border:0;border-radius:10px;background:linear-gradient(110deg,var(--teal),var(--blue));color:#fff;padding:11px 18px;font-weight:800;cursor:pointer;box-shadow:0 5px 14px #0d948833}
+  .report{max-width:980px;margin:24px auto;background:#fff;box-shadow:0 16px 50px #17324d18}
+  .cover{display:grid;grid-template-columns:118px minmax(0,1fr) 172px;align-items:center;gap:20px;padding:22px 28px;background:linear-gradient(120deg,#082f49 0%,#12345a 58%,#0d9488 100%);color:#fff}
+  .brand-logo{width:112px;height:82px;object-fit:contain;border-radius:10px;background:#fff;padding:6px}
+  .eyebrow{margin:0 0 5px;color:var(--teal);font-size:9px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase}
+  .brand{margin:0;color:#d9faff;font-size:10px;font-weight:900;letter-spacing:1.6px}
+  .cover .eyebrow{margin-top:7px;color:#99f6e4}
+  h1{margin:4px 0;font-size:23px;line-height:1.2}
+  .subtitle{margin:4px 0 0;color:#e3f2ff;font-size:11px}
+  .doc-meta{min-width:0;padding:12px;border:1px solid #ffffff44;border-radius:10px;background:#ffffff12;overflow-wrap:anywhere}
+  .doc-meta span,.doc-meta small{display:block;color:#dbeafe;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+  .doc-meta strong{display:block;margin:4px 0;font-size:12px}
+  .content{padding:22px 28px 28px;counter-reset:section}
+  .company-card{padding:13px 16px;border:1px solid #cce8f0;border-left:5px solid var(--cyan);border-radius:11px;background:linear-gradient(110deg,#effbfc,#f4f8fc)}
+  .company-card h2{margin:0;color:var(--navy);font-size:16px}
+  .company-details{display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:8px}
+  .company-details span{padding:4px 8px;border-radius:6px;background:#fff;color:var(--muted);font-size:9px;overflow-wrap:anywhere}
+  .company-details b{margin-right:4px;color:var(--navy)}
+  .purpose{margin:12px 0 18px;padding:11px 14px;border-radius:9px;background:linear-gradient(110deg,#0f766e,#12345a);color:#effcff;font-size:10px}
+  .purpose strong{display:block;margin-bottom:2px;color:#fff;font-size:11px}
+  .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:14px 0 20px}
+  .metric{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:58px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#f8fbfd}
+  .metric span{color:#52677d;font-size:9px;font-weight:700}
+  .metric strong{font-size:21px;line-height:1}
+  .metric.teal strong{color:var(--teal)}.metric.orange strong{color:#ea580c}.metric.blue strong{color:#2563eb}.metric.violet strong{color:#7c3aed}
+  .section{margin:19px 0;break-inside:avoid}
+  .section-heading{display:flex;align-items:center;gap:9px;margin-bottom:9px;padding-bottom:7px;border-bottom:2px solid #dcecf2}
+  .section-heading:before{counter-increment:section;content:counter(section);display:grid;flex:none;width:27px;height:27px;place-items:center;border-radius:7px;background:linear-gradient(135deg,var(--teal),var(--cyan));color:#fff;font-size:12px;font-weight:900}
+  .section-heading h2{margin:0;color:var(--navy);font-size:14px;text-transform:uppercase}
+  .section-heading .eyebrow{margin-bottom:2px}
+  .count{flex:none;margin-left:auto;padding:4px 9px;border-radius:999px;background:#e6f7fb;color:#087e86;font-size:9px;font-weight:900}
+  .section-intro{margin:0 0 9px;color:var(--muted);font-size:10px}
+  .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+  table{width:100%;border-collapse:collapse;font-size:9px}
+  thead{display:table-header-group}
+  th{padding:8px 7px;background:linear-gradient(110deg,#12345a,#0f766e);color:#fff;text-align:left;font-size:8px;letter-spacing:.3px;text-transform:uppercase}
+  td{padding:7px;border-top:1px solid #e5edf3;color:#344b63;vertical-align:top;overflow-wrap:anywhere}
+  tbody tr:nth-child(even){background:#f3f8fa}
+  .row-number{width:36px;color:#7a8da1;text-align:center}
+  .empty-state{padding:14px;border:1px dashed #b6c8d8;border-radius:8px;background:#f8fbfd;color:var(--muted);font-size:10px;text-align:center}
+  .verified{display:inline-block;padding:4px 7px;border-radius:999px;background:#dcfce7;color:#166534;font-size:8px;font-weight:900}
+  .signature-thumb{display:block;max-width:130px;max-height:48px;margin-top:5px;object-fit:contain}
+  .muted{color:var(--muted)}
+  .pending{color:#b45309;font-size:8px;font-weight:800}
+  .technical-note{margin-top:18px;padding:12px 14px;border:1px solid #fed7aa;border-left:4px solid #f97316;border-radius:8px;background:#fff7ed;color:#7c3f12;font-size:10px}
+  .technical-note strong{display:block;margin-bottom:3px;color:#9a3412}
+  .references ul{margin:0;padding-left:18px;color:#52677d;font-size:10px}
+  .references li{margin:4px 0}
+  .references p{margin:8px 0 0;color:var(--muted);font-size:9px}
+  .field-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .field{color:var(--muted);font-size:10px;overflow-wrap:anywhere}
+  .field strong{display:block;color:var(--ink);font-size:11px}
+  .confirmation{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .check{padding:10px;border:1px solid #dcecf2;border-radius:8px;background:#f2f8fb;color:#52677d;font-size:10px}
+  .check strong{display:block;margin-bottom:2px;color:var(--ink)}
+  .signature-image{display:block;max-width:260px;max-height:100px;margin:18px auto 8px;object-fit:contain}
+  .signatures{display:grid;grid-template-columns:1fr 1fr;gap:38px;margin:44px 0 16px}
+  .signature-line{min-height:44px;padding-top:9px;border-top:1px solid #64748b;color:#334b63;font-size:10px;text-align:center}
+  .signature-line strong{display:block;color:var(--navy)}
+  .notice{margin:10px 0;padding:11px 13px;border:1px solid #dcecf2;border-radius:8px;background:#f4f8fc;color:var(--muted);font-size:10px}
+  .footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 28px;border-top:4px solid var(--teal);background:linear-gradient(110deg,#082f49,#12345a);color:#dbeafe;font-size:8px}
+  .footer strong{color:#fff;font-size:10px;letter-spacing:.8px}
+  @media print{
+    @page{size:A4;margin:11mm}
+    body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .actions{display:none}
+    .report{max-width:none;margin:0;box-shadow:none}
+    .content{padding:18px 22px}
+    .cover{padding:17px 22px}
+    .section,.metric,.company-card,.purpose,.technical-note,tr{break-inside:avoid}
+    .table-wrap{overflow:visible}
+  }
+  @media(max-width:680px){
+    .report{margin:0}
+    .cover{grid-template-columns:72px 1fr;padding:16px;gap:12px}
+    .brand-logo{width:70px;height:58px}
+    .doc-meta{grid-column:1/-1}
+    .content{padding:15px}
+    .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .field-grid,.confirmation,.signatures{grid-template-columns:1fr}
+    .footer{align-items:flex-start;flex-direction:column;padding:12px 16px}
+  }
+`;
+
+function criarDocumentoPdf({
+  titulo,
+  finalidade,
+  identificador,
+  empresa,
+  urlLogo,
+  dataEmissao,
+  conteudo,
+}: {
+  titulo: string;
+  finalidade: string;
+  identificador: string;
+  empresa: Empresa;
+  urlLogo: string;
+  dataEmissao: string;
+  conteudo: string;
+}) {
+  const metadadosEmpresa = [
+    empresa.cnpj && `<span><b>CNPJ</b>${escaparHtml(empresa.cnpj)}</span>`,
+    empresa.responsavel && `<span><b>Responsável</b>${escaparHtml(empresa.responsavel)}</span>`,
+    empresa.telefone && `<span><b>Telefone</b>${escaparHtml(empresa.telefone)}</span>`,
+    empresa.email && `<span><b>E-mail</b>${escaparHtml(empresa.email)}</span>`,
+  ].filter((valor): valor is string => Boolean(valor));
+  const dadosEmpresa = metadadosEmpresa.length ? metadadosEmpresa.join("") : "<span>Dados complementares não informados.</span>";
+  const nomeEmpresa = escaparHtml(empresa.nome);
+
+  return `<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${escaparHtml(titulo)} · ${nomeEmpresa}</title>
+  <style>${ESTILOS_DOCUMENTO_PDF}</style>
+</head>
+<body>
+  <div class="actions"><button onclick="window.print()">Imprimir / Salvar PDF</button></div>
+  <main class="report">
+    <header class="cover">
+      <img class="brand-logo" src="${urlLogo}" alt="Logo PREVIX SST">
+      <div><p class="brand">PREVIX SST · PREVENÇÃO QUE PROTEGE</p><p class="eyebrow">DOCUMENTO DE SST</p><h1>${escaparHtml(titulo)}</h1><p class="subtitle">${escaparHtml(finalidade)}</p></div>
+      <div class="doc-meta"><span>Identificação</span><strong>${escaparHtml(identificador)}</strong><small>Emitido em ${escaparHtml(dataEmissao)}</small></div>
+    </header>
+    <div class="content">
+      <section class="company-card">
+        <p class="eyebrow">IDENTIFICAÇÃO DA EMPRESA</p>
+        <h2>${nomeEmpresa}</h2>
+        <div class="company-details">${dadosEmpresa}</div>
+      </section>
+      <div class="purpose"><strong>Finalidade do documento</strong>${escaparHtml(finalidade)} Os dados apresentados refletem os registros disponíveis na data de emissão.</div>
+      ${conteudo}
+    </div>
+    <footer class="footer"><strong>PREVIX SST</strong><span>Prevenção que protege · ${escaparHtml(identificador)} · Emitido em ${escaparHtml(dataEmissao)}</span></footer>
+  </main>
+</body>
+</html>`;
+}
+
 function gerarPin() {
   const bytes = new Uint32Array(1);
   crypto.getRandomValues(bytes);
@@ -1225,12 +1371,6 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     const nomeSeguro = escaparHtml(nomeProfissional);
     const nomeEmpresa = escaparHtml(empresaAtual.nome);
     const dataEmissao = new Date().toLocaleString("pt-BR");
-    const metadadosEmpresa = [
-      empresaAtual.cnpj && `CNPJ: ${empresaAtual.cnpj}`,
-      empresaAtual.responsavel && `Responsável: ${empresaAtual.responsavel}`,
-      empresaAtual.telefone && `Telefone: ${empresaAtual.telefone}`,
-      empresaAtual.email && `E-mail: ${empresaAtual.email}`,
-    ].filter((valor): valor is string => Boolean(valor));
     const metricasDisponiveis: { categoria: Categoria; rotulo: string; cor: string }[] = [
       { categoria: "funcionarios", rotulo: "Funcionários", cor: "teal" },
       { categoria: "riscos", rotulo: "Riscos mapeados", cor: "orange" },
@@ -1259,107 +1399,8 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     const objetivo = tipo === "Painel completo"
       ? "Visão consolidada das informações de SST cadastradas para a empresa."
       : `Consolidação dos registros relacionados a ${tipo}, conforme dados disponíveis no PREVIX.`;
-    const html = `<!doctype html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>${escaparHtml(tipo)} · ${nomeEmpresa}</title>
-  <style>
-    :root{--navy:#12345a;--blue:#2563eb;--teal:#0d9488;--cyan:#06b6d4;--ink:#172b4d;--muted:#60748a;--line:#dbe5ef;--paper:#fff;--bg:#edf3f8}
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.5 Arial,Helvetica,sans-serif}
-    .actions{position:sticky;top:0;z-index:2;display:flex;justify-content:flex-end;gap:10px;padding:12px max(16px,calc((100vw - 980px)/2));background:#fff;border-bottom:1px solid var(--line);box-shadow:0 3px 14px #17324d12}
-    .actions button{border:0;border-radius:10px;background:linear-gradient(110deg,var(--teal),var(--blue));color:#fff;padding:11px 18px;font-weight:800;cursor:pointer;box-shadow:0 5px 14px #0d948833}
-    .report{max-width:980px;margin:24px auto;background:var(--paper);box-shadow:0 16px 50px #17324d18}
-    .cover{display:grid;grid-template-columns:130px minmax(0,1fr) 190px;align-items:center;gap:22px;padding:24px 30px;background:linear-gradient(120deg,#102f52 0%,#124f75 55%,#0d9488 100%);color:#fff}
-    .brand-logo{width:128px;height:90px;object-fit:contain;border-radius:12px;background:#fff;padding:7px}
-    .eyebrow{margin:0 0 5px;color:#0d9488;font-size:9px;font-weight:900;letter-spacing:1.6px;text-transform:uppercase}
-    .cover .eyebrow{color:#a5f3fc}
-    .brand{margin:0;color:#d9faff;font-size:10px;font-weight:900;letter-spacing:2px}
-    h1{margin:5px 0;font-size:24px;line-height:1.2;letter-spacing:.2px}
-    .cover p{margin:4px 0;color:#e3f2ff;font-size:11px}
-    .doc-meta{padding:13px;border:1px solid #ffffff44;border-radius:12px;background:#ffffff12}
-    .doc-meta span,.doc-meta small{display:block;color:#dbeafe;font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
-    .doc-meta strong{display:block;margin:4px 0;font-size:14px;overflow-wrap:anywhere}
-    .content{padding:24px 30px 30px}
-    .company-card{display:flex;justify-content:space-between;gap:18px;padding:16px 18px;border:1px solid #cce8f0;border-left:5px solid var(--cyan);border-radius:12px;background:linear-gradient(110deg,#f0fdff,#f7fbff)}
-    .company-card h2{margin:0;color:var(--navy);font-size:17px}
-    .company-details{display:flex;flex-wrap:wrap;gap:7px 16px;margin-top:8px;color:var(--muted);font-size:10px}
-    .company-details span{overflow-wrap:anywhere}
-    .emission{min-width:132px;color:var(--muted);font-size:10px;text-align:right}
-    .emission strong{display:block;color:var(--ink);font-size:11px}
-    .intro{margin:18px 0 10px;padding:13px 15px;border-radius:10px;background:#f4f8fc;color:#52677d}
-    .intro strong{display:block;margin-bottom:3px;color:var(--navy);font-size:11px}
-    .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0 22px}
-    .metric{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:62px;padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:#fff}
-    .metric span{color:#52677d;font-size:10px;font-weight:700}
-    .metric strong{font-size:22px;line-height:1}
-    .metric.teal strong{color:var(--teal)}.metric.orange strong{color:#ea580c}.metric.blue strong{color:var(--blue)}.metric.violet strong{color:#7c3aed}
-    .section{margin:22px 0;break-inside:avoid}
-    .section-heading{display:flex;align-items:end;justify-content:space-between;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #dcecf2}
-    .section-heading h2{margin:0;color:var(--navy);font-size:15px}
-    .count{flex:none;padding:4px 9px;border-radius:999px;background:#e6f7fb;color:#087e86;font-size:9px;font-weight:900}
-    .section-intro{margin:0 0 10px;color:var(--muted);font-size:10px}
-    .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:9px}
-    table{width:100%;border-collapse:collapse;font-size:9px}
-    thead{display:table-header-group}
-    th{padding:8px 7px;background:#eaf3f8;color:#26435f;text-align:left;font-size:8px;letter-spacing:.3px;text-transform:uppercase}
-    td{padding:7px;border-top:1px solid #e5edf3;color:#344b63;vertical-align:top;overflow-wrap:anywhere}
-    tbody tr:nth-child(even){background:#f8fbfd}
-    .row-number{width:36px;color:#7a8da1;text-align:center}
-    .empty-state{padding:15px;border:1px dashed #b6c8d8;border-radius:9px;background:#f8fbfd;color:var(--muted);font-size:10px;text-align:center}
-    .verified{display:inline-block;padding:4px 7px;border-radius:999px;background:#dcfce7;color:#166534;font-size:8px;font-weight:900}
-    .signature-thumb{display:block;max-width:130px;max-height:48px;margin-top:5px;object-fit:contain}
-    .muted{color:var(--muted)}
-    .pending{color:#b45309;font-size:8px;font-weight:800}
-    .technical-note{margin-top:20px;padding:13px 15px;border:1px solid #fed7aa;border-left:4px solid #f97316;border-radius:9px;background:#fff7ed;color:#7c3f12;font-size:10px}
-    .technical-note strong{display:block;margin-bottom:3px;color:#9a3412}
-    .references ul{margin:0;padding-left:18px;color:#52677d;font-size:10px}
-    .references li{margin:4px 0}
-    .references p{margin:8px 0 0;color:var(--muted);font-size:9px}
-    .signatures{display:grid;grid-template-columns:1fr 1fr;gap:38px;margin:54px 0 20px}
-    .signature-line{min-height:44px;padding-top:9px;border-top:1px solid #64748b;color:#334b63;font-size:10px;text-align:center}
-    .signature-line strong{display:block;color:var(--navy)}
-    .footer{padding:13px 30px;border-top:1px solid var(--line);background:#f7fafc;color:#718096;font-size:8px;text-align:center}
-    @media print{
-      @page{size:A4;margin:12mm}
-      body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      .actions{display:none}
-      .report{max-width:none;margin:0;box-shadow:none}
-      .content{padding:18px 22px}
-      .cover{padding:18px 22px}
-      .section,.metric,.company-card,.technical-note,tr{break-inside:avoid}
-      .table-wrap{overflow:visible}
-    }
-    @media(max-width:680px){
-      .report{margin:0}
-      .cover{grid-template-columns:70px 1fr;padding:18px;gap:12px}
-      .brand-logo{width:70px;height:60px}
-      .doc-meta{grid-column:1/-1}
-      .content{padding:16px}
-      .company-card{display:block}
-      .emission{margin-top:10px;text-align:left}
-      .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
-      .signatures{grid-template-columns:1fr}
-    }
-  </style>
-</head>
-<body>
-  <div class="actions"><button onclick="window.print()">Imprimir / Salvar PDF</button></div>
-  <main class="report">
-    <header class="cover">
-      <img class="brand-logo" src="${urlLogo}" alt="Logo PREVIX SST">
-      <div><p class="brand">PREVIX SST · PREVENÇÃO QUE PROTEGE</p><h1>Relatório ${escaparHtml(tipo)}</h1><p>${escaparHtml(objetivo)}</p></div>
-      <div class="doc-meta"><span>Documento de SST</span><strong>${nomeEmpresa}</strong><small>Gerado em ${escaparHtml(dataEmissao)}</small></div>
-    </header>
-    <div class="content">
-      <section class="company-card">
-        <div><p class="eyebrow">IDENTIFICAÇÃO DA EMPRESA</p><h2>${nomeEmpresa}</h2><div class="company-details">${metadadosEmpresa.length ? metadadosEmpresa.map(item => `<span>${escaparHtml(item)}</span>`).join("") : "<span>Dados cadastrais complementares não informados.</span>"}</div></div>
-        <div class="emission"><span>Responsável técnico informado</span><strong>${nomeSeguro}</strong><span>${escaparHtml(formatarValorRelatorio(profissional?.funcao))}</span></div>
-      </section>
+    const conteudo = `
       ${metricas ? `<section class="metrics" aria-label="Resumo do relatório">${metricas}</section>` : ""}
-      <div class="intro"><strong>Escopo deste documento</strong>${escaparHtml(objetivo)} Os dados refletem os registros disponíveis para a empresa na data de emissão.</div>
       <section class="section">
         <div class="section-heading"><div><p class="eyebrow">RESPONSABILIDADE TÉCNICA</p><h2>Profissional informado</h2></div></div>
         <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Função</th><th>CREA</th><th>MTE</th><th>Contato</th></tr></thead><tbody><tr><td>${nomeSeguro}</td><td>${escaparHtml(formatarValorRelatorio(profissional?.funcao))}</td><td>${escaparHtml(formatarValorRelatorio(profissional?.crea))}</td><td>${escaparHtml(formatarValorRelatorio(profissional?.mte))}</td><td>${escaparHtml(formatarValorRelatorio(profissional?.telefone))}<br>${escaparHtml(formatarValorRelatorio(profissional?.email))}</td></tr></tbody></table></div>
@@ -1373,11 +1414,16 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       </section>
       <div class="technical-note"><strong>Nota técnica e validação</strong>${escaparHtml(observacoesTipo[tipo] || "Relatório compilado a partir dos registros cadastrados. Verifique a exatidão e a atualização das informações antes de utilizar este documento.")} Este material não substitui vistoria, análise técnica ou validação profissional quando aplicáveis.</div>
       <footer class="signatures"><div class="signature-line"><strong>${nomeSeguro}</strong>Responsável técnico · assinatura e registro profissional</div><div class="signature-line"><strong>${nomeEmpresa}</strong>Representante da empresa · ciência dos dados</div></footer>
-    </div>
-    <footer class="footer">PREVIX SST · Documento gerado em ${escaparHtml(dataEmissao)} · Confira os dados e mantenha uma cópia junto aos registros da empresa.</footer>
-  </main>
-</body>
-</html>`;
+    `;
+    const html = criarDocumentoPdf({
+      titulo: `Relatório ${tipo}`,
+      finalidade: objetivo,
+      identificador: tipo === "Painel completo" ? "RELATÓRIO CONSOLIDADO" : tipo.toLocaleUpperCase("pt-BR"),
+      empresa: empresaAtual,
+      urlLogo,
+      dataEmissao,
+      conteudo,
+    });
     const reportWindow = window.open("", "_blank");
     if (!reportWindow) {
       setErro("O navegador bloqueou a nova aba. Permita pop-ups para gerar o relatório.");
@@ -1397,6 +1443,45 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       : "<p>Assinatura não disponível.</p>";
     const urlLogo = escaparHtml(new URL("/logo.png", window.location.origin).toString());
     const dataEmissao = new Date().toLocaleString("pt-BR");
+    const nomeFuncionario = escaparHtml(formatarValorRelatorio(registro.funcionario));
+    const conteudo = `
+      <section class="section">
+        <div class="section-heading"><div><p class="eyebrow">DADOS CADASTRADOS</p><h2>Dados da entrega</h2></div></div>
+        <div class="field-grid">
+          <div class="field">Funcionário<strong>${nomeFuncionario}</strong></div>
+          <div class="field">EPI<strong>${escaparHtml(formatarValorRelatorio(registro.nome))}</strong></div>
+          <div class="field">Certificado de Aprovação (CA)<strong>${escaparHtml(formatarValorRelatorio(registro.ca))}</strong></div>
+          <div class="field">Tipo / modelo<strong>${escaparHtml(formatarValorRelatorio(registro.tipo))}</strong></div>
+          <div class="field">Quantidade<strong>${escaparHtml(formatarValorRelatorio(registro.quantidade))}</strong></div>
+          <div class="field">Data da entrega<strong>${escaparHtml(formatarData(String(registro.data_entrega || "")))}</strong></div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="section-heading"><div><p class="eyebrow">VALIDAÇÃO DO RECEBIMENTO</p><h2>Confirmações registradas</h2></div></div>
+        <div class="confirmation">
+          <div class="check"><strong>PIN do funcionário</strong>${registro.pinVerificado === true ? "Verificado" : "Não registrado como verificado"}</div>
+          <div class="check"><strong>Autenticador do dispositivo</strong>WebAuthn · ${escaparHtml(formatarValorRelatorio(registro.biometria?.verificado_em))}</div>
+          <div class="check"><strong>Recebimento</strong>${registro.assinatura?.consentimento === true ? "Confirmado" : "Não confirmado"}</div>
+        </div>
+        ${assinatura}
+        <div class="signature-line"><strong>${nomeFuncionario}</strong>Assinatura do funcionário</div>
+      </section>
+      <section class="section references">
+        <div class="section-heading"><div><p class="eyebrow">BASE LEGAL E NORMATIVA</p><h2>Referências normativas relacionadas</h2></div></div>
+        <ul><li>NR-06 — Equipamento de Proteção Individual.</li><li>CLT, art. 166, e Portaria MTb nº 3.214/1978, com alterações vigentes.</li></ul>
+        <p>As referências são informativas e não substituem a conferência dos dados, da identificação do EPI e do Certificado de Aprovação, nem atestam validade legal por si só.</p>
+      </section>
+      <div class="technical-note"><strong>Conferência antes de arquivar</strong>Este termo reproduz os dados e confirmações registrados no PREVIX SST para a entrega acima. Confira a identificação, o CA e a data antes de arquivar o documento.</div>
+    `;
+    const html = criarDocumentoPdf({
+      titulo: "Termo de entrega de EPI — NR-06",
+      finalidade: "Registrar a entrega do equipamento e as confirmações associadas ao recebimento.",
+      identificador: registro.id,
+      empresa: empresaAtual,
+      urlLogo,
+      dataEmissao,
+      conteudo,
+    });
     const reportWindow = window.open("", "_blank");
     if (!reportWindow) {
       setErro("O navegador bloqueou a nova aba. Permita pop-ups para gerar o termo.");
@@ -1404,89 +1489,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     }
     reportWindow.opener = null;
     reportWindow.document.open();
-    reportWindow.document.write(`<!doctype html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Termo de entrega de EPI · ${escaparHtml(empresaAtual.nome)}</title>
-  <style>
-    :root{--navy:#12345a;--teal:#0d9488;--blue:#2563eb;--ink:#172b4d;--muted:#60748a;--line:#dbe5ef}
-    *{box-sizing:border-box}
-    body{max-width:900px;margin:28px auto;padding:20px;color:var(--ink);font:13px/1.5 Arial,Helvetica,sans-serif}
-    .actions{display:flex;justify-content:flex-end;margin-bottom:14px}
-    .actions button{border:0;border-radius:9px;background:linear-gradient(110deg,var(--teal),var(--blue));color:#fff;padding:11px 18px;font-weight:800;cursor:pointer}
-    .cover{display:grid;grid-template-columns:120px 1fr 180px;align-items:center;gap:18px;padding:20px;border-radius:14px;background:linear-gradient(120deg,#102f52,#124f75 55%,#0d9488);color:#fff}
-    .brand-logo{width:116px;height:82px;object-fit:contain;border-radius:10px;background:#fff;padding:6px}
-    .eyebrow{margin:0 0 4px;color:#a5f3fc;font-size:9px;font-weight:900;letter-spacing:1.4px}
-    .brand{margin:0;color:#d9faff;font-size:10px;font-weight:900;letter-spacing:1.6px}
-    h1{margin:5px 0;font-size:19px;line-height:1.25}
-    .doc-meta{padding:12px;border:1px solid #ffffff44;border-radius:10px;background:#ffffff12;font-size:10px}
-    .doc-meta strong,.doc-meta span{display:block}
-    .doc-meta span{color:#dbeafe}
-    .company{display:grid;grid-template-columns:1fr 1fr;gap:8px 18px;margin:16px 0;padding:13px 15px;border:1px solid #cce8f0;border-left:4px solid #06b6d4;border-radius:10px;background:#f0fdff}
-    .company h2{grid-column:1/-1;margin:0;color:var(--navy);font-size:15px}
-    .field{color:var(--muted);font-size:10px}.field strong{display:block;color:var(--ink);font-size:11px}
-    .section{margin:15px 0;padding:16px;border:1px solid var(--line);border-radius:11px;background:#fff}
-    .section h2{margin:0 0 12px;color:var(--navy);font-size:14px}
-    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-    .confirmation{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-    .check{padding:10px;border-radius:9px;background:#f2f8fb;color:#52677d;font-size:10px}
-    .check strong{display:block;margin-bottom:2px;color:var(--ink)}
-    .signature-image{display:block;max-width:260px;max-height:100px;margin:18px auto 8px;object-fit:contain}
-    .sign{max-width:360px;margin:24px auto 0;padding-top:8px;border-top:1px solid #64748b;color:#334b63;text-align:center;font-size:10px}
-    .notice{padding:12px 14px;border-radius:9px;background:#f4f8fc;color:var(--muted);font-size:10px}
-    .footer{margin-top:18px;padding-top:10px;border-top:1px solid var(--line);color:#718096;font-size:9px;text-align:center}
-    @media print{@page{size:A4;margin:14mm}.actions{display:none}body{margin:0;padding:0}.cover,.section,.company{break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
-    @media(max-width:620px){.cover{grid-template-columns:75px 1fr}.brand-logo{width:72px;height:60px}.doc-meta{grid-column:1/-1}.grid,.confirmation,.company{grid-template-columns:1fr}.company h2{grid-column:auto}}
-  </style>
-</head>
-<body>
-  <div class="actions"><button onclick="window.print()">Imprimir / Salvar PDF</button></div>
-  <main>
-    <header class="cover">
-      <img class="brand-logo" src="${urlLogo}" alt="Logo PREVIX SST">
-      <div><p class="brand">PREVIX SST · PREVENÇÃO QUE PROTEGE</p><h1>Termo de entrega de EPI — NR-06</h1><p>${escaparHtml(empresaAtual.nome)}</p></div>
-      <div class="doc-meta"><strong>Registro de entrega</strong><span>${escaparHtml(registro.id)}</span><span>Emitido em ${escaparHtml(dataEmissao)}</span></div>
-    </header>
-    <section class="company">
-      <h2>Identificação da empresa</h2>
-      <div class="field">Empresa<strong>${escaparHtml(empresaAtual.nome)}</strong></div>
-      <div class="field">CNPJ<strong>${escaparHtml(formatarValorRelatorio(empresaAtual.cnpj))}</strong></div>
-      <div class="field">Responsável<strong>${escaparHtml(formatarValorRelatorio(empresaAtual.responsavel))}</strong></div>
-      <div class="field">Contato<strong>${escaparHtml(formatarValorRelatorio(empresaAtual.telefone))} · ${escaparHtml(formatarValorRelatorio(empresaAtual.email))}</strong></div>
-    </section>
-    <section class="section">
-      <h2>Dados da entrega</h2>
-      <div class="grid">
-        <div class="field">Funcionário<strong>${escaparHtml(formatarValorRelatorio(registro.funcionario))}</strong></div>
-        <div class="field">EPI<strong>${escaparHtml(formatarValorRelatorio(registro.nome))}</strong></div>
-        <div class="field">Certificado de Aprovação (CA)<strong>${escaparHtml(formatarValorRelatorio(registro.ca))}</strong></div>
-        <div class="field">Tipo / modelo<strong>${escaparHtml(formatarValorRelatorio(registro.tipo))}</strong></div>
-        <div class="field">Quantidade<strong>${escaparHtml(formatarValorRelatorio(registro.quantidade))}</strong></div>
-        <div class="field">Data da entrega<strong>${escaparHtml(formatarData(String(registro.data_entrega || "")))}</strong></div>
-      </div>
-    </section>
-    <section class="section">
-      <h2>Confirmações registradas</h2>
-      <div class="confirmation">
-        <div class="check"><strong>PIN do funcionário</strong>${registro.pinVerificado === true ? "Verificado" : "Não registrado como verificado"}</div>
-        <div class="check"><strong>Autenticador do dispositivo</strong>WebAuthn · ${escaparHtml(formatarValorRelatorio(registro.biometria?.verificado_em))}</div>
-        <div class="check"><strong>Recebimento</strong>${registro.assinatura?.consentimento === true ? "Confirmado" : "Não confirmado"}</div>
-      </div>
-      <div>${assinatura}</div>
-      <div class="sign">${escaparHtml(formatarValorRelatorio(registro.funcionario))}<br>Assinatura do funcionário</div>
-    </section>
-    <section class="section">
-      <h2>Referências normativas relacionadas</h2>
-      <ul><li>NR-06 — Equipamento de Proteção Individual.</li><li>CLT, art. 166, e Portaria MTb nº 3.214/1978, com alterações vigentes.</li></ul>
-      <p class="notice">As referências são informativas e não substituem a conferência dos dados, da identificação do EPI e do Certificado de Aprovação, nem atestam validade legal por si só.</p>
-    </section>
-    <p class="notice">Este termo reproduz os dados e confirmações registrados no PREVIX SST para a entrega acima. Confira a identificação, o CA e a data antes de arquivar o documento.</p>
-    <footer class="footer">PREVIX SST · Documento gerado em ${escaparHtml(dataEmissao)} · A assinatura exibida corresponde ao registro salvo no sistema.</footer>
-  </main>
-</body>
-</html>`);
+    reportWindow.document.write(html);
     reportWindow.document.close();
   }
 

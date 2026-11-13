@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Image from "next/image";
 import Dashboard from "./dashboard";
 import { supabase, supabaseConfigured } from "./supabaseClient";
 
@@ -62,7 +63,7 @@ function Login({ onEntrar, erroInicial }: { onEntrar: (profile: Profile) => void
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-teal-500 to-blue-600 p-4">
       <section className="w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-blue-600 text-2xl">🛡️</div>
+        <Image src="/logo.png" alt="Logo PREVIX SST" width={72} height={48} priority className="mx-auto mb-2 h-12 w-[72px] object-contain" />
         <h1 className="text-center text-2xl font-black tracking-tight text-slate-900">PREVIX SST</h1>
         <p className="mb-5 mt-1 text-center text-xs text-teal-700">Prevenção que Protege</p>
 
@@ -104,9 +105,10 @@ function Login({ onEntrar, erroInicial }: { onEntrar: (profile: Profile) => void
           </button>
         </form>
 
-        <div className="mt-3 rounded-lg bg-slate-50 p-2 text-center text-xs text-slate-600">
-          <b className="text-slate-800">Suporte</b>
-          <p className="mt-1">suporte@previx.com.br</p>
+        <div className="mt-4 rounded-lg border border-cyan-100 bg-gradient-to-r from-teal-50 via-cyan-50 to-blue-50 p-3 text-center text-xs text-slate-600">
+          <b className="text-slate-800">Suporte técnico</b>
+          <p className="mt-1">Precisa de ajuda para acessar o sistema?</p>
+          <a href="mailto:suporte@previx.com.br" className="mt-1 inline-block font-bold text-teal-800 underline underline-offset-2">suporte@previx.com.br</a>
         </div>
       </section>
     </main>

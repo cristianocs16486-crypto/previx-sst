@@ -358,6 +358,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     exames: [], clinicas: [], riscos: [], financeiro: [], tecnico: [],
   });
   const [busca, setBusca] = useState("");
+  const [listarTodosFuncionarios, setListarTodosFuncionarios] = useState(false);
   const [modal, setModal] = useState(false);
   const [editando, setEditando] = useState<Registro | null>(null);
   const [form, setForm] = useState<Record<string, any>>({});
@@ -593,6 +594,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
 
   const listaAtual = useMemo(() => {
     if (categoria === "inicio" || categoria === "empresas") return [];
+    if (categoria === "funcionarios" && !busca.trim() && !listarTodosFuncionarios) return [];
     let lista = registros[categoria];
     if (busca.trim()) {
       const termo = busca.toLocaleLowerCase("pt-BR");
@@ -614,7 +616,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       });
     }
     return lista;
-  }, [busca, categoria, filtroSetor, filtroTipoInspecao, filtroStatus, pastaAtual, registros]);
+  }, [busca, categoria, filtroSetor, filtroTipoInspecao, filtroStatus, listarTodosFuncionarios, pastaAtual, registros]);
 
   function abrirNovo() {
     if (categoria === "inicio" || categoria === "empresas") return;
@@ -705,6 +707,9 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       setPinGerado({ nome: String(payload.nome || "Funcionário"), pin });
       setModal(false);
       setForm({});
+      setBusca("");
+      setFiltroSetor("Todos");
+      setListarTodosFuncionarios(false);
       const registrosAtualizados = await carregarRegistros();
       if (!registrosAtualizados?.funcionarios.some(registro => registro.id === employeeId)) {
         setErro("O Supabase confirmou o cadastro, mas o funcionário não apareceu na lista atualizada. Não tente cadastrar novamente antes de atualizar a lista.");
@@ -2035,12 +2040,12 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                 <div className="mb-4">
                   <label className="mb-1 block text-xs font-bold text-slate-500">Filtrar por setor</label>
                   <div className="flex flex-wrap gap-2">
-                    <button onClick={() => setFiltroSetor("Todos")} className={`rounded-full px-3 py-1.5 text-xs font-bold ${filtroSetor === "Todos" ? "bg-teal-700 text-white" : "bg-white text-slate-700"}`}>
-                      Todos ({registros.funcionarios.length})
+                    <button onClick={() => { setFiltroSetor("Todos"); setBusca(""); setListarTodosFuncionarios(true); }} className={`rounded-full px-3 py-1.5 text-xs font-bold ${filtroSetor === "Todos" && listarTodosFuncionarios ? "bg-gradient-to-r from-teal-600 to-blue-600 text-white shadow-sm" : "bg-gradient-to-r from-teal-50 to-blue-50 text-slate-700"}`}>
+                      Listar todos ({registros.funcionarios.length})
                     </button>
                     {SETORES.map(setor => {
                       const total = registros.funcionarios.filter(item => (item.setor || "Outro") === setor).length;
-                      return <button key={setor} onClick={() => setFiltroSetor(setor)} className={`rounded-full px-3 py-1.5 text-xs font-bold ${filtroSetor === setor ? "bg-teal-700 text-white" : "bg-white text-slate-700"}`}>{setor} ({total})</button>;
+                      return <button key={setor} onClick={() => { setFiltroSetor(setor); setListarTodosFuncionarios(true); }} className={`rounded-full px-3 py-1.5 text-xs font-bold ${filtroSetor === setor ? "bg-gradient-to-r from-teal-600 to-blue-600 text-white shadow-sm" : "bg-gradient-to-r from-teal-50 to-blue-50 text-slate-700"}`}>{setor} ({total})</button>;
                     })}
                   </div>
                 </div>
@@ -2120,12 +2125,17 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                 </>
               )}
 
-              <input value={busca} onChange={event => setBusca(event.target.value)} placeholder={`Buscar ${titulo.toLocaleLowerCase("pt-BR")}...`} className={`${INPUT_CLASS} mb-4`} />
+              <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+                <input value={busca} onChange={event => setBusca(event.target.value)} placeholder={`Buscar ${titulo.toLocaleLowerCase("pt-BR")}...`} className="w-full flex-1 rounded-xl border border-cyan-200 bg-gradient-to-r from-teal-50 via-cyan-50 to-blue-50 px-3 py-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-cyan-100" />
+                {categoria === "funcionarios" && <button type="button" onClick={() => { setBusca(""); setFiltroSetor("Todos"); setListarTodosFuncionarios(true); }} className="rounded-xl bg-gradient-to-r from-teal-600 to-blue-600 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">Listar todos</button>}
+              </div>
 
               {carregandoRegistros ? (
-                <p className="rounded-xl bg-white p-6 text-center font-bold text-slate-500">Carregando dados...</p>
+                <p className="rounded-xl border border-cyan-200 bg-gradient-to-r from-teal-50 to-blue-50 p-6 text-center font-bold text-slate-600">Carregando dados...</p>
+              ) : categoria === "funcionarios" && !busca.trim() && !listarTodosFuncionarios ? (
+                <p className="rounded-xl border border-cyan-200 bg-gradient-to-r from-teal-50 via-cyan-50 to-blue-50 p-6 text-center text-sm font-semibold text-slate-600">Digite um nome na pesquisa ou use “Listar todos” para consultar os funcionários.</p>
               ) : listaAtual.length === 0 ? (
-                <p className="rounded-xl bg-white p-6 text-center text-sm text-slate-500">Nenhum registro encontrado.</p>
+                <p className="rounded-xl border border-cyan-200 bg-gradient-to-r from-teal-50 to-blue-50 p-6 text-center text-sm text-slate-600">Nenhum registro encontrado.</p>
               ) : (
                 <div className="space-y-3">
                   {listaAtual.map(registro => {
@@ -2138,7 +2148,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                           ? "border-emerald-200 bg-emerald-100 text-emerald-800"
                           : "border-slate-200 bg-slate-100 text-slate-600";
                     return (
-                      <article key={registro.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <article key={registro.id} className="rounded-2xl border border-cyan-200 bg-gradient-to-br from-teal-50 via-cyan-50 to-blue-50 p-4 shadow-sm shadow-cyan-900/10">
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">

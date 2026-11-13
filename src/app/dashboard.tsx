@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
 import { supabase } from "./supabaseClient";
 
@@ -260,6 +261,19 @@ function escaparHtml(valor: unknown) {
     .replace(/'/g, "&#39;");
 }
 
+function formatarValorRelatorio(valor: unknown): string {
+  if (valor === null || valor === undefined || valor === "") return "—";
+  if (typeof valor === "boolean") return valor ? "Sim" : "Não";
+  if (Array.isArray(valor)) return valor.map(formatarValorRelatorio).join(" · ");
+  if (typeof valor === "object") {
+    return Object.entries(valor as Record<string, unknown>)
+      .filter(([chave]) => chave !== "assinaturaImg")
+      .map(([chave, item]) => `${chave}: ${formatarValorRelatorio(item)}`)
+      .join(" · ") || "—";
+  }
+  return String(valor);
+}
+
 function gerarPin() {
   const bytes = new Uint32Array(1);
   crypto.getRandomValues(bytes);
@@ -268,10 +282,14 @@ function gerarPin() {
 
 function CardIndicador({ titulo, valor, icone, cor, onClick }: { titulo: string; valor: number | string; icone: string; cor: string; onClick?: () => void }) {
   return (
-    <button onClick={onClick} className="rounded-2xl p-5 text-left text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg" style={{ background: cor }}>
-      <span className="text-2xl">{icone}</span>
-      <span className="mt-3 block text-sm font-bold opacity-90">{titulo}</span>
-      <span className="mt-1 block text-3xl font-black">{valor}</span>
+    <button onClick={onClick} aria-label={`Abrir ${titulo}`} className="group rounded-2xl border border-white/25 p-5 text-left text-white shadow-lg shadow-slate-900/10 transition duration-200 hover:-translate-y-1 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700" style={{ background: cor }}>
+      <span className="flex items-center justify-between">
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 text-2xl shadow-inner">{icone}</span>
+        <span className="rounded-full bg-slate-950/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-white/90">SST</span>
+      </span>
+      <span className="mt-4 block text-sm font-bold text-white/90">{titulo}</span>
+      <span className="mt-0.5 block text-4xl font-black tracking-tight">{valor}</span>
+      <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-white/85 transition group-hover:gap-2">Abrir seção <span aria-hidden="true">→</span></span>
     </button>
   );
 }
@@ -1049,29 +1067,174 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     const categorias = tipo === "Painel completo"
       ? CATEGORIAS.map(item => item.id)
       : CATEGORIAS_POR_RELATORIO[tipo] || CATEGORIAS.filter(item => item.label === tipo).map(item => item.id);
+    const urlLogo = escaparHtml(new URL("/logo.png", window.location.origin).toString());
     const secoes = categorias.map(categoriaRelatorio => {
       const definicao = CATEGORIAS.find(item => item.id === categoriaRelatorio);
       const campos = categoriaRelatorio === "documentos"
         ? [...CAMPOS.documentos, { chave: "arquivo", rotulo: "Arquivo anexado", tipo: "text" }]
         : CAMPOS[categoriaRelatorio];
       const itens = registros[categoriaRelatorio];
-      const linhas = itens.map(item => {
+      const linhas = itens.map((item, index) => {
         const confirmacao = item.assinatura?.metodo === "pin_biometria_assinatura"
-          ? `PIN + verificação WebAuthn + assinatura${typeof item.assinaturaImg === "string" && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(item.assinaturaImg) ? `<br><img alt="Assinatura" src="${item.assinaturaImg}" style="max-width:140px;max-height:45px">` : ""}`
-          : escaparHtml(item.assinatura?.metodo);
-        return `<tr>${campos.map(campo => `<td>${escaparHtml(item[campo.chave])}</td>`).join("")}${categoriaRelatorio === "epis" ? `<td>${confirmacao}</td>` : ""}</tr>`;
+          ? `<span class="verified">PIN · WebAuthn · assinatura</span>${typeof item.assinaturaImg === "string" && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(item.assinaturaImg) ? `<img class="signature-thumb" alt="Assinatura do funcionário" src="${escaparHtml(item.assinaturaImg)}">` : ""}`
+          : escaparHtml(formatarValorRelatorio(item.assinatura?.metodo));
+        const valores = campos.map(campo => {
+          const valor = item[campo.chave];
+          const formatado = campo.tipo === "date" ? formatarData(String(valor || "")) : formatarValorRelatorio(valor);
+          return `<td>${escaparHtml(formatado)}</td>`;
+        }).join("");
+        return `<tr><td class="row-number">${index + 1}</td>${valores}${categoriaRelatorio === "epis" ? `<td>${confirmacao}</td>` : ""}</tr>`;
       }).join("");
-      return `<section><h2>${escaparHtml(definicao?.label || categoriaRelatorio)}</h2>${itens.length ? `<table><thead><tr>${campos.map(campo => `<th>${escaparHtml(campo.rotulo)}</th>`).join("")}${categoriaRelatorio === "epis" ? "<th>Confirmação</th>" : ""}</tr></thead><tbody>${linhas}</tbody></table>` : "<p>Nenhum registro cadastrado.</p>"}</section>`;
+      const totalColunas = campos.length + 1 + (categoriaRelatorio === "epis" ? 1 : 0);
+      return `<section class="section"><div class="section-heading"><div><p class="eyebrow">DADOS CADASTRADOS</p><h2>${escaparHtml(definicao?.label || categoriaRelatorio)}</h2></div><span class="count">${itens.length} registro(s)</span></div>${itens.length ? `<div class="table-wrap"><table><thead><tr><th class="row-number">Nº</th>${campos.map(campo => `<th>${escaparHtml(campo.rotulo)}</th>`).join("")}${categoriaRelatorio === "epis" ? "<th>Confirmação</th>" : ""}</tr></thead><tbody>${linhas}</tbody></table></div>` : `<div class="empty-state" colspan="${totalColunas}">Nenhum registro cadastrado nesta seção.</div>`}</section>`;
     }).join("");
     const profissional = registros.tecnico[0];
     const nomeProfissional = profissional?.nome || "Cristiano Vicente";
     const nomeSeguro = escaparHtml(nomeProfissional);
     const nomeEmpresa = escaparHtml(empresaAtual.nome);
     const dataEmissao = new Date().toLocaleString("pt-BR");
-    const incluiPlano = ["PGR", "LTCAT", "PCMSO"].includes(tipo);
-    const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escaparHtml(tipo)} - ${nomeEmpresa}</title><style>
-      *{box-sizing:border-box}body{margin:0;padding:24px;font:14px Arial,sans-serif;color:#172033}.actions{display:flex;justify-content:flex-end;gap:8px;margin:0 auto 16px;max-width:980px}.actions button{border:0;border-radius:8px;background:#0f766e;color:#fff;padding:10px 16px;font-weight:bold;cursor:pointer}.page{max-width:980px;margin:auto}.header{display:grid;grid-template-columns:135px 1fr 135px;align-items:center;gap:14px;border-bottom:4px solid #0f766e;padding-bottom:14px;text-align:center}.logo{height:82px;border:1px dashed #94a3b8;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:11px;font-weight:bold}.brand{color:#0f766e;letter-spacing:3px;font-weight:bold}.header h1{font-size:22px;margin:5px 0}.header p,.muted{color:#64748b;font-size:12px}.company{margin:16px 0;padding:10px;background:#f1f5f9}.tech{padding:10px;border:1px solid #cbd5e1;margin:12px 0}section{margin:18px 0}h2{font-size:16px;color:#0f766e;border-bottom:1px solid #cbd5e1;padding-bottom:6px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #cbd5e1;padding:6px;text-align:left;overflow-wrap:anywhere;vertical-align:top}th{background:#f1f5f9}.plan{min-height:80px;border:1px solid #cbd5e1;padding:10px}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:36px;margin-top:55px}.line{border-top:1px solid #334155;text-align:center;padding-top:7px}.foot{margin-top:22px;border-top:1px solid #cbd5e1;padding-top:10px;font-size:10px;color:#64748b}@media print{@page{size:A4;margin:14mm}.actions{display:none}body{padding:0}section,tr{break-inside:avoid}.header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}@media(max-width:600px){body{padding:12px}.header{grid-template-columns:1fr}.logo{height:55px}.signatures{grid-template-columns:1fr}}
-      </style></head><body><div class="actions"><button onclick="window.print()">Imprimir / Salvar PDF</button></div><main class="page"><header class="header"><div class="logo">LOGO PRESTADORA</div><div><div class="brand">PREVIX SST</div><h1>RELATÓRIO ${escaparHtml(tipo)}</h1><p>Emitido em ${escaparHtml(dataEmissao)}</p></div><div class="logo">LOGO CLIENTE<br>${nomeEmpresa}</div></header><div class="company"><b>Empresa:</b> ${nomeEmpresa}</div><div class="tech"><b>Responsável técnico informado:</b> ${nomeSeguro}<br><b>Função:</b> ${escaparHtml(profissional?.funcao)} · <b>CREA:</b> ${escaparHtml(profissional?.crea)} · <b>MTE:</b> ${escaparHtml(profissional?.mte)}</div>${secoes}${incluiPlano ? `<section><h2>Plano de ação e medidas de controle</h2><div class="plan">Implementar e acompanhar as medidas de controle cadastradas para cada risco. Validar prioridades, responsáveis, prazos e eficácia por profissional habilitado, conforme avaliação específica do ambiente.</div><h2>Conclusão</h2><div class="plan">Este documento reflete os registros disponíveis no PREVIX na data de emissão. A conclusão técnica depende de revisão e validação por profissional habilitado.</div></section>` : ""}<footer class="signatures"><div class="line">${nomeSeguro}<br>Responsável técnico</div><div class="line">${nomeEmpresa}<br>Representante da empresa</div></footer><p class="foot">Relatório gerado pelo PREVIX SST. Revisar os dados e a aplicabilidade técnica antes de usar como documento oficial.</p></main></body></html>`;
+    const metadadosEmpresa = [
+      empresaAtual.cnpj && `CNPJ: ${empresaAtual.cnpj}`,
+      empresaAtual.responsavel && `Responsável: ${empresaAtual.responsavel}`,
+      empresaAtual.telefone && `Telefone: ${empresaAtual.telefone}`,
+      empresaAtual.email && `E-mail: ${empresaAtual.email}`,
+    ].filter((valor): valor is string => Boolean(valor));
+    const metricasDisponiveis: { categoria: Categoria; rotulo: string; cor: string }[] = [
+      { categoria: "funcionarios", rotulo: "Funcionários", cor: "teal" },
+      { categoria: "riscos", rotulo: "Riscos mapeados", cor: "orange" },
+      { categoria: "epis", rotulo: "Registros de EPI", cor: "blue" },
+      { categoria: "exames", rotulo: "Exames", cor: "violet" },
+    ];
+    const metricas = metricasDisponiveis
+      .filter(item => categorias.includes(item.categoria))
+      .map(item => `<div class="metric ${item.cor}"><span>${escaparHtml(item.rotulo)}</span><strong>${registros[item.categoria].length}</strong></div>`)
+      .join("");
+    const riscosPlano = ["PGR", "LTCAT"].includes(tipo) ? `
+      <section class="section">
+        <div class="section-heading"><div><p class="eyebrow">ACOMPANHAMENTO</p><h2>Plano de ação e medidas de controle</h2></div></div>
+        <p class="section-intro">Os campos sem informação permanecem como pendentes de definição; prazos e responsáveis devem ser validados pela equipe responsável.</p>
+        ${registros.riscos.length ? `<div class="table-wrap"><table><thead><tr><th>Risco / agente</th><th>Medida de controle cadastrada</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr></thead><tbody>${registros.riscos.map(risco => `<tr><td><strong>${escaparHtml(formatarValorRelatorio(risco.nome))}</strong><br><span class="muted">${escaparHtml(formatarValorRelatorio(risco.agente))} · ${escaparHtml(formatarValorRelatorio(risco.ghe))}</span></td><td>${escaparHtml(formatarValorRelatorio(risco.epi))}</td><td>A definir</td><td>A definir</td><td><span class="pending">Pendente de planejamento</span></td></tr>`).join("")}</tbody></table></div>` : `<div class="empty-state">Nenhum risco cadastrado para compor o plano de ação.</div>`}
+      </section>` : "";
+    const observacoesTipo: Record<string, string> = {
+      PGR: "Este relatório organiza os registros cadastrados no PREVIX. A caracterização dos riscos, medidas e plano de ação deve ser revisada por profissional habilitado e validada para o ambiente real.",
+      LTCAT: "Os registros apresentados não determinam, por si só, exposição ocupacional ou enquadramento previdenciário. A conclusão depende de avaliação e medições aplicáveis realizadas por profissional habilitado.",
+      LIP: "Este relatório reúne os dados cadastrados e não substitui avaliação técnica das atividades e condições reais de trabalho.",
+      PCMSO: "Este resumo de exames e clínicas não substitui a elaboração, coordenação ou validação do PCMSO e dos ASOs pelo profissional médico responsável.",
+    };
+    const objetivo = tipo === "Painel completo"
+      ? "Visão consolidada das informações de SST cadastradas para a empresa."
+      : `Consolidação dos registros relacionados a ${tipo}, conforme dados disponíveis no PREVIX.`;
+    const html = `<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${escaparHtml(tipo)} · ${nomeEmpresa}</title>
+  <style>
+    :root{--navy:#12345a;--blue:#2563eb;--teal:#0d9488;--cyan:#06b6d4;--ink:#172b4d;--muted:#60748a;--line:#dbe5ef;--paper:#fff;--bg:#edf3f8}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.5 Arial,Helvetica,sans-serif}
+    .actions{position:sticky;top:0;z-index:2;display:flex;justify-content:flex-end;gap:10px;padding:12px max(16px,calc((100vw - 980px)/2));background:#fff;border-bottom:1px solid var(--line);box-shadow:0 3px 14px #17324d12}
+    .actions button{border:0;border-radius:10px;background:linear-gradient(110deg,var(--teal),var(--blue));color:#fff;padding:11px 18px;font-weight:800;cursor:pointer;box-shadow:0 5px 14px #0d948833}
+    .report{max-width:980px;margin:24px auto;background:var(--paper);box-shadow:0 16px 50px #17324d18}
+    .cover{display:grid;grid-template-columns:130px minmax(0,1fr) 190px;align-items:center;gap:22px;padding:24px 30px;background:linear-gradient(120deg,#102f52 0%,#124f75 55%,#0d9488 100%);color:#fff}
+    .brand-logo{width:128px;height:90px;object-fit:contain;border-radius:12px;background:#fff;padding:7px}
+    .eyebrow{margin:0 0 5px;color:#0d9488;font-size:9px;font-weight:900;letter-spacing:1.6px;text-transform:uppercase}
+    .cover .eyebrow{color:#a5f3fc}
+    .brand{margin:0;color:#d9faff;font-size:10px;font-weight:900;letter-spacing:2px}
+    h1{margin:5px 0;font-size:24px;line-height:1.2;letter-spacing:.2px}
+    .cover p{margin:4px 0;color:#e3f2ff;font-size:11px}
+    .doc-meta{padding:13px;border:1px solid #ffffff44;border-radius:12px;background:#ffffff12}
+    .doc-meta span,.doc-meta small{display:block;color:#dbeafe;font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
+    .doc-meta strong{display:block;margin:4px 0;font-size:14px;overflow-wrap:anywhere}
+    .content{padding:24px 30px 30px}
+    .company-card{display:flex;justify-content:space-between;gap:18px;padding:16px 18px;border:1px solid #cce8f0;border-left:5px solid var(--cyan);border-radius:12px;background:linear-gradient(110deg,#f0fdff,#f7fbff)}
+    .company-card h2{margin:0;color:var(--navy);font-size:17px}
+    .company-details{display:flex;flex-wrap:wrap;gap:7px 16px;margin-top:8px;color:var(--muted);font-size:10px}
+    .company-details span{overflow-wrap:anywhere}
+    .emission{min-width:132px;color:var(--muted);font-size:10px;text-align:right}
+    .emission strong{display:block;color:var(--ink);font-size:11px}
+    .intro{margin:18px 0 10px;padding:13px 15px;border-radius:10px;background:#f4f8fc;color:#52677d}
+    .intro strong{display:block;margin-bottom:3px;color:var(--navy);font-size:11px}
+    .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0 22px}
+    .metric{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:62px;padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:#fff}
+    .metric span{color:#52677d;font-size:10px;font-weight:700}
+    .metric strong{font-size:22px;line-height:1}
+    .metric.teal strong{color:var(--teal)}.metric.orange strong{color:#ea580c}.metric.blue strong{color:var(--blue)}.metric.violet strong{color:#7c3aed}
+    .section{margin:22px 0;break-inside:avoid}
+    .section-heading{display:flex;align-items:end;justify-content:space-between;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #dcecf2}
+    .section-heading h2{margin:0;color:var(--navy);font-size:15px}
+    .count{flex:none;padding:4px 9px;border-radius:999px;background:#e6f7fb;color:#087e86;font-size:9px;font-weight:900}
+    .section-intro{margin:0 0 10px;color:var(--muted);font-size:10px}
+    .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:9px}
+    table{width:100%;border-collapse:collapse;font-size:9px}
+    thead{display:table-header-group}
+    th{padding:8px 7px;background:#eaf3f8;color:#26435f;text-align:left;font-size:8px;letter-spacing:.3px;text-transform:uppercase}
+    td{padding:7px;border-top:1px solid #e5edf3;color:#344b63;vertical-align:top;overflow-wrap:anywhere}
+    tbody tr:nth-child(even){background:#f8fbfd}
+    .row-number{width:36px;color:#7a8da1;text-align:center}
+    .empty-state{padding:15px;border:1px dashed #b6c8d8;border-radius:9px;background:#f8fbfd;color:var(--muted);font-size:10px;text-align:center}
+    .verified{display:inline-block;padding:4px 7px;border-radius:999px;background:#dcfce7;color:#166534;font-size:8px;font-weight:900}
+    .signature-thumb{display:block;max-width:130px;max-height:48px;margin-top:5px;object-fit:contain}
+    .muted{color:var(--muted)}
+    .pending{color:#b45309;font-size:8px;font-weight:800}
+    .technical-note{margin-top:20px;padding:13px 15px;border:1px solid #fed7aa;border-left:4px solid #f97316;border-radius:9px;background:#fff7ed;color:#7c3f12;font-size:10px}
+    .technical-note strong{display:block;margin-bottom:3px;color:#9a3412}
+    .signatures{display:grid;grid-template-columns:1fr 1fr;gap:38px;margin:54px 0 20px}
+    .signature-line{min-height:44px;padding-top:9px;border-top:1px solid #64748b;color:#334b63;font-size:10px;text-align:center}
+    .signature-line strong{display:block;color:var(--navy)}
+    .footer{padding:13px 30px;border-top:1px solid var(--line);background:#f7fafc;color:#718096;font-size:8px;text-align:center}
+    @media print{
+      @page{size:A4;margin:12mm}
+      body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .actions{display:none}
+      .report{max-width:none;margin:0;box-shadow:none}
+      .content{padding:18px 22px}
+      .cover{padding:18px 22px}
+      .section,.metric,.company-card,.technical-note,tr{break-inside:avoid}
+      .table-wrap{overflow:visible}
+    }
+    @media(max-width:680px){
+      .report{margin:0}
+      .cover{grid-template-columns:70px 1fr;padding:18px;gap:12px}
+      .brand-logo{width:70px;height:60px}
+      .doc-meta{grid-column:1/-1}
+      .content{padding:16px}
+      .company-card{display:block}
+      .emission{margin-top:10px;text-align:left}
+      .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .signatures{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="actions"><button onclick="window.print()">Imprimir / Salvar PDF</button></div>
+  <main class="report">
+    <header class="cover">
+      <img class="brand-logo" src="${urlLogo}" alt="Logo PREVIX SST">
+      <div><p class="brand">PREVIX SST · PREVENÇÃO QUE PROTEGE</p><h1>Relatório ${escaparHtml(tipo)}</h1><p>${escaparHtml(objetivo)}</p></div>
+      <div class="doc-meta"><span>Documento de SST</span><strong>${nomeEmpresa}</strong><small>Gerado em ${escaparHtml(dataEmissao)}</small></div>
+    </header>
+    <div class="content">
+      <section class="company-card">
+        <div><p class="eyebrow">IDENTIFICAÇÃO DA EMPRESA</p><h2>${nomeEmpresa}</h2><div class="company-details">${metadadosEmpresa.length ? metadadosEmpresa.map(item => `<span>${escaparHtml(item)}</span>`).join("") : "<span>Dados cadastrais complementares não informados.</span>"}</div></div>
+        <div class="emission"><span>Responsável técnico informado</span><strong>${nomeSeguro}</strong><span>${escaparHtml(formatarValorRelatorio(profissional?.funcao))}</span></div>
+      </section>
+      ${metricas ? `<section class="metrics" aria-label="Resumo do relatório">${metricas}</section>` : ""}
+      <div class="intro"><strong>Escopo deste documento</strong>${escaparHtml(objetivo)} Os dados refletem os registros disponíveis para a empresa na data de emissão.</div>
+      <section class="section">
+        <div class="section-heading"><div><p class="eyebrow">RESPONSABILIDADE TÉCNICA</p><h2>Profissional informado</h2></div></div>
+        <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Função</th><th>CREA</th><th>MTE</th><th>Contato</th></tr></thead><tbody><tr><td>${nomeSeguro}</td><td>${escaparHtml(formatarValorRelatorio(profissional?.funcao))}</td><td>${escaparHtml(formatarValorRelatorio(profissional?.crea))}</td><td>${escaparHtml(formatarValorRelatorio(profissional?.mte))}</td><td>${escaparHtml(formatarValorRelatorio(profissional?.telefone))}<br>${escaparHtml(formatarValorRelatorio(profissional?.email))}</td></tr></tbody></table></div>
+      </section>
+      ${secoes}
+      ${riscosPlano}
+      <div class="technical-note"><strong>Nota técnica e validação</strong>${escaparHtml(observacoesTipo[tipo] || "Relatório compilado a partir dos registros cadastrados. Verifique a exatidão e a atualização das informações antes de utilizar este documento.")} Este material não substitui vistoria, análise técnica ou validação profissional quando aplicáveis.</div>
+      <footer class="signatures"><div class="signature-line"><strong>${nomeSeguro}</strong>Responsável técnico · assinatura e registro profissional</div><div class="signature-line"><strong>${nomeEmpresa}</strong>Representante da empresa · ciência dos dados</div></footer>
+    </div>
+    <footer class="footer">PREVIX SST · Documento gerado em ${escaparHtml(dataEmissao)} · Confira os dados e mantenha uma cópia junto aos registros da empresa.</footer>
+  </main>
+</body>
+</html>`;
     const reportWindow = window.open("", "_blank");
     if (!reportWindow) {
       setErro("O navegador bloqueou a nova aba. Permita pop-ups para gerar o relatório.");
@@ -1087,8 +1250,10 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     if (!empresaAtual) return;
     const assinatura = typeof registro.assinaturaImg === "string"
       && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(registro.assinaturaImg)
-      ? `<img class="signature-image" src="${registro.assinaturaImg}" alt="Assinatura do funcionário">`
+      ? `<img class="signature-image" src="${escaparHtml(registro.assinaturaImg)}" alt="Assinatura do funcionário">`
       : "<p>Assinatura não disponível.</p>";
+    const urlLogo = escaparHtml(new URL("/logo.png", window.location.origin).toString());
+    const dataEmissao = new Date().toLocaleString("pt-BR");
     const reportWindow = window.open("", "_blank");
     if (!reportWindow) {
       setErro("O navegador bloqueou a nova aba. Permita pop-ups para gerar o termo.");
@@ -1096,9 +1261,84 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     }
     reportWindow.opener = null;
     reportWindow.document.open();
-    reportWindow.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Termo de Entrega de EPI - ${escaparHtml(empresaAtual.nome)}</title><style>
-      *{box-sizing:border-box}body{max-width:850px;margin:32px auto;padding:24px;color:#172033;font:14px Arial,sans-serif}.header{display:grid;grid-template-columns:120px 1fr 120px;gap:12px;align-items:center;text-align:center;border-bottom:3px solid #0f766e;padding-bottom:14px}.logo{height:70px;border:1px dashed #94a3b8;display:grid;place-items:center;color:#64748b;font-size:10px;font-weight:bold}.header h1{font-size:20px}.brand{color:#0f766e;font-weight:bold;letter-spacing:2px}.section{margin:18px 0;padding:14px;border:1px solid #cbd5e1;border-radius:8px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.signature-image{display:block;max-width:250px;max-height:100px;margin:12px 0;border-bottom:1px solid #334155}.sign{margin-top:42px;border-top:1px solid #334155;text-align:center;padding-top:8px}.actions{text-align:right;margin-bottom:16px}.actions button{background:#0f766e;color:#fff;border:0;border-radius:8px;padding:10px 16px;font-weight:bold}@media print{@page{size:A4;margin:16mm}.actions{display:none}body{margin:0;padding:0}}@media(max-width:600px){.header{grid-template-columns:1fr}.logo{height:50px}.grid{grid-template-columns:1fr}}
-      </style></head><body><div class="actions"><button onclick="window.print()">Imprimir / Salvar PDF</button></div><header class="header"><div class="logo">LOGO PRESTADORA</div><div><div class="brand">PREVIX SST</div><h1>TERMO DE ENTREGA DE EPI — NR-06</h1><p>${escaparHtml(empresaAtual.nome)}</p></div><div class="logo">LOGO CLIENTE</div></header><section class="section"><h2>Identificação da entrega</h2><div class="grid"><p><b>Funcionário:</b> ${escaparHtml(registro.funcionario)}</p><p><b>EPI:</b> ${escaparHtml(registro.nome)}</p><p><b>CA:</b> ${escaparHtml(registro.ca)}</p><p><b>Tipo / modelo:</b> ${escaparHtml(registro.tipo)}</p><p><b>Quantidade:</b> ${escaparHtml(registro.quantidade)}</p><p><b>Data da entrega:</b> ${escaparHtml(registro.data_entrega)}</p></div></section><section class="section"><h2>Confirmação</h2><p>PIN validado: ${registro.pinVerificado === true ? "Sim" : "Não"}</p><p>Verificação do dispositivo: WebAuthn · ${escaparHtml(registro.biometria?.verificado_em)}</p><p>Recebimento confirmado: ${registro.assinatura?.consentimento === true ? "Sim" : "Não"}</p>${assinatura}<div class="sign">${escaparHtml(registro.funcionario)}<br>Assinatura do funcionário</div></section><p>Termo de registro da entrega de EPI. Confirme se os dados e procedimentos correspondem ao evento real antes de arquivar.</p></body></html>`);
+    reportWindow.document.write(`<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Termo de entrega de EPI · ${escaparHtml(empresaAtual.nome)}</title>
+  <style>
+    :root{--navy:#12345a;--teal:#0d9488;--blue:#2563eb;--ink:#172b4d;--muted:#60748a;--line:#dbe5ef}
+    *{box-sizing:border-box}
+    body{max-width:900px;margin:28px auto;padding:20px;color:var(--ink);font:13px/1.5 Arial,Helvetica,sans-serif}
+    .actions{display:flex;justify-content:flex-end;margin-bottom:14px}
+    .actions button{border:0;border-radius:9px;background:linear-gradient(110deg,var(--teal),var(--blue));color:#fff;padding:11px 18px;font-weight:800;cursor:pointer}
+    .cover{display:grid;grid-template-columns:120px 1fr 180px;align-items:center;gap:18px;padding:20px;border-radius:14px;background:linear-gradient(120deg,#102f52,#124f75 55%,#0d9488);color:#fff}
+    .brand-logo{width:116px;height:82px;object-fit:contain;border-radius:10px;background:#fff;padding:6px}
+    .eyebrow{margin:0 0 4px;color:#a5f3fc;font-size:9px;font-weight:900;letter-spacing:1.4px}
+    .brand{margin:0;color:#d9faff;font-size:10px;font-weight:900;letter-spacing:1.6px}
+    h1{margin:5px 0;font-size:19px;line-height:1.25}
+    .doc-meta{padding:12px;border:1px solid #ffffff44;border-radius:10px;background:#ffffff12;font-size:10px}
+    .doc-meta strong,.doc-meta span{display:block}
+    .doc-meta span{color:#dbeafe}
+    .company{display:grid;grid-template-columns:1fr 1fr;gap:8px 18px;margin:16px 0;padding:13px 15px;border:1px solid #cce8f0;border-left:4px solid #06b6d4;border-radius:10px;background:#f0fdff}
+    .company h2{grid-column:1/-1;margin:0;color:var(--navy);font-size:15px}
+    .field{color:var(--muted);font-size:10px}.field strong{display:block;color:var(--ink);font-size:11px}
+    .section{margin:15px 0;padding:16px;border:1px solid var(--line);border-radius:11px;background:#fff}
+    .section h2{margin:0 0 12px;color:var(--navy);font-size:14px}
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    .confirmation{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    .check{padding:10px;border-radius:9px;background:#f2f8fb;color:#52677d;font-size:10px}
+    .check strong{display:block;margin-bottom:2px;color:var(--ink)}
+    .signature-image{display:block;max-width:260px;max-height:100px;margin:18px auto 8px;object-fit:contain}
+    .sign{max-width:360px;margin:24px auto 0;padding-top:8px;border-top:1px solid #64748b;color:#334b63;text-align:center;font-size:10px}
+    .notice{padding:12px 14px;border-radius:9px;background:#f4f8fc;color:var(--muted);font-size:10px}
+    .footer{margin-top:18px;padding-top:10px;border-top:1px solid var(--line);color:#718096;font-size:9px;text-align:center}
+    @media print{@page{size:A4;margin:14mm}.actions{display:none}body{margin:0;padding:0}.cover,.section,.company{break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+    @media(max-width:620px){.cover{grid-template-columns:75px 1fr}.brand-logo{width:72px;height:60px}.doc-meta{grid-column:1/-1}.grid,.confirmation,.company{grid-template-columns:1fr}.company h2{grid-column:auto}}
+  </style>
+</head>
+<body>
+  <div class="actions"><button onclick="window.print()">Imprimir / Salvar PDF</button></div>
+  <main>
+    <header class="cover">
+      <img class="brand-logo" src="${urlLogo}" alt="Logo PREVIX SST">
+      <div><p class="brand">PREVIX SST · PREVENÇÃO QUE PROTEGE</p><h1>Termo de entrega de EPI — NR-06</h1><p>${escaparHtml(empresaAtual.nome)}</p></div>
+      <div class="doc-meta"><strong>Registro de entrega</strong><span>${escaparHtml(registro.id)}</span><span>Emitido em ${escaparHtml(dataEmissao)}</span></div>
+    </header>
+    <section class="company">
+      <h2>Identificação da empresa</h2>
+      <div class="field">Empresa<strong>${escaparHtml(empresaAtual.nome)}</strong></div>
+      <div class="field">CNPJ<strong>${escaparHtml(formatarValorRelatorio(empresaAtual.cnpj))}</strong></div>
+      <div class="field">Responsável<strong>${escaparHtml(formatarValorRelatorio(empresaAtual.responsavel))}</strong></div>
+      <div class="field">Contato<strong>${escaparHtml(formatarValorRelatorio(empresaAtual.telefone))} · ${escaparHtml(formatarValorRelatorio(empresaAtual.email))}</strong></div>
+    </section>
+    <section class="section">
+      <h2>Dados da entrega</h2>
+      <div class="grid">
+        <div class="field">Funcionário<strong>${escaparHtml(formatarValorRelatorio(registro.funcionario))}</strong></div>
+        <div class="field">EPI<strong>${escaparHtml(formatarValorRelatorio(registro.nome))}</strong></div>
+        <div class="field">Certificado de Aprovação (CA)<strong>${escaparHtml(formatarValorRelatorio(registro.ca))}</strong></div>
+        <div class="field">Tipo / modelo<strong>${escaparHtml(formatarValorRelatorio(registro.tipo))}</strong></div>
+        <div class="field">Quantidade<strong>${escaparHtml(formatarValorRelatorio(registro.quantidade))}</strong></div>
+        <div class="field">Data da entrega<strong>${escaparHtml(formatarData(String(registro.data_entrega || "")))}</strong></div>
+      </div>
+    </section>
+    <section class="section">
+      <h2>Confirmações registradas</h2>
+      <div class="confirmation">
+        <div class="check"><strong>PIN do funcionário</strong>${registro.pinVerificado === true ? "Verificado" : "Não registrado como verificado"}</div>
+        <div class="check"><strong>Autenticador do dispositivo</strong>WebAuthn · ${escaparHtml(formatarValorRelatorio(registro.biometria?.verificado_em))}</div>
+        <div class="check"><strong>Recebimento</strong>${registro.assinatura?.consentimento === true ? "Confirmado" : "Não confirmado"}</div>
+      </div>
+      <div>${assinatura}</div>
+      <div class="sign">${escaparHtml(formatarValorRelatorio(registro.funcionario))}<br>Assinatura do funcionário</div>
+    </section>
+    <p class="notice">Este termo reproduz os dados e confirmações registrados no PREVIX SST para a entrega acima. Confira a identificação, o CA e a data antes de arquivar o documento.</p>
+    <footer class="footer">PREVIX SST · Documento gerado em ${escaparHtml(dataEmissao)} · A assinatura exibida corresponde ao registro salvo no sistema.</footer>
+  </main>
+</body>
+</html>`);
     reportWindow.document.close();
   }
 
@@ -1147,31 +1387,39 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
   ];
   const mesCalendarioTitulo = dataMesCalendario.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900">
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col bg-slate-900 px-4 py-5 text-white md:flex">
-        <div className="mb-1 px-3 text-xl font-black">PREVIX SST</div>
-        <p className="mb-6 px-3 text-[10px] font-bold tracking-[0.2em] text-teal-300">PREVENÇÃO QUE PROTEGE</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-cyan-50 to-blue-100 text-slate-900">
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-blue-950 px-4 py-5 text-white md:flex">
+        <div className="mb-6 flex items-center gap-3 px-2">
+          <Image src="/logo.png" alt="Logo PREVIX SST" width={1920} height={1280} priority className="h-12 w-12 shrink-0 rounded-xl bg-white p-1 object-contain shadow-lg" />
+          <div>
+            <p className="text-sm font-black tracking-wide">PREVIX <span className="text-cyan-300">SST</span></p>
+            <p className="mt-1 text-[9px] font-bold tracking-[0.15em] text-teal-200">PREVENÇÃO QUE PROTEGE</p>
+          </div>
+        </div>
         <nav className="flex-1 space-y-1 overflow-y-auto">
-          <button onClick={() => setCategoria("inicio")} className={`w-full rounded-xl px-3 py-2.5 text-left text-sm font-bold ${categoria === "inicio" ? "bg-teal-600" : "text-slate-300 hover:bg-slate-800"}`}>🏠 <span className="ml-2">Início</span></button>
+          <button onClick={() => setCategoria("inicio")} className={`w-full rounded-xl px-3 py-2.5 text-left text-sm font-bold transition ${categoria === "inicio" ? "bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-md shadow-teal-950/20" : "text-slate-300 hover:bg-white/10 hover:text-white"}`}>🏠 <span className="ml-2">Início</span></button>
           {CATEGORIAS.filter(item => item.id !== "tecnico").map(item => (
-            <button key={item.id} onClick={() => setCategoria(item.id)} className={`w-full rounded-xl px-3 py-2.5 text-left text-sm font-bold ${categoria === item.id ? "bg-teal-600" : "text-slate-300 hover:bg-slate-800"}`}>
+            <button key={item.id} onClick={() => setCategoria(item.id)} className={`w-full rounded-xl px-3 py-2.5 text-left text-sm font-bold transition ${categoria === item.id ? "bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-md shadow-teal-950/20" : "text-slate-300 hover:bg-white/10 hover:text-white"}`}>
               {item.icone}<span className="ml-2">{item.label}</span>
             </button>
           ))}
-          <button onClick={() => setCategoria("tecnico")} className={`w-full rounded-xl px-3 py-2.5 text-left text-sm font-bold ${categoria === "tecnico" ? "bg-teal-600" : "text-slate-300 hover:bg-slate-800"}`}>🧑‍🔧 <span className="ml-2">Responsável técnico</span></button>
-          {ehAdm && <button onClick={() => setCategoria("empresas")} className={`w-full rounded-xl px-3 py-2.5 text-left text-sm font-bold ${categoria === "empresas" ? "bg-teal-600" : "text-slate-300 hover:bg-slate-800"}`}>🏢 <span className="ml-2">Empresas</span></button>}
+          <button onClick={() => setCategoria("tecnico")} className={`w-full rounded-xl px-3 py-2.5 text-left text-sm font-bold transition ${categoria === "tecnico" ? "bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-md shadow-teal-950/20" : "text-slate-300 hover:bg-white/10 hover:text-white"}`}>🧑‍🔧 <span className="ml-2">Responsável técnico</span></button>
+          {ehAdm && <button onClick={() => setCategoria("empresas")} className={`w-full rounded-xl px-3 py-2.5 text-left text-sm font-bold transition ${categoria === "empresas" ? "bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-md shadow-teal-950/20" : "text-slate-300 hover:bg-white/10 hover:text-white"}`}>🏢 <span className="ml-2">Empresas</span></button>}
         </nav>
-        <button onClick={onSair} className="mt-4 rounded-xl px-3 py-3 text-left text-sm font-bold text-red-200 hover:bg-slate-800">↪ <span className="ml-2">Sair</span></button>
+        <button onClick={onSair} className="mt-4 rounded-xl px-3 py-3 text-left text-sm font-bold text-red-200 transition hover:bg-red-500/15 hover:text-red-100">↪ <span className="ml-2">Sair</span></button>
       </aside>
 
       <div className="md:pl-64">
-        <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur md:px-8">
+        <header className="sticky top-0 z-10 border-b border-cyan-100 bg-white/95 px-4 py-3 shadow-sm shadow-slate-900/5 backdrop-blur md:px-8">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <span className="text-lg font-black text-slate-900 md:hidden">PREVIX SST</span>
+              <div className="flex items-center gap-2 md:hidden">
+                <Image src="/logo.png" alt="Logo PREVIX SST" width={1920} height={1280} priority className="h-9 w-9 rounded-lg bg-white p-0.5 object-contain" />
+                <span className="text-base font-black text-slate-900">PREVIX <span className="text-teal-700">SST</span></span>
+              </div>
               <span className="hidden text-sm font-bold text-slate-500 md:inline">{titulo}</span>
-              {!ehAdm && empresaAtual && <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-bold text-teal-800">{empresaAtual.nome}</span>}
-              <span className={`rounded-full px-3 py-1 text-[10px] font-black tracking-wide ${ehAdm ? "bg-blue-100 text-blue-800" : "bg-teal-100 text-teal-800"}`}>{ehAdm ? "ADMIN" : "EMPRESA"}</span>
+              {!ehAdm && empresaAtual && <span className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-bold text-teal-800">{empresaAtual.nome}</span>}
+              <span className={`rounded-full px-3 py-1 text-[10px] font-black tracking-wide ${ehAdm ? "bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800" : "bg-gradient-to-r from-teal-100 to-emerald-100 text-teal-800"}`}>{ehAdm ? "ADMIN" : "EMPRESA"}</span>
             </div>
             <div className="flex items-center gap-3">
               {ehAdm && (
@@ -1204,13 +1452,13 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
           </div>
         </header>
 
-        <nav className="sticky top-[57px] z-[9] flex gap-1 overflow-x-auto border-b border-slate-200 bg-white p-2 md:hidden">
-          <button onClick={() => setCategoria("inicio")} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${categoria === "inicio" ? "bg-teal-600 text-white" : "text-slate-600"}`}>🏠 Início</button>
+        <nav className="sticky top-[57px] z-[9] flex gap-1 overflow-x-auto border-b border-cyan-100 bg-white/95 p-2 shadow-sm md:hidden">
+          <button onClick={() => setCategoria("inicio")} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${categoria === "inicio" ? "bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-cyan-50"}`}>🏠 Início</button>
           {CATEGORIAS.filter(item => item.id !== "tecnico").map(item => (
-            <button key={item.id} onClick={() => setCategoria(item.id)} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${categoria === item.id ? "bg-teal-600 text-white" : "text-slate-600"}`}>{item.icone} {item.label}</button>
+            <button key={item.id} onClick={() => setCategoria(item.id)} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${categoria === item.id ? "bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-cyan-50"}`}>{item.icone} {item.label}</button>
           ))}
-          <button onClick={() => setCategoria("tecnico")} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${categoria === "tecnico" ? "bg-teal-600 text-white" : "text-slate-600"}`}>🧑‍🔧 Técnico</button>
-          {ehAdm && <button onClick={() => setCategoria("empresas")} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${categoria === "empresas" ? "bg-teal-600 text-white" : "text-slate-600"}`}>🏢 Empresas</button>}
+          <button onClick={() => setCategoria("tecnico")} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${categoria === "tecnico" ? "bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-cyan-50"}`}>🧑‍🔧 Técnico</button>
+          {ehAdm && <button onClick={() => setCategoria("empresas")} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${categoria === "empresas" ? "bg-gradient-to-r from-teal-500 to-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-cyan-50"}`}>🏢 Empresas</button>}
         </nav>
 
         <main className="mx-auto max-w-7xl p-4 md:p-8">
@@ -1247,18 +1495,18 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
             <p className="rounded-xl bg-white p-6 text-center font-bold text-slate-500">Carregando empresas...</p>
           ) : categoria === "inicio" ? (
             <div>
-              <section className="rounded-2xl bg-white p-6 shadow-sm md:p-8">
-                <p className="text-sm font-bold text-teal-700">PAINEL DE SST</p>
+              <section className="rounded-2xl border border-cyan-100 bg-gradient-to-r from-white via-cyan-50 to-blue-50 p-6 shadow-sm md:p-8">
+                <p className="text-sm font-black tracking-wide text-teal-700">PAINEL DE SST</p>
                 <h1 className="mt-2 text-3xl font-black">Olá, {usuario.nome || "bem-vindo(a)"}! 👋</h1>
-                <p className="mt-2 text-slate-500">{empresaAtual.nome}</p>
+                <p className="mt-2 font-medium text-slate-600">{empresaAtual.nome}</p>
               </section>
               {carregandoRegistros ? <p className="py-8 text-center font-bold text-slate-500">Carregando dados...</p> : (
                 <>
                   <section className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <CardIndicador titulo="Funcionários" valor={contagens.funcionarios} icone="👷" cor="linear-gradient(135deg,#14b8a6,#06b6d4)" onClick={() => setCategoria("funcionarios")} />
-                    <CardIndicador titulo="EPIs registrados" valor={contagens.epis} icone="🦺" cor="linear-gradient(135deg,#22c55e,#84cc16)" onClick={() => setCategoria("epis")} />
-                    <CardIndicador titulo="Exames" valor={contagens.exames} icone="🩺" cor="linear-gradient(135deg,#0d9488,#2563eb)" onClick={() => setCategoria("exames")} />
-                    <CardIndicador titulo="Riscos PGR" valor={contagens.riscos} icone="⚠️" cor="linear-gradient(135deg,#f59e0b,#ef4444)" onClick={() => setCategoria("riscos")} />
+                    <CardIndicador titulo="Funcionários" valor={contagens.funcionarios} icone="👷" cor="linear-gradient(135deg,#0f766e 0%,#06b6d4 58%,#2563eb 100%)" onClick={() => setCategoria("funcionarios")} />
+                    <CardIndicador titulo="EPIs registrados" valor={contagens.epis} icone="🦺" cor="linear-gradient(135deg,#15803d 0%,#22c55e 58%,#84cc16 100%)" onClick={() => setCategoria("epis")} />
+                    <CardIndicador titulo="Exames" valor={contagens.exames} icone="🩺" cor="linear-gradient(135deg,#7c3aed 0%,#2563eb 58%,#06b6d4 100%)" onClick={() => setCategoria("exames")} />
+                    <CardIndicador titulo="Riscos PGR" valor={contagens.riscos} icone="⚠️" cor="linear-gradient(135deg,#d97706 0%,#f97316 55%,#dc2626 100%)" onClick={() => setCategoria("riscos")} />
                   </section>
                   <section className="mt-5 grid gap-4 lg:grid-cols-2">
                     <div className="rounded-2xl bg-white p-5 shadow-sm">
@@ -1278,8 +1526,8 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                     <h2 className="font-black">Laudos em 1 clique</h2>
                     <p className="mt-1 text-xs text-slate-500">Gera uma versão para impressão com os registros atuais da empresa.</p>
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <button onClick={() => imprimirRelatorio("Painel completo")} className="rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-bold text-white">Gerar relatório completo em PDF</button>
-                      {["PGR", "LTCAT", "LIP", "PCMSO"].map(tipo => <button key={tipo} onClick={() => imprimirRelatorio(tipo)} className="rounded-xl px-4 py-2.5 text-sm font-bold text-white" style={{ background: tipo === "PGR" ? "#0d9488" : tipo === "LTCAT" ? "#2563eb" : tipo === "LIP" ? "#d97706" : "#16a34a" }}>Gerar {tipo}</button>)}
+                      <button onClick={() => imprimirRelatorio("Painel completo")} className="rounded-xl bg-gradient-to-r from-slate-800 to-blue-900 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:from-slate-900 hover:to-blue-950">Gerar relatório completo em PDF</button>
+                      {["PGR", "LTCAT", "LIP", "PCMSO"].map(tipo => <button key={tipo} onClick={() => imprimirRelatorio(tipo)} className="rounded-xl px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" style={{ background: tipo === "PGR" ? "linear-gradient(110deg,#0d9488,#06b6d4)" : tipo === "LTCAT" ? "linear-gradient(110deg,#2563eb,#4f46e5)" : tipo === "LIP" ? "linear-gradient(110deg,#ea580c,#f59e0b)" : "linear-gradient(110deg,#16a34a,#84cc16)" }}>Gerar {tipo}</button>)}
                     </div>
                   </section>
                 </>

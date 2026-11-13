@@ -41,7 +41,14 @@ async function getAdminClient(request: NextRequest): Promise<SupabaseClient> {
     .select("tipo")
     .eq("id", user.id)
     .single();
-  if (profileError || profile?.tipo !== "adm") throw new Error("Apenas administradores podem gerenciar empresas.");
+  if (profileError) {
+    console.error("Não foi possível consultar o perfil para validar o acesso administrativo.", {
+      code: profileError.code,
+      message: profileError.message,
+    });
+    throw new Error(`Não foi possível consultar o perfil do usuário no Supabase (${profileError.code || "erro desconhecido"}).`);
+  }
+  if (profile?.tipo !== "adm") throw new Error("Apenas administradores podem gerenciar empresas.");
   return admin;
 }
 

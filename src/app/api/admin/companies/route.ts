@@ -19,9 +19,9 @@ type CompanyInput = {
 function getSupabaseConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
   if (!url || !anonKey || !serviceRoleKey) {
-    throw new Error("Configure NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY e SUPABASE_SERVICE_ROLE_KEY no servidor.");
+    throw new Error("Configure NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY e SUPABASE_SERVICE_ROLE_KEY (ou SUPABASE_SECRET_KEY) no ambiente do servidor.");
   }
   return { url, anonKey, serviceRoleKey };
 }
@@ -103,13 +103,13 @@ export async function POST(request: NextRequest) {
       throw new Error(`A empresa foi cadastrada, mas a conta Auth não pôde ser criada: ${authError?.message || "usuário ausente."}${rollbackError ? ` A limpeza também falhou: ${rollbackError.message}` : ""}`);
     }
 
-    const { error: profileError } = await admin.from("profiles").insert({
+    const { error: profileError } = await admin.from("profiles").upsert({
       id: authData.user.id,
       email: validated.value.email,
       nome: validated.value.responsavel || validated.value.nome,
       tipo: "empresa",
       empresa_id: company.id,
-    });
+    }, { onConflict: "id" });
     if (profileError) {
       const { error: userRollbackError } = await admin.auth.admin.deleteUser(authData.user.id);
       const { error: companyRollbackError } = await admin.from("empresas").delete().eq("id", company.id);

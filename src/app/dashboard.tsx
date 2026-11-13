@@ -24,6 +24,28 @@ type Empresa = {
   status?: "Ativa" | "Inativa";
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isEmpresa(value: unknown): value is Empresa {
+  return isRecord(value) && typeof value.id === "string" && typeof value.nome === "string";
+}
+
+async function lerRespostaApi(response: Response): Promise<Record<string, unknown>> {
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new Error(`A API retornou uma resposta inválida (HTTP ${response.status}).`);
+  }
+  if (!isRecord(payload)) throw new Error(`A API retornou uma resposta inválida (HTTP ${response.status}).`);
+  if (!response.ok) {
+    throw new Error(typeof payload.error === "string" ? payload.error : `Falha na API (HTTP ${response.status}).`);
+  }
+  return payload;
+}
+
 type Registro = Record<string, any> & {
   id: string;
   company_id: string;
@@ -497,6 +519,10 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
   const [acessoInicialEmpresa, setAcessoInicialEmpresa] = useState<{ login: string; email: string; senha: string } | null>(null);
   const [buscaEmpresas, setBuscaEmpresas] = useState("");
   const [salvandoEmpresa, setSalvandoEmpresa] = useState(false);
+  const [empresaExcluindoId, setEmpresaExcluindoId] = useState("");
+  const [erroCadastroEmpresa, setErroCadastroEmpresa] = useState("");
+  const [erroExclusaoEmpresa, setErroExclusaoEmpresa] = useState("");
+  const [mensagemEmpresa, setMensagemEmpresa] = useState("");
   const [categoria, setCategoria] = useState<"inicio" | "empresas" | Categoria>("inicio");
   const [registros, setRegistros] = useState<Record<Categoria, Registro[]>>({
     funcionarios: [], epis: [], extintores: [], inspecoes: [], documentos: [],
@@ -1255,6 +1281,10 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
   async function salvarEmpresa(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErro("");
+    setMensagem("");
+    setErroCadastroEmpresa("");
+    setErroExclusaoEmpresa("");
+    setMensagemEmpresa("");
     setSalvandoEmpresa(true);
     const login = (empresaForm.login || empresaForm.nome)
       .normalize("NFD")
@@ -1273,21 +1303,24 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
         },
         body: JSON.stringify({ ...empresaForm, login, id: empresaEdicaoId || undefined }),
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "erro desconhecido.");
-      const savedCompany = result.company as Empresa;
+      const result = await lerRespostaApi(response);
+      if (!isEmpresa(result.company)) throw new Error("A API não confirmou a empresa cadastrada.");
+      const savedCompany = result.company;
       const isCreation = !empresaEdicaoId;
       if (isCreation) setAcessoInicialEmpresa({ login, email: empresaForm.email, senha: empresaForm.senha });
       setEmpresas(atual => isCreation
         ? [...atual, savedCompany].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
         : atual.map(item => item.id === savedCompany.id ? savedCompany : item));
-      if (isCreation) setEmpresaAtual(savedCompany);
-      setMensagem(isCreation
+      if (isCreation) {
+        setEmpresaAtual(savedCompany);
+        setBuscaEmpresas("");
+      }
+      setMensagemEmpresa(isCreation
         ? `Empresa "${savedCompany.nome}" cadastrada. Copie os dados de acesso antes de fechar este aviso.`
         : `Empresa "${savedCompany.nome}" atualizada. A senha não é armazenada nem exibida; use o campo de senha para redefini-la.`);
       cancelarEdicaoEmpresa();
     } catch (error) {
-      setErro(`Não foi possível ${empresaEdicaoId ? "atualizar" : "cadastrar"} a empresa: ${error instanceof Error ? error.message : "falha inesperada."}`);
+      setErroCadastroEmpresa(`Não foi possível ${empresaEdicaoId ? "atualizar" : "cadastrar"} a empresa: ${error instanceof Error ? error.message : "falha inesperada."}`);
     } finally {
       setSalvandoEmpresa(false);
     }
@@ -1296,12 +1329,16 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
   async function excluirEmpresa(empresa: Empresa) {
     if (!window.confirm(`Excluir a empresa "${empresa.nome}", o acesso de login e todos os registros associados? Esta ação não pode ser desfeita.`)) return;
     setErro("");
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !sessionData.session) {
-      setErro(`Não foi possível validar a sessão administrativa: ${sessionError?.message || "sessão ausente."}`);
-      return;
-    }
+    setMensagem("");
+    setErroCadastroEmpresa("");
+    setErroExclusaoEmpresa("");
+    setMensagemEmpresa("");
+    setEmpresaExcluindoId(empresa.id);
     try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData.session) {
+        throw new Error(`Não foi possível validar a sessão administrativa: ${sessionError?.message || "sessão ausente."}`);
+      }
       const response = await fetch("/api/admin/companies", {
         method: "DELETE",
         headers: {
@@ -1310,14 +1347,16 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
         },
         body: JSON.stringify({ id: empresa.id }),
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "erro desconhecido.");
+      const result = await lerRespostaApi(response);
+      if (result.deleted !== true) throw new Error("A API não confirmou a exclusão da empresa.");
       setEmpresas(atual => atual.filter(item => item.id !== empresa.id));
       if (empresaAtual?.id === empresa.id) setEmpresaAtual(empresas.find(item => item.id !== empresa.id) || null);
       if (empresaEdicaoId === empresa.id) cancelarEdicaoEmpresa();
-      setMensagem(`Empresa "${empresa.nome}" e os registros associados foram excluídos.`);
+      setMensagemEmpresa(`Empresa "${empresa.nome}" e os registros associados foram excluídos.`);
     } catch (error) {
-      setErro(`Não foi possível excluir a empresa: ${error instanceof Error ? error.message : "falha inesperada."}`);
+      setErroExclusaoEmpresa(`Não foi possível excluir a empresa: ${error instanceof Error ? error.message : "falha inesperada."}`);
+    } finally {
+      setEmpresaExcluindoId("");
     }
   }
 
@@ -1804,12 +1843,15 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                     </label>
                   </div>
                   <p className="text-xs text-slate-500 sm:col-span-2">A senha é gerenciada pelo Supabase Auth e nunca é gravada nem exibida na lista. Deixe vazia ao editar para mantê-la.</p>
+                  {erroCadastroEmpresa && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 sm:col-span-2">{erroCadastroEmpresa}</p>}
                   <div className="flex gap-2 sm:col-span-2">
                     <button type="submit" disabled={salvandoEmpresa} className="rounded-xl bg-gradient-to-r from-teal-600 to-blue-600 px-5 py-3 font-bold text-white disabled:opacity-60">{salvandoEmpresa ? "Salvando..." : empresaEdicaoId ? "Salvar alterações" : "Cadastrar Empresa"}</button>
                     {empresaEdicaoId && <button type="button" onClick={cancelarEdicaoEmpresa} className="rounded-xl bg-slate-100 px-5 py-3 font-bold text-slate-700">Cancelar</button>}
                   </div>
                 </form>
                 <input value={buscaEmpresas} onChange={event => setBuscaEmpresas(event.target.value)} placeholder="Buscar por nome ou CNPJ..." className={`${INPUT_CLASS} mb-4`} />
+                {erroExclusaoEmpresa && <p role="alert" className="mb-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{erroExclusaoEmpresa}</p>}
+                {mensagemEmpresa && <p role="status" className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">{mensagemEmpresa}</p>}
                 <div className="space-y-3">
                   {empresas.filter(empresa => {
                     const termo = buscaEmpresas.trim().toLocaleLowerCase("pt-BR");
@@ -1830,7 +1872,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                       </div>
                       <div className="mt-4 flex flex-wrap gap-2">
                         <button type="button" onClick={() => editarEmpresa(empresa)} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700">Editar</button>
-                        <button type="button" onClick={() => void excluirEmpresa(empresa)} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700">Excluir</button>
+                        <button type="button" onClick={() => void excluirEmpresa(empresa)} disabled={empresaExcluindoId === empresa.id} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700 disabled:cursor-wait disabled:opacity-60">{empresaExcluindoId === empresa.id ? "Excluindo..." : "Excluir"}</button>
                         <button type="button" onClick={() => void copiarLoginEmpresa(empresa)} className="rounded-lg bg-teal-50 px-3 py-2 text-xs font-bold text-teal-800">Copiar login e e-mail</button>
                       </div>
                     </article>

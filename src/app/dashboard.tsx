@@ -29,6 +29,15 @@ type Registro = Record<string, any> & {
   company_id: string;
 };
 
+type AvisoPrazo = {
+  id: string;
+  categoria: Categoria;
+  titulo: string;
+  detalhe: string;
+  data: string;
+  dias: number;
+};
+
 type Categoria =
   | "funcionarios"
   | "epis"
@@ -59,6 +68,27 @@ const CATEGORIAS_POR_RELATORIO: Record<string, Categoria[]> = {
   LTCAT: ["tecnico", "funcionarios", "riscos", "documentos"],
   LIP: ["tecnico", "funcionarios", "riscos"],
   PCMSO: ["exames", "clinicas", "funcionarios", "tecnico"],
+};
+
+const REFERENCIAS_NORMATIVAS: Record<string, string[]> = {
+  "Painel completo": [
+    "Referências aplicáveis às seções correspondentes: NR-01 (GRO/PGR), NR-06 (EPI), NR-07 (PCMSO) e NR-23 (proteção contra incêndios).",
+    "CLT, arts. 166 e 168, e Lei nº 13.709/2018 (LGPD), conforme a natureza dos dados e documentos.",
+  ],
+  PGR: ["NR-01 — Gerenciamento de Riscos Ocupacionais (GRO/PGR), item 1.5.", "Lei nº 6.514/1977 e Portaria MTb nº 3.214/1978, com alterações vigentes."],
+  LTCAT: ["Lei nº 8.213/1991, art. 58.", "Decreto nº 3.048/1999, art. 68."],
+  LIP: ["CLT, arts. 189 a 197.", "NR-15 e NR-16, conforme o agente, atividade e avaliação aplicáveis."],
+  PCMSO: ["NR-07 — Programa de Controle Médico de Saúde Ocupacional.", "CLT, art. 168. Dados de saúde devem observar a Lei nº 13.709/2018 (LGPD)."],
+  Funcionários: ["NR-01 — Gerenciamento de Riscos Ocupacionais, quando aplicável à gestão de riscos.", "Lei nº 13.709/2018 (LGPD) para tratamento de dados pessoais."],
+  EPIs: ["NR-06 — Equipamento de Proteção Individual.", "CLT, art. 166, e Portaria MTb nº 3.214/1978, com alterações vigentes."],
+  Extintores: ["NR-23 — Proteção contra incêndios.", "Instruções técnicas do Corpo de Bombeiros estadual e normas técnicas aplicáveis, em suas versões vigentes."],
+  Inspeções: ["NR-01, item 1.5, para gerenciamento de riscos.", "A NR específica depende do equipamento, atividade e risco registrados em cada inspeção."],
+  Documentos: ["As referências dependem do tipo e finalidade de cada documento cadastrado; este relatório apenas consolida os metadados disponíveis."],
+  Exames: ["NR-07 — Programa de Controle Médico de Saúde Ocupacional; CLT, art. 168.", "Dados de saúde devem observar a Lei nº 13.709/2018 (LGPD)."],
+  Clínicas: ["NR-07 — Programa de Controle Médico de Saúde Ocupacional.", "Dados pessoais e de saúde devem observar a Lei nº 13.709/2018 (LGPD)."],
+  "PGR / Riscos": ["NR-01 — Gerenciamento de Riscos Ocupacionais (GRO/PGR), item 1.5.", "Lei nº 6.514/1977 e Portaria MTb nº 3.214/1978, com alterações vigentes."],
+  Financeiro: ["Relatório administrativo: não há uma referência normativa única de SST aplicável a todos os lançamentos financeiros."],
+  "Responsável técnico": ["As exigências de habilitação, registro e responsabilidade técnica variam conforme o tipo de documento e atividade; valide com o conselho profissional competente."],
 };
 
 const SETORES = ["Vendas", "Caixa", "Estoque", "Limpeza", "Gerência", "Entrega", "Administrativo", "Produção", "Manutenção", "Segurança", "Almoxarifado", "RH", "Outro"];
@@ -241,6 +271,23 @@ function formatarData(data: string) {
   return Number.isNaN(valor.getTime()) ? data : valor.toLocaleDateString("pt-BR");
 }
 
+function diasAteData(data: unknown): number | null {
+  const dataISO = String(data || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataISO)) return null;
+  const prazo = new Date(`${dataISO}T12:00:00`);
+  const hoje = new Date(`${dataLocalISO(new Date())}T12:00:00`);
+  if (Number.isNaN(prazo.getTime())) return null;
+  return Math.round((prazo.getTime() - hoje.getTime()) / 86400000);
+}
+
+function statusPrazo(data: unknown): "Vencido" | "A vencer" | "Em dia" | "Sem data" {
+  const dias = diasAteData(data);
+  if (dias === null) return "Sem data";
+  if (dias < 0) return "Vencido";
+  if (dias <= 30) return "A vencer";
+  return "Em dia";
+}
+
 function formatarCpf(cpf: unknown) {
   const digitos = String(cpf || "").replace(/\D/g, "");
   if (digitos.length !== 11) return String(cpf || "CPF não informado");
@@ -319,6 +366,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
   const [mensagem, setMensagem] = useState("");
+  const [avisosAbertos, setAvisosAbertos] = useState(false);
   const [pastaAtual, setPastaAtual] = useState("Todas");
   const [filtroStatus, setFiltroStatus] = useState("Todos");
   const [filtroSetor, setFiltroSetor] = useState("Todos");
@@ -333,6 +381,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
   const [buscaFuncionarioEpi, setBuscaFuncionarioEpi] = useState("");
   const [listaFuncionariosEpiAberta, setListaFuncionariosEpiAberta] = useState(false);
   const requestId = useRef(0);
+  const empresaCompletaRef = useRef<string | null>(null);
   const assinaturaCanvas = useRef<HTMLCanvasElement>(null);
   const desenhandoAssinatura = useRef(false);
   const [pinAutomatico, setPinAutomatico] = useState(true);
@@ -389,7 +438,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     if (categoria !== "empresas") setAcessoInicialEmpresa(null);
   }, [categoria]);
 
-  const carregarRegistros = useCallback(async (): Promise<Record<Categoria, Registro[]> | null> => {
+  const carregarRegistros = useCallback(async (carregarTodasCategorias = false): Promise<Record<Categoria, Registro[]> | null> => {
     const request = ++requestId.current;
     if (!empresaAtual) {
       const vazio: Record<Categoria, Registro[]> = {
@@ -400,7 +449,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       setCarregandoRegistros(false);
       return vazio;
     }
-    const categoriaSolicitada = categoria === "inicio" || categoria === "empresas" ? null : categoria;
+    const categoriaSolicitada = carregarTodasCategorias || categoria === "inicio" || categoria === "empresas" ? null : categoria;
     setCarregandoRegistros(true);
     const categoriasNecessarias: (Categoria | null)[] = categoriaSolicitada === "exames"
       ? ["exames", "funcionarios", "clinicas"]
@@ -446,6 +495,20 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     void carregarRegistros();
     return () => { requestId.current += 1; };
   }, [carregarRegistros]);
+  useEffect(() => {
+    if (!empresaAtual) {
+      empresaCompletaRef.current = null;
+      return;
+    }
+    if (categoria === "inicio" || categoria === "empresas") {
+      empresaCompletaRef.current = empresaAtual.id;
+      return;
+    }
+    if (empresaCompletaRef.current !== empresaAtual.id) {
+      empresaCompletaRef.current = empresaAtual.id;
+      void carregarRegistros(true);
+    }
+  }, [carregarRegistros, categoria, empresaAtual]);
 
   const contagens = useMemo(() => ({
     funcionarios: registros.funcionarios.length,
@@ -457,6 +520,76 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     totalFinanceiro: registros.financeiro.reduce((soma, item) => soma + (Number(String(item.valor || "0").replace(",", ".")) || 0), 0),
     totalRecebido: registros.financeiro.filter(item => /pago/i.test(item.status || "")).reduce((soma, item) => soma + (Number(String(item.valor || "0").replace(",", ".")) || 0), 0),
   }), [registros]);
+
+  const avisosPrazo = useMemo(() => {
+    if (!empresaAtual) return [];
+    const avisos: AvisoPrazo[] = [];
+    const adicionarAvisos = (
+      categoriaAviso: Categoria,
+      itens: Registro[],
+      obterPrazo: (item: Registro) => { data: unknown; titulo: string; detalhe: string } | null,
+    ) => {
+      itens.forEach(item => {
+        if (item.company_id !== empresaAtual.id) return;
+        const prazo = obterPrazo(item);
+        if (!prazo) return;
+        const dias = diasAteData(prazo.data);
+        if (dias === null || dias > 30) return;
+        avisos.push({
+          id: `${categoriaAviso}-${item.id}`,
+          categoria: categoriaAviso,
+          titulo: prazo.titulo,
+          detalhe: prazo.detalhe,
+          data: String(prazo.data).slice(0, 10),
+          dias,
+        });
+      });
+    };
+
+    adicionarAvisos("extintores", registros.extintores, item => ({
+      data: item.proxima_recarga || item.vencimento,
+      titulo: `Prazo de extintor · ${item.localizacao || "local não informado"}`,
+      detalhe: `Próxima recarga: ${formatarData(String(item.proxima_recarga || item.vencimento || ""))}`,
+    }));
+    adicionarAvisos("documentos", registros.documentos, item => ({
+      data: item.vencimento,
+      titulo: `Documento · ${item.titulo || "sem título"}`,
+      detalhe: `Vencimento: ${formatarData(String(item.vencimento || ""))}`,
+    }));
+    adicionarAvisos("exames", registros.exames, item => {
+      const estado = `${item.status || ""} ${item.resultado || ""}`;
+      if (/realizad|apto|inapto|conclu|cancel/i.test(estado)) return null;
+      return {
+        data: item.data,
+        titulo: "Prazo de exame ocupacional",
+        detalhe: `Data prevista: ${formatarData(String(item.data || ""))}`,
+      };
+    });
+    adicionarAvisos("inspecoes", registros.inspecoes, item => {
+      if (/conclu|cancel/i.test(String(item.status || ""))) return null;
+      return {
+        data: item.data,
+        titulo: `Inspeção · ${item.titulo || "atividade programada"}`,
+        detalhe: `Data prevista: ${formatarData(String(item.data || ""))}`,
+      };
+    });
+    adicionarAvisos("financeiro", registros.financeiro, item => {
+      if (/pago|quitad/i.test(String(item.status || ""))) return null;
+      return {
+        data: item.vencimento,
+        titulo: "Prazo financeiro",
+        detalhe: `Vencimento: ${formatarData(String(item.vencimento || ""))}`,
+      };
+    });
+    return avisos.sort((a, b) => a.dias - b.dias || a.data.localeCompare(b.data));
+  }, [empresaAtual, registros]);
+
+  const extintoresDaEmpresa = registros.extintores.filter(item => item.company_id === empresaAtual?.id);
+  const contagemExtintores = {
+    vencidos: extintoresDaEmpresa.filter(item => statusPrazo(item.proxima_recarga || item.vencimento) === "Vencido").length,
+    aVencer: extintoresDaEmpresa.filter(item => statusPrazo(item.proxima_recarga || item.vencimento) === "A vencer").length,
+    emDia: extintoresDaEmpresa.filter(item => statusPrazo(item.proxima_recarga || item.vencimento) === "Em dia").length,
+  };
 
   const listaAtual = useMemo(() => {
     if (categoria === "inicio" || categoria === "empresas") return [];
@@ -477,12 +610,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     if ((categoria === "extintores" || categoria === "documentos") && filtroStatus !== "Todos") {
       lista = lista.filter(item => {
         const vencimento = categoria === "extintores" ? item.proxima_recarga || item.vencimento : item.vencimento;
-        if (!vencimento) return filtroStatus === "Sem data";
-        const dias = Math.ceil((new Date(`${vencimento}T00:00:00`).getTime() - new Date(`${dataHoje()}T00:00:00`).getTime()) / 86400000);
-        if (filtroStatus === "Vencido") return dias < 0;
-        if (filtroStatus === "A vencer") return dias >= 0 && dias <= 30;
-        if (filtroStatus === "Em dia") return dias > 30;
-        return true;
+        return statusPrazo(vencimento) === filtroStatus;
       });
     }
     return lista;
@@ -1121,6 +1249,9 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       LIP: "Este relatório reúne os dados cadastrados e não substitui avaliação técnica das atividades e condições reais de trabalho.",
       PCMSO: "Este resumo de exames e clínicas não substitui a elaboração, coordenação ou validação do PCMSO e dos ASOs pelo profissional médico responsável.",
     };
+    const referenciasNormativas = REFERENCIAS_NORMATIVAS[tipo] || [
+      "As normas aplicáveis dependem da finalidade do documento, da atividade e das condições reais de trabalho.",
+    ];
     const objetivo = tipo === "Painel completo"
       ? "Visão consolidada das informações de SST cadastradas para a empresa."
       : `Consolidação dos registros relacionados a ${tipo}, conforme dados disponíveis no PREVIX.`;
@@ -1180,6 +1311,9 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     .pending{color:#b45309;font-size:8px;font-weight:800}
     .technical-note{margin-top:20px;padding:13px 15px;border:1px solid #fed7aa;border-left:4px solid #f97316;border-radius:9px;background:#fff7ed;color:#7c3f12;font-size:10px}
     .technical-note strong{display:block;margin-bottom:3px;color:#9a3412}
+    .references ul{margin:0;padding-left:18px;color:#52677d;font-size:10px}
+    .references li{margin:4px 0}
+    .references p{margin:8px 0 0;color:var(--muted);font-size:9px}
     .signatures{display:grid;grid-template-columns:1fr 1fr;gap:38px;margin:54px 0 20px}
     .signature-line{min-height:44px;padding-top:9px;border-top:1px solid #64748b;color:#334b63;font-size:10px;text-align:center}
     .signature-line strong{display:block;color:var(--navy)}
@@ -1228,6 +1362,11 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       </section>
       ${secoes}
       ${riscosPlano}
+      <section class="section references">
+        <div class="section-heading"><div><p class="eyebrow">BASE LEGAL E NORMATIVA</p><h2>Referências normativas relacionadas</h2></div></div>
+        <ul>${referenciasNormativas.map(referencia => `<li>${escaparHtml(referencia)}</li>`).join("")}</ul>
+        <p>Referências informativas para orientar a revisão. A citação não certifica validade, conformidade ou substitui análise, medições, assinatura e responsabilidade técnica exigidas para cada documento.</p>
+      </section>
       <div class="technical-note"><strong>Nota técnica e validação</strong>${escaparHtml(observacoesTipo[tipo] || "Relatório compilado a partir dos registros cadastrados. Verifique a exatidão e a atualização das informações antes de utilizar este documento.")} Este material não substitui vistoria, análise técnica ou validação profissional quando aplicáveis.</div>
       <footer class="signatures"><div class="signature-line"><strong>${nomeSeguro}</strong>Responsável técnico · assinatura e registro profissional</div><div class="signature-line"><strong>${nomeEmpresa}</strong>Representante da empresa · ciência dos dados</div></footer>
     </div>
@@ -1334,6 +1473,11 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       <div>${assinatura}</div>
       <div class="sign">${escaparHtml(formatarValorRelatorio(registro.funcionario))}<br>Assinatura do funcionário</div>
     </section>
+    <section class="section">
+      <h2>Referências normativas relacionadas</h2>
+      <ul><li>NR-06 — Equipamento de Proteção Individual.</li><li>CLT, art. 166, e Portaria MTb nº 3.214/1978, com alterações vigentes.</li></ul>
+      <p class="notice">As referências são informativas e não substituem a conferência dos dados, da identificação do EPI e do Certificado de Aprovação, nem atestam validade legal por si só.</p>
+    </section>
     <p class="notice">Este termo reproduz os dados e confirmações registrados no PREVIX SST para a entrega acima. Confira a identificação, o CA e a data antes de arquivar o documento.</p>
     <footer class="footer">PREVIX SST · Documento gerado em ${escaparHtml(dataEmissao)} · A assinatura exibida corresponde ao registro salvo no sistema.</footer>
   </main>
@@ -1386,6 +1530,10 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
     ...Array.from({ length: diasNoMesCalendario }, (_, index) => dataLocalISO(new Date(dataMesCalendario.getFullYear(), dataMesCalendario.getMonth(), index + 1))),
   ];
   const mesCalendarioTitulo = dataMesCalendario.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const telefoneDigitado = String(empresaAtual?.telefone || "").replace(/\D/g, "");
+  const telefoneWhatsApp = telefoneDigitado.startsWith("55") && [12, 13].includes(telefoneDigitado.length)
+    ? telefoneDigitado
+    : [10, 11].includes(telefoneDigitado.length) ? `55${telefoneDigitado}` : "";
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-cyan-50 to-blue-100 text-slate-900">
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-blue-950 px-4 py-5 text-white md:flex">
@@ -1410,7 +1558,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
       </aside>
 
       <div className="md:pl-64">
-        <header className="sticky top-0 z-10 border-b border-cyan-100 bg-white/95 px-4 py-3 shadow-sm shadow-slate-900/5 backdrop-blur md:px-8">
+        <header className="sticky top-0 z-10 border-b-2 border-cyan-300 bg-gradient-to-r from-blue-50 via-white to-violet-50 px-4 py-3 shadow-md shadow-blue-950/10 backdrop-blur md:px-8">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 md:hidden">
@@ -1418,10 +1566,60 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                 <span className="text-base font-black text-slate-900">PREVIX <span className="text-teal-700">SST</span></span>
               </div>
               <span className="hidden text-sm font-bold text-slate-500 md:inline">{titulo}</span>
-              {!ehAdm && empresaAtual && <span className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-bold text-teal-800">{empresaAtual.nome}</span>}
-              <span className={`rounded-full px-3 py-1 text-[10px] font-black tracking-wide ${ehAdm ? "bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800" : "bg-gradient-to-r from-teal-100 to-emerald-100 text-teal-800"}`}>{ehAdm ? "ADMIN" : "EMPRESA"}</span>
+              {!ehAdm && empresaAtual && <span className="rounded-full border border-teal-300 bg-gradient-to-r from-teal-500 to-cyan-500 px-3 py-1 text-xs font-bold text-white shadow-sm">{empresaAtual.nome}</span>}
+              <span className={`rounded-full px-3.5 py-1.5 text-[10px] font-black tracking-wider ring-1 ring-white/70 ${ehAdm ? "bg-gradient-to-r from-orange-500 via-rose-500 to-violet-600 text-white shadow-md shadow-rose-500/25" : "bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-md shadow-teal-500/20"}`}>{ehAdm ? "✦ ADMIN" : "✓ EMPRESA"}</span>
             </div>
             <div className="flex items-center gap-3">
+              <div className="relative">
+                <button
+                  type="button"
+                  aria-expanded={avisosAbertos}
+                  aria-label={`Alertas de prazo: ${avisosPrazo.length}`}
+                  onClick={() => setAvisosAbertos(aberto => !aberto)}
+                  className="relative inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 px-3 py-2 text-xs font-black text-white shadow-md shadow-orange-500/20 transition hover:-translate-y-0.5 hover:shadow-lg"
+                >
+                  <span aria-hidden="true">🔔</span><span className="hidden sm:inline">Prazos</span>
+                  {avisosPrazo.length > 0 && <span className="min-w-5 rounded-full bg-white px-1.5 py-0.5 text-center text-[10px] font-black text-rose-700">{avisosPrazo.length > 99 ? "99+" : avisosPrazo.length}</span>}
+                </button>
+                {avisosAbertos && (
+                  <div className="absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                    <div className="bg-gradient-to-r from-slate-900 to-blue-900 px-4 py-3 text-white">
+                      <p className="text-sm font-black">Alertas de prazo</p>
+                      <p className="mt-0.5 text-[10px] text-blue-100">Vencidos ou com prazo nos próximos 30 dias</p>
+                    </div>
+                    <div className="max-h-80 space-y-2 overflow-y-auto p-3">
+                      {avisosPrazo.length ? avisosPrazo.map(aviso => {
+                        const statusAviso = aviso.dias < 0
+                          ? `Vencido há ${Math.abs(aviso.dias)} dia(s)`
+                          : aviso.dias === 0 ? "Vence hoje" : `Vence em ${aviso.dias} dia(s)`;
+                        const classeAviso = aviso.dias < 0
+                          ? "border-red-200 bg-red-50 text-red-800"
+                          : "border-amber-200 bg-amber-50 text-amber-900";
+                        const textoWhatsapp = encodeURIComponent(`PREVIX SST · ${empresaAtual?.nome || "Empresa"}\n${aviso.titulo}\nPrazo: ${formatarData(aviso.data)}\nConsulte o painel autenticado para verificar os detalhes.`);
+                        return (
+                          <article key={aviso.id} className={`rounded-xl border p-3 ${classeAviso}`}>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-xs font-black">{aviso.titulo}</p>
+                                <p className="mt-1 text-[10px]">{aviso.detalhe}</p>
+                                <p className="mt-1 text-[10px] font-black">{statusAviso}</p>
+                              </div>
+                              <a
+                                href={`https://wa.me/${telefoneWhatsApp}?text=${textoWhatsapp}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="shrink-0 rounded-lg bg-white px-2 py-1.5 text-[10px] font-black text-green-700 shadow-sm hover:bg-green-50"
+                              >
+                                WhatsApp
+                              </a>
+                            </div>
+                          </article>
+                        );
+                      }) : <p className="rounded-xl bg-emerald-50 p-4 text-center text-xs font-semibold text-emerald-800">Nenhum prazo vencido ou próximo dos próximos 30 dias.</p>}
+                    </div>
+                  </div>
+                )}
+              </div>
               {ehAdm && (
                 <label className="flex items-center gap-2 text-xs font-bold text-slate-500">
                   Empresa
@@ -1429,6 +1627,7 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                     value={empresaAtual?.id || ""}
                     onChange={event => {
                       setEmpresaAtual(empresas.find(empresa => empresa.id === event.target.value) || null);
+                      setAvisosAbertos(false);
                       setFuncionarioExameId("");
                       setBuscaFuncionarioExame("");
                       setTiposExameSelecionados([]);
@@ -1905,7 +2104,20 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
               )}
 
               {categoria === "extintores" && (
-                <p className="mb-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">Cadastre a data programada para a próxima recarga para acompanhar vencimentos e incluir a informação nos relatórios.</p>
+                <>
+                  <div className="mb-3 grid gap-2 sm:grid-cols-3">
+                    <div className="flex items-center justify-between rounded-xl border border-red-200 bg-gradient-to-r from-red-50 to-rose-100 p-3 text-red-800">
+                      <span className="text-xs font-black">🔴 Vencidos</span><strong className="text-2xl">{contagemExtintores.vencidos}</strong>
+                    </div>
+                    <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-100 p-3 text-amber-900">
+                      <span className="text-xs font-black">🟠 A vencer · 30 dias</span><strong className="text-2xl">{contagemExtintores.aVencer}</strong>
+                    </div>
+                    <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-100 p-3 text-emerald-900">
+                      <span className="text-xs font-black">🟢 Em dia</span><strong className="text-2xl">{contagemExtintores.emDia}</strong>
+                    </div>
+                  </div>
+                  <p className="mb-3 rounded-lg border border-cyan-100 bg-cyan-50 p-3 text-xs text-cyan-900">O status considera primeiro a próxima recarga cadastrada e, se ausente, usa a data de vencimento.</p>
+                </>
               )}
 
               <input value={busca} onChange={event => setBusca(event.target.value)} placeholder={`Buscar ${titulo.toLocaleLowerCase("pt-BR")}...`} className={`${INPUT_CLASS} mb-4`} />
@@ -1916,45 +2128,58 @@ export default function Dashboard({ usuario, onSair }: { usuario: Profile; onSai
                 <p className="rounded-xl bg-white p-6 text-center text-sm text-slate-500">Nenhum registro encontrado.</p>
               ) : (
                 <div className="space-y-3">
-                  {listaAtual.map(registro => (
-                    <article key={registro.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <h2 className="font-extrabold">
-                            {categoria === "epis" && <span className="mr-2" aria-hidden="true">{CATALOGO_EPIS.find(item => item.nome === registro.nome)?.icone || "🦺"}</span>}
-                            {registro.nome || registro.titulo || registro.descricao || registro.localizacao || registro.ghe || "Registro"}
-                          </h2>
-                          <div className="mt-2 grid gap-x-6 gap-y-1 text-sm text-slate-600 sm:grid-cols-2">
-                            {CAMPOS[categoria].filter(campo => campo.chave !== "nome" || !registro.titulo).map(campo => {
-                              const valor = registro[campo.chave];
-                              if (valor === undefined || valor === null || valor === "") return null;
-                              return <p key={campo.chave}><span className="font-semibold text-slate-500">{campo.rotulo}:</span> {String(valor)}</p>;
-                            })}
-                            {categoria === "documentos" && registro.arquivo && (
-                              <button type="button" onClick={() => void abrirDocumento(registro)} className="text-left font-bold text-teal-700 underline">
-                                📎 Abrir arquivo: {registro.arquivo}
-                              </button>
-                            )}
-                            {categoria === "epis" && registro.assinatura && (
-                              <>
-                                <p className="font-semibold text-teal-800">
-                                  Confirmação: {registro.assinatura.metodo === "pin_biometria_assinatura" ? "PIN + verificação WebAuthn + Assinatura" : registro.assinatura.metodo === "pin" ? "PIN" : registro.assinatura.metodo === "digitada" ? "Assinatura digitada + PIN" : registro.assinatura.metodo === "punho" ? "Assinatura manuscrita" : "Sem confirmação verificável"}
-                                  {registro.assinatura.confirmado_em ? ` · ${new Date(registro.assinatura.confirmado_em).toLocaleString("pt-BR")}` : ""}
-                                </p>
-                                {typeof (registro.assinaturaImg || registro.assinatura.imagem) === "string" && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(registro.assinaturaImg || registro.assinatura.imagem) && (
-                                  <img src={registro.assinaturaImg || registro.assinatura.imagem} alt={`Assinatura de ${registro.assinatura.nome || "funcionário"}`} className="mt-2 max-h-24 max-w-xs rounded border border-slate-200 bg-white p-2" />
-                                )}
-                              </>
-                            )}
+                  {listaAtual.map(registro => {
+                    const statusExtintor = categoria === "extintores" ? statusPrazo(registro.proxima_recarga || registro.vencimento) : null;
+                    const classesStatusExtintor = statusExtintor === "Vencido"
+                      ? "border-red-200 bg-red-100 text-red-800"
+                      : statusExtintor === "A vencer"
+                        ? "border-amber-200 bg-amber-100 text-amber-900"
+                        : statusExtintor === "Em dia"
+                          ? "border-emerald-200 bg-emerald-100 text-emerald-800"
+                          : "border-slate-200 bg-slate-100 text-slate-600";
+                    return (
+                      <article key={registro.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h2 className="font-extrabold">
+                                {categoria === "epis" && <span className="mr-2" aria-hidden="true">{CATALOGO_EPIS.find(item => item.nome === registro.nome)?.icone || "🦺"}</span>}
+                                {registro.nome || registro.titulo || registro.descricao || registro.localizacao || registro.ghe || "Registro"}
+                              </h2>
+                              {statusExtintor && <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${classesStatusExtintor}`}>{statusExtintor}</span>}
+                            </div>
+                            <div className="mt-2 grid gap-x-6 gap-y-1 text-sm text-slate-600 sm:grid-cols-2">
+                              {CAMPOS[categoria].filter(campo => campo.chave !== "nome" || !registro.titulo).map(campo => {
+                                const valor = registro[campo.chave];
+                                if (valor === undefined || valor === null || valor === "") return null;
+                                return <p key={campo.chave}><span className="font-semibold text-slate-500">{campo.rotulo}:</span> {String(valor)}</p>;
+                              })}
+                              {categoria === "documentos" && registro.arquivo && (
+                                <button type="button" onClick={() => void abrirDocumento(registro)} className="text-left font-bold text-teal-700 underline">
+                                  📎 Abrir arquivo: {registro.arquivo}
+                                </button>
+                              )}
+                              {categoria === "epis" && registro.assinatura && (
+                                <>
+                                  <p className="font-semibold text-teal-800">
+                                    Confirmação: {registro.assinatura.metodo === "pin_biometria_assinatura" ? "PIN + verificação WebAuthn + Assinatura" : registro.assinatura.metodo === "pin" ? "PIN" : registro.assinatura.metodo === "digitada" ? "Assinatura digitada + PIN" : registro.assinatura.metodo === "punho" ? "Assinatura manuscrita" : "Sem confirmação verificável"}
+                                    {registro.assinatura.confirmado_em ? ` · ${new Date(registro.assinatura.confirmado_em).toLocaleString("pt-BR")}` : ""}
+                                  </p>
+                                  {typeof (registro.assinaturaImg || registro.assinatura.imagem) === "string" && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(registro.assinaturaImg || registro.assinatura.imagem) && (
+                                    <img src={registro.assinaturaImg || registro.assinatura.imagem} alt={`Assinatura de ${registro.assinatura.nome || "funcionário"}`} className="mt-2 max-h-24 max-w-xs rounded border border-slate-200 bg-white p-2" />
+                                  )}
+                                </>
+                              )}
+                            </div>
                           </div>
+                          {categoria === "epis" ? <button onClick={() => imprimirTermoEpi(registro)} className="rounded-lg bg-teal-50 px-3 py-2 text-xs font-bold text-teal-800">📄 Termo PDF</button> : <div className="flex gap-2">
+                            <button onClick={() => abrirEditar(registro)} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200">Editar</button>
+                            <button onClick={() => void excluirRegistro(registro)} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100">Excluir</button>
+                          </div>}
                         </div>
-                        {categoria === "epis" ? <button onClick={() => imprimirTermoEpi(registro)} className="rounded-lg bg-teal-50 px-3 py-2 text-xs font-bold text-teal-800">📄 Termo PDF</button> : <div className="flex gap-2">
-                          <button onClick={() => abrirEditar(registro)} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200">Editar</button>
-                          <button onClick={() => void excluirRegistro(registro)} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100">Excluir</button>
-                        </div>}
-                      </div>
-                    </article>
-                  ))}
+                      </article>
+                    );
+                  })}
                 </div>
               )}
             </section>

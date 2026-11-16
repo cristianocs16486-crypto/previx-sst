@@ -22,11 +22,26 @@ class ApiError extends Error {
   }
 }
 
+function validateEnvironmentValue(name: string, value: string) {
+  if (value !== value.trim() || /\s/.test(value)) {
+    throw new ApiError(`A variável ${name} deve conter somente o valor, sem espaços ou outras variáveis.`, 500);
+  }
+}
+
 function getSupabaseConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {
     throw new ApiError("Configure NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY no ambiente do servidor.", 500);
+  }
+  validateEnvironmentValue("NEXT_PUBLIC_SUPABASE_URL", url);
+  validateEnvironmentValue("NEXT_PUBLIC_SUPABASE_ANON_KEY", anonKey);
+  try {
+    const parsedUrl = new URL(url);
+    const localHost = parsedUrl.hostname === "localhost" || parsedUrl.hostname === "127.0.0.1";
+    if (parsedUrl.protocol !== "https:" && !(parsedUrl.protocol === "http:" && localHost)) throw new Error();
+  } catch {
+    throw new ApiError("NEXT_PUBLIC_SUPABASE_URL deve ser uma URL válida do projeto Supabase.", 500);
   }
   return { url, anonKey };
 }
@@ -64,6 +79,10 @@ async function getAdminClient(request: NextRequest): Promise<SupabaseClient> {
   if (!serviceRoleKey) {
     throw new ApiError("Configure SUPABASE_SERVICE_ROLE_KEY ou SUPABASE_SECRET_KEY no ambiente do servidor.", 500);
   }
+  validateEnvironmentValue(
+    process.env.SUPABASE_SERVICE_ROLE_KEY ? "SUPABASE_SERVICE_ROLE_KEY" : "SUPABASE_SECRET_KEY",
+    serviceRoleKey,
+  );
   return createClient(url, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
@@ -96,9 +115,19 @@ function validInput(body: CompanyInput, creating: boolean) {
 }
 
 function errorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : "Falha inesperada ao gerenciar a empresa.";
+  const originalMessage = error instanceof Error ? error.message : "";
+  const invalidHeader = /Headers\.set:|invalid header value/i.test(originalMessage);
+  const message = error instanceof ApiError
+    ? error.message
+    : invalidHeader
+      ? "A configuração da chave Supabase no servidor está inválida. Confira as variáveis de ambiente da Vercel."
+      : originalMessage || "Falha inesperada ao gerenciar a empresa.";
   const status = error instanceof ApiError ? error.status : 500;
-  if (status >= 500 && !(error instanceof ApiError)) {
+  if (invalidHeader) {
+    console.error("O Supabase rejeitou um cabeçalho de configuração inválido.", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+  } else if (status >= 500 && !(error instanceof ApiError)) {
     console.error("Falha inesperada ao gerenciar empresa.", error);
   }
   return NextResponse.json({ error: message }, { status });

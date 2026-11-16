@@ -16,40 +16,55 @@ type CompanyInput = {
   status?: string;
 };
 
+class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
 function getSupabaseConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
-  if (!url || !anonKey || !serviceRoleKey) {
-    throw new Error("Configure NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY e SUPABASE_SERVICE_ROLE_KEY (ou SUPABASE_SECRET_KEY) no ambiente do servidor.");
+  if (!url || !anonKey) {
+    throw new ApiError("Configure NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY no ambiente do servidor.", 500);
   }
-  return { url, anonKey, serviceRoleKey };
+  return { url, anonKey };
 }
 
 async function getAdminClient(request: NextRequest): Promise<SupabaseClient> {
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  if (!token) throw new Error("Sessão não autenticada.");
+  if (!token) throw new ApiError("Sessão não autenticada.", 401);
 
-  const { url, anonKey, serviceRoleKey } = getSupabaseConfig();
+  const { url, anonKey } = getSupabaseConfig();
   const authClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data: { user }, error: authError } = await authClient.auth.getUser(token);
-  if (authError || !user) throw new Error("Sessão inválida ou expirada.");
+  if (authError || !user) throw new ApiError("Sessão inválida ou expirada.", 401);
 
-  const admin = createClient(url, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { data: profile, error: profileError } = await admin
+  const userClient = createClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const { data: profile, error: profileError } = await userClient
     .from("profiles")
     .select("tipo")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
   if (profileError) {
     console.error("Não foi possível consultar o perfil para validar o acesso administrativo.", {
       code: profileError.code,
       message: profileError.message,
+      details: profileError.details,
+      hint: profileError.hint,
     });
-    throw new Error(`Não foi possível consultar o perfil do usuário no Supabase (${profileError.code || "erro desconhecido"}).`);
+    throw new ApiError("Não foi possível validar o perfil ADM. Tente novamente; se persistir, consulte os logs do servidor.", 500);
   }
-  if (profile?.tipo !== "adm") throw new Error("Apenas administradores podem gerenciar empresas.");
-  return admin;
+  if (profile?.tipo !== "adm") throw new ApiError("Apenas administradores podem gerenciar empresas.", 403);
+
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+  if (!serviceRoleKey) {
+    throw new ApiError("Configure SUPABASE_SERVICE_ROLE_KEY ou SUPABASE_SECRET_KEY no ambiente do servidor.", 500);
+  }
+  return createClient(url, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
 function validInput(body: CompanyInput, creating: boolean) {
@@ -82,13 +97,22 @@ function validInput(body: CompanyInput, creating: boolean) {
 
 function errorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "Falha inesperada ao gerenciar a empresa.";
-  return NextResponse.json({ error: message }, { status: 400 });
+  const status = error instanceof ApiError ? error.status : 500;
+  if (status >= 500 && !(error instanceof ApiError)) {
+    console.error("Falha inesperada ao gerenciar empresa.", error);
+  }
+  return NextResponse.json({ error: message }, { status });
 }
 
 export async function POST(request: NextRequest) {
   try {
     const admin = await getAdminClient(request);
-    const body = await request.json() as CompanyInput;
+    let body: CompanyInput;
+    try {
+      body = await request.json() as CompanyInput;
+    } catch {
+      throw new ApiError("Corpo da solicitação inválido.", 400);
+    }
     const validated = validInput(body, true);
     if (validated.error || !validated.value) return NextResponse.json({ error: validated.error }, { status: 400 });
 
@@ -141,7 +165,12 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const admin = await getAdminClient(request);
-    const body = await request.json() as CompanyInput;
+    let body: CompanyInput;
+    try {
+      body = await request.json() as CompanyInput;
+    } catch {
+      throw new ApiError("Corpo da solicitação inválido.", 400);
+    }
     if (!body.id) return NextResponse.json({ error: "Informe a empresa a editar." }, { status: 400 });
     const validated = validInput(body, false);
     if (validated.error || !validated.value) return NextResponse.json({ error: validated.error }, { status: 400 });
@@ -212,7 +241,12 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const admin = await getAdminClient(request);
-    const body = await request.json() as { id?: string };
+    let body: { id?: string };
+    try {
+      body = await request.json() as { id?: string };
+    } catch {
+      throw new ApiError("Corpo da solicitação inválido.", 400);
+    }
     if (!body.id) return NextResponse.json({ error: "Informe a empresa a excluir." }, { status: 400 });
 
     const { data: company, error: companyLookupError } = await admin

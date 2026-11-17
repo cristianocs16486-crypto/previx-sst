@@ -106,9 +106,10 @@ function Login({ onEntrar, erroInicial }: { onEntrar: (profile: Profile) => void
         </form>
 
         <div className="mt-4 rounded-lg border border-cyan-100 bg-gradient-to-r from-teal-50 via-cyan-50 to-blue-50 p-3 text-center text-xs text-slate-600">
-          <b className="text-slate-800">Suporte técnico</b>
-          <p className="mt-1">Precisa de ajuda para acessar o sistema?</p>
-          <a href="mailto:suporte@previx.com.br" className="mt-1 inline-block font-bold text-teal-800 underline underline-offset-2">suporte@previx.com.br</a>
+          <b className="text-slate-800">Contato PREVIX SST</b>
+          <p className="mt-1">Fale com a nossa equipe:</p>
+          <a href="tel:+5582994145622" className="mt-1 inline-block font-bold text-teal-800 underline underline-offset-2">(82) 99414-5622</a>
+          <a href="mailto:previxsst1@gmail.com" className="block font-bold text-teal-800 underline underline-offset-2">previxsst1@gmail.com</a>
           <a href="/gestao-sst" className="mt-3 block font-bold text-teal-800 underline underline-offset-2">Conheça o PREVIX SST</a>
         </div>
       </section>

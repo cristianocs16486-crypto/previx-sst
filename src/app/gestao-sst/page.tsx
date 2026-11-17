@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 
 const siteUrl = "https://previx-sst.vercel.app";
 const whatsappUrl =
@@ -136,25 +137,19 @@ export default function GestaoSstPage() {
           </p>
         </div>
 
-        <aside className="rounded-3xl border border-teal-100 bg-white p-7 shadow-xl shadow-teal-900/5">
-          <h2 className="text-xl font-black text-slate-900">
-            Rotinas de SST mais organizadas
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Consulte registros e acompanhe informações importantes para a
-            operação da sua empresa.
-          </p>
-          <ul className="mt-6 space-y-4">
-            {features.map((feature) => (
-              <li key={feature.title} className="border-l-4 border-teal-500 pl-4">
-                <h3 className="font-bold text-slate-800">{feature.title}</h3>
-                <p className="mt-1 text-sm leading-6 text-slate-600">
-                  {feature.description}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </aside>
+        <figure className="overflow-hidden rounded-3xl border border-teal-100 bg-white p-2 shadow-2xl shadow-teal-900/10">
+          <Image
+            src="/previx-dashboard-preview.svg"
+            alt="Prévia ilustrativa do painel PREVIX SST, com menu de módulos, indicadores e acesso a informações de segurança do trabalho."
+            width={1280}
+            height={760}
+            priority
+            className="h-auto w-full rounded-2xl"
+          />
+          <figcaption className="px-3 py-3 text-center text-xs text-slate-500">
+            Prévia ilustrativa do painel PREVIX SST. Os dados exibidos são exemplos.
+          </figcaption>
+        </figure>
       </section>
 
       <section id="o-que-e" className="mx-auto max-w-6xl px-6 py-16">

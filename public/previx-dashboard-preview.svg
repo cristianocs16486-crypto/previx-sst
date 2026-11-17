@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" fill="none">
+  <defs>
+    <linearGradient id="background" x1="320" y1="0" x2="1050" y2="760" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E8FBF5"/>
+      <stop offset="1" stop-color="#F4FBE8"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#0D9488"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#123F35" flood-opacity=".14"/>
+    </filter>
+  </defs>
+  <rect x="14" y="14" width="1252" height="732" rx="26" fill="white" filter="url(#shadow)"/>
+  <rect x="14" y="14" width="1252" height="732" rx="26" stroke="#D7E8E2" stroke-width="2"/>
+  <path d="M40 14h1200a26 26 0 0 1 26 26v48H14V40a26 26 0 0 1 26-26Z" fill="#F8FAFC"/>
+  <circle cx="48" cy="51" r="8" fill="#F87171"/>
+  <circle cx="76" cy="51" r="8" fill="#FBBF24"/>
+  <circle cx="104" cy="51" r="8" fill="#34D399"/>
+  <rect x="430" y="35" width="420" height="32" rx="16" fill="white" stroke="#E2E8F0"/>
+  <text x="640" y="56" text-anchor="middle" fill="#64748B" font-family="Arial,sans-serif" font-size="14">previx-sst.vercel.app</text>
+
+  <rect x="14" y="88" width="236" height="658" rx="0" fill="#064E3B"/>
+  <rect x="34" y="111" width="48" height="48" rx="14" fill="white"/>
+  <path d="M47 142 58 121l11 21h-7l-4-8-4 8h-7Z" fill="url(#accent)"/>
+  <text x="94" y="132" fill="white" font-family="Arial,sans-serif" font-size="22" font-weight="700">PREVIX SST</text>
+  <text x="94" y="151" fill="#99F6E4" font-family="Arial,sans-serif" font-size="10" font-weight="700" letter-spacing="1.2">PREVENÇÃO QUE PROTEGE</text>
+
+  <rect x="30" y="184" width="204" height="42" rx="12" fill="#0F766E"/>
+  <text x="51" y="211" fill="white" font-family="Arial,sans-serif" font-size="16">⌂</text>
+  <text x="77" y="211" fill="white" font-family="Arial,sans-serif" font-size="15" font-weight="700">Início</text>
+  <text x="51" y="264" fill="#D1FAE5" font-family="Arial,sans-serif" font-size="15">♧</text>
+  <text x="77" y="264" fill="#D1FAE5" font-family="Arial,sans-serif" font-size="15">EPIs</text>
+  <text x="51" y="311" fill="#D1FAE5" font-family="Arial,sans-serif" font-size="15">▣</text>
+  <text x="77" y="311" fill="#D1FAE5" font-family="Arial,sans-serif" font-size="15">Extintores</text>
+  <text x="51" y="358" fill="#D1FAE5" font-family="Arial,sans-serif" font-size="15">▤</text>
+  <text x="77" y="358" fill="#D1FAE5" font-family="Arial,sans-serif" font-size="15">Inspeções</text>
+  <text x="51" y="405" fill="#D1FAE5" font-family="Arial,sans-serif" font-size="15">▧</text>
+  <text x="77" y="405" fill="#D1FAE5" font-family="Arial,sans-serif" font-size="15">Documentos</text>
+  <text x="51" y="452" fill="#D1FAE5" font-family="Arial,sans-serif" font-size="15">♡</text>
+  <text x="77" y="452" fill="#D1FAE5" font-family="Arial,sans-serif" font-size="15">Exames</text>
+  <text x="51" y="499" fill="#D1FAE5" font-family="Arial,sans-serif" font-size="15">⚠</text>
+  <text x="77" y="499" fill="#D1FAE5" font-family="Arial,sans-serif" font-size="15">PGR / Riscos</text>
+  <text x="51" y="546" fill="#D1FAE5" font-family="Arial,sans-serif" font-size="15">▦</text>
+  <text x="77" y="546" fill="#D1FAE5" font-family="Arial,sans-serif" font-size="15">Empresas</text>
+  <rect x="31" y="692" width="202" height="1" fill="#1D6A53"/>
+  <text x="51" y="722" fill="#D1FAE5" font-family="Arial,sans-serif" font-size="14">↪</text>
+  <text x="77" y="722" fill="#D1FAE5" font-family="Arial,sans-serif" font-size="14">Sair</text>
+
+  <rect x="250" y="88" width="1016" height="72" fill="white"/>
+  <text x="286" y="119" fill="#0F766E" font-family="Arial,sans-serif" font-size="14" font-weight="700">PAINEL PRINCIPAL</text>
+  <text x="286" y="143" fill="#0F172A" font-family="Arial,sans-serif" font-size="22" font-weight="700">Visão geral da sua empresa</text>
+  <rect x="1067" y="108" width="158" height="38" rx="19" fill="#ECFDF5"/>
+  <circle cx="1090" cy="127" r="6" fill="#10B981"/>
+  <text x="1106" y="132" fill="#065F46" font-family="Arial,sans-serif" font-size="14" font-weight="700">Acesso seguro</text>
+
+  <rect x="280" y="184" width="946" height="94" rx="18" fill="url(#background)" stroke="#BFE9DB"/>
+  <text x="308" y="218" fill="#0F766E" font-family="Arial,sans-serif" font-size="13" font-weight="700" letter-spacing="1">BEM-VINDO AO PREVIX SST</text>
+  <text x="308" y="250" fill="#0F172A" font-family="Arial,sans-serif" font-size="22" font-weight="700">Acompanhe as informações de SST em um só lugar</text>
+
+  <rect x="280" y="303" width="218" height="124" rx="18" fill="white" stroke="#D7E8E2"/>
+  <rect x="301" y="324" width="38" height="38" rx="12" fill="#CCFBF1"/>
+  <text x="313" y="350" fill="#0F766E" font-family="Arial,sans-serif" font-size="20">♙</text>
+  <text x="301" y="389" fill="#64748B" font-family="Arial,sans-serif" font-size="14">Funcionários</text>
+  <text x="301" y="414" fill="#0F172A" font-family="Arial,sans-serif" font-size="23" font-weight="700">Equipe</text>
+
+  <rect x="522" y="303" width="218" height="124" rx="18" fill="white" stroke="#D7E8E2"/>
+  <rect x="543" y="324" width="38" height="38" rx="12" fill="#DCFCE7"/>
+  <text x="555" y="350" fill="#15803D" font-family="Arial,sans-serif" font-size="20">✓</text>
+  <text x="543" y="389" fill="#64748B" font-family="Arial,sans-serif" font-size="14">EPIs registrados</text>
+  <text x="543" y="414" fill="#0F172A" font-family="Arial,sans-serif" font-size="23" font-weight="700">Equipamentos</text>
+
+  <rect x="764" y="303" width="218" height="124" rx="18" fill="white" stroke="#D7E8E2"/>
+  <rect x="785" y="324" width="38" height="38" rx="12" fill="#FEF3C7"/>
+  <text x="797" y="350" fill="#B45309" font-family="Arial,sans-serif" font-size="20">◷</text>
+  <text x="785" y="389" fill="#64748B" font-family="Arial,sans-serif" font-size="14">Prazos</text>
+  <text x="785" y="414" fill="#0F172A" font-family="Arial,sans-serif" font-size="23" font-weight="700">Acompanhe</text>
+
+  <rect x="1006" y="303" width="220" height="124" rx="18" fill="white" stroke="#D7E8E2"/>
+  <rect x="1027" y="324" width="38" height="38" rx="12" fill="#DBEAFE"/>
+  <text x="1039" y="350" fill="#1D4ED8" font-family="Arial,sans-serif" font-size="20">▤</text>
+  <text x="1027" y="389" fill="#64748B" font-family="Arial,sans-serif" font-size="14">Relatórios</text>
+  <text x="1027" y="414" fill="#0F172A" font-family="Arial,sans-serif" font-size="23" font-weight="700">Informações</text>
+
+  <rect x="280" y="452" width="582" height="248" rx="18" fill="white" stroke="#D7E8E2"/>
+  <text x="306" y="485" fill="#0F172A" font-family="Arial,sans-serif" font-size="17" font-weight="700">Acesso rápido aos módulos</text>
+  <text x="306" y="512" fill="#64748B" font-family="Arial,sans-serif" font-size="13">Encontre os registros da rotina de segurança do trabalho</text>
+  <rect x="306" y="535" width="242" height="55" rx="12" fill="#F0FDFA"/>
+  <text x="324" y="569" fill="#0F766E" font-family="Arial,sans-serif" font-size="14" font-weight="700">Funcionários e EPIs</text>
+  <rect x="562" y="535" width="274" height="55" rx="12" fill="#F0FDFA"/>
+  <text x="580" y="569" fill="#0F766E" font-family="Arial,sans-serif" font-size="14" font-weight="700">Extintores e inspeções</text>
+  <rect x="306" y="606" width="242" height="55" rx="12" fill="#F0FDFA"/>
+  <text x="324" y="640" fill="#0F766E" font-family="Arial,sans-serif" font-size="14" font-weight="700">Documentos e exames</text>
+  <rect x="562" y="606" width="274" height="55" rx="12" fill="#F0FDFA"/>
+  <text x="580" y="640" fill="#0F766E" font-family="Arial,sans-serif" font-size="14" font-weight="700">PGR / Riscos e relatórios</text>
+
+  <rect x="886" y="452" width="340" height="248" rx="18" fill="white" stroke="#D7E8E2"/>
+  <text x="912" y="485" fill="#0F172A" font-family="Arial,sans-serif" font-size="17" font-weight="700">Informações organizadas</text>
+  <text x="912" y="512" fill="#64748B" font-family="Arial,sans-serif" font-size="13">Uma visão prática para apoiar sua rotina</text>
+  <rect x="912" y="540" width="288" height="1" fill="#E2E8F0"/>
+  <circle cx="923" cy="568" r="6" fill="#10B981"/>
+  <text x="940" y="573" fill="#334155" font-family="Arial,sans-serif" font-size="14">Dados reunidos por empresa</text>
+  <circle cx="923" cy="605" r="6" fill="#F59E0B"/>
+  <text x="940" y="610" fill="#334155" font-family="Arial,sans-serif" font-size="14">Prazos fáceis de consultar</text>
+  <circle cx="923" cy="642" r="6" fill="#3B82F6"/>
+  <text x="940" y="647" fill="#334155" font-family="Arial,sans-serif" font-size="14">Relatórios dos dados cadastrados</text>
+  <rect x="935" y="673" width="244" height="16" rx="8" fill="#E2E8F0"/>
+  <text x="1057" y="685" text-anchor="middle" fill="#475569" font-family="Arial,sans-serif" font-size="10" font-weight="700">PRÉVIA ILUSTRATIVA · DADOS DE EXEMPLO</text>
+</svg>

@@ -109,6 +109,7 @@ function Login({ onEntrar, erroInicial }: { onEntrar: (profile: Profile) => void
           <b className="text-slate-800">Suporte técnico</b>
           <p className="mt-1">Precisa de ajuda para acessar o sistema?</p>
           <a href="mailto:suporte@previx.com.br" className="mt-1 inline-block font-bold text-teal-800 underline underline-offset-2">suporte@previx.com.br</a>
+          <a href="/gestao-sst" className="mt-3 block font-bold text-teal-800 underline underline-offset-2">Conheça o PREVIX SST</a>
         </div>
       </section>
     </main>

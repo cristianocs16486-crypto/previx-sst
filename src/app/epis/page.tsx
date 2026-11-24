@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";import { supabase } from "@/lib/supabaseClient";
+import { useRef, useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function EpisPage() {
   const [funcionario, setFuncionario] = useState("");
@@ -16,7 +17,9 @@ export default function EpisPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const desenhando = useRef(false);
 
-  // REGRA NOVA: 1 SÓ JÁ VALIDA - OU e não E
+  // ===== REGRA CORRIGIDA AQUI =====
+  // ANTES ESTAVA ERRADO: assinatura1 && assinatura2 && assinatura3
+  // AGORA CERTO: com 1 só já valida
   const podeValidar = assinatura1 || assinatura2 || assinatura3;
 
   const tipoUsado = assinatura1
@@ -67,40 +70,63 @@ export default function EpisPage() {
     setAssinatura3(codigo.trim().length >= 3);
   }, [codigo]);
 
- async function confirmarEntrega() {
-  if (!funcionario || !epi) {
-    alert("Preencha funcionário e EPI");
-    return;
+  async function confirmarEntrega() {
+    if (!funcionario || !epi) {
+      alert("Preencha funcionário e EPI");
+      return;
+    }
+
+    // ===== VALIDAÇÃO CORRIGIDA =====
+    // Se não tiver NENHUMA, bloqueia. Se tiver 1, libera.
+    if (!podeValidar) {
+      alert("É necessário pelo menos 1 assinatura");
+      return;
+    }
+
+    let fotoUrl = null;
+    if (assinatura2 && foto) {
+      const nomeArquivo = `assinatura-${Date.now()}.png`;
+      const res = await fetch(foto);
+      const blob = await res.blob();
+      const { error: uploadError } = await supabase.storage
+        .from("assinaturas-epi")
+        .upload(nomeArquivo, blob, { contentType: "image/png" });
+      if (uploadError) {
+        alert("Erro ao enviar foto: " + uploadError.message);
+        return;
+      }
+      const { data } = supabase.storage.from("assinaturas-epi").getPublicUrl(nomeArquivo);
+      fotoUrl = data.publicUrl;
+    }
+
+    const { error } = await supabase.from("epis_entregas").insert([
+      {
+        funcionario,
+        epi,
+        tipo_assinatura: tipoUsado,
+        assinatura1,
+        assinatura2,
+        assinatura3,
+        codigo_funcionario: assinatura3 ? codigo : null,
+        foto_url: fotoUrl,
+      },
+    ]);
+
+    if (error) {
+      alert("Erro ao salvar: " + error.message);
+      return;
+    }
+
+    alert(`Entrega salva com: ${tipoUsado}`);
+    setFuncionario("");
+    setEpi("");
+    setCodigo("");
+    setFoto(null);
+    setAssinatura1(false);
+    setAssinatura2(false);
+    setAssinatura3(false);
+    limparCanvas();
   }
-  if (!podeValidar) {
-    alert("É necessário pelo menos 1 assinatura");
-    return;
-  }
-  const { error } = await supabase.from("epis_entregas").insert([
-    {
-      funcionario,
-      epi,
-      tipo_assinatura: tipoUsado,
-      assinatura1,
-      assinatura2,
-      assinatura3,
-      codigo_funcionario: assinatura3 ? codigo : null,
-    },
-  ]);
-  if (error) {
-    alert("Erro ao salvar: " + error.message);
-    return;
-  }
-  alert(`Entrega salva no Supabase com: ${tipoUsado}`);
-  setFuncionario("");
-  setEpi("");
-  setCodigo("");
-  setFoto(null);
-  setAssinatura1(false);
-  setAssinatura2(false);
-  setAssinatura3(false);
-  limparCanvas();
-}
 
   return (
     <div style={{ maxWidth: 480, margin: "auto", padding: 20, fontFamily: "Arial" }}>

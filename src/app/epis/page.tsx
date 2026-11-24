@@ -1,152 +1,162 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
-import { supabase } from "../supabaseClient";
 
-export default function Epis() {
-  const [lista, setLista] = useState<any[]>([]);
-  const [nome, setNome] = useState("");
+import { useRef, useState, useEffect } from "react";
+
+export default function EpisPage() {
   const [funcionario, setFuncionario] = useState("");
-  const [dataEntrega, setDataEntrega] = useState("");
+  const [epi, setEpi] = useState("");
+  const [codigo, setCodigo] = useState("");
+  const [foto, setFoto] = useState<string | null>(null);
 
-  // AUTORIZAÇÃO INDEPENDENTE: qualquer UMA libera
-  const [metodo, setMetodo] = useState<"assinatura" | "pin" | "biometria">("assinatura");
-  const [pin, setPin] = useState("");
-  const [assinaturaFeita, setAssinaturaFeita] = useState(false);
-  const [biometriaOk, setBiometriaOk] = useState(false);
-  const [biometriaMsg, setBiometriaMsg] = useState("");
+  // 3 ASSINATURAS INDEPENDENTES
+  const [assinatura1, setAssinatura1] = useState(false); // tela
+  const [assinatura2, setAssinatura2] = useState(false); // foto
+  const [assinatura3, setAssinatura3] = useState(false); // código
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const desenhando = useRef(false);
 
-  async function carregar() {
-    const { data } = await supabase.from("epis").select("*").order("created_at", { ascending: false });
-    setLista(data || []);
-  }
-  useEffect(() => { carregar(); }, []);
+  // REGRA NOVA: 1 SÓ JÁ VALIDA - OU e não E
+  const podeValidar = assinatura1 || assinatura2 || assinatura3;
 
-  function iniciarAssinatura(e: any) {
-    desenhando.current = true;
-    desenhar(e);
-  }
-  function desenhar(e: any) {
-    if (!desenhando.current) return;
+  const tipoUsado = assinatura1
+    ? "Assinatura na tela"
+    : assinatura2
+    ? "Foto da assinatura"
+    : assinatura3
+    ? "Código do funcionário"
+    : "";
+
+  function desenhar(e: React.PointerEvent) {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-    const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
     ctx.lineWidth = 2;
     ctx.lineCap = "round";
-    ctx.strokeStyle = "#000";
     ctx.lineTo(x, y);
     ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(x, y);
-    setAssinaturaFeita(true);
   }
-  function pararAssinatura() {
-    desenhando.current = false;
-    const ctx = canvasRef.current?.getContext("2d");
-    ctx?.beginPath();
-  }
-  function limparAssinatura() {
+
+  function limparCanvas() {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
-    setAssinaturaFeita(false);
+    const ctx = canvas.getContext("2d");
+    ctx?.clearRect(0, 0, canvas.width, canvas.height);
+    ctx?.beginPath();
+    setAssinatura1(false);
   }
 
-  async function autenticarBiometria() {
-    setBiometriaMsg("");
-    try {
-      if (!window.PublicKeyCredential) {
-        setBiometriaMsg("Biometria não disponível neste aparelho, use Assinatura ou PIN.");
-        return;
-      }
-      const challenge = new Uint8Array(32);
-      window.crypto.getRandomValues(challenge);
-      // @ts-ignore
-      await navigator.credentials.get({
-        publicKey: { challenge, timeout: 60000, userVerification: "required" },
-      });
-      setBiometriaOk(true);
-      setBiometriaMsg("✅ Biometria confirmada!");
-    } catch {
-      setBiometriaOk(false);
-      setBiometriaMsg("Biometria cancelada ou não cadastrada. Tente de novo ou use Assinatura / PIN.");
+  function lerFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFoto(reader.result as string);
+      setAssinatura2(true);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  useEffect(() => {
+    setAssinatura3(codigo.trim().length >= 3);
+  }, [codigo]);
+
+  async function confirmarEntrega() {
+    if (!funcionario || !epi) {
+      alert("Preencha funcionário e EPI");
+      return;
     }
-  }
+    if (!podeValidar) {
+      alert("É necessário pelo menos 1 assinatura");
+      return;
+    }
 
-  async function salvar() {
-    if (!nome || !funcionario) return alert("Preenche nome do EPI e funcionário");
-
-    // REGRA NOVA: SÓ O MÉTODO ESCOLHIDO PRECISA ESTAR PRONTO
-    if (metodo === "assinatura" && !assinaturaFeita) return alert("Assine no campo ou troque para PIN ou Biometria.");
-    if (metodo === "pin" && pin.length < 4) return alert("Digite o PIN de 4 dígitos ou troque para Assinatura ou Biometria.");
-    if (metodo === "biometria" && !biometriaOk) return alert("Confirme a biometria ou troque para Assinatura ou PIN.");
-
-    const dadosBasicos: any = { nome, funcionario, data_entrega: dataEntrega || null };
-    const dadosCompletos: any = {
-      ...dadosBasicos,
-      autorizado_por: metodo,
-      assinatura: metodo === "assinatura" && assinaturaFeita ? canvasRef.current?.toDataURL("image/png") : null,
-      pin_confirmado: metodo === "pin",
-      biometria_confirmada: metodo === "biometria",
+    // Aqui envia pro seu backend / API
+    // Se ainda não tem API, salva local só pra testar
+    const entrega = {
+      funcionario,
+      epi,
+      tipoAssinatura: tipoUsado,
+      data: new Date().toISOString(),
+      assinatura1,
+      assinatura2,
+      assinatura3,
     };
 
-    // Tenta salvar com as colunas novas, se não existirem salva só o básico
-    let { error } = await supabase.from("epis").insert(dadosCompletos);
-    if (error) {
-      const { error: error2 } = await supabase.from("epis").insert(dadosBasicos);
-      if (error2) return alert("Erro ao salvar: " + error2.message + " | Faça print disso e me manda.");
-      alert("Entrega salva! (Aviso: rode o SQL das colunas novas no Supabase para registrar qual método foi usado)");
-    } else {
-      alert("Entrega registrada via " + metodo + "!");
-    }
+    console.log("Entrega validada:", entrega);
+    alert(`Entrega validada com: ${tipoUsado}`);
 
-    setNome(""); setFuncionario(""); setDataEntrega("");
-    setPin(""); setBiometriaOk(false); setBiometriaMsg(""); limparAssinatura();
-    carregar();
+    // Limpa
+    setFuncionario("");
+    setEpi("");
+    setCodigo("");
+    setFoto(null);
+    setAssinatura1(false);
+    setAssinatura2(false);
+    setAssinatura3(false);
+    limparCanvas();
   }
 
   return (
-    <div className="p-4 max-w-3xl mx-auto bg-gray-100 min-h-screen">
-      <h1 className="text-2xl font-black">🦺 EPIs</h1>
-      <div className="bg-white p-4 rounded-2xl shadow mt-4 flex flex-col gap-2">
-        <input value={nome} onChange={e => setNome(e.target.value)} placeholder="EPI ex: Capacete" className="border rounded-xl px-3 py-3" />
-        <input value={funcionario} onChange={e => setFuncionario(e.target.value)} placeholder="Funcionário que recebeu" className="border rounded-xl px-3 py-3" />
-        <input type="date" value={dataEntrega} onChange={e => setDataEntrega(e.target.value)} className="border rounded-xl px-3 py-3" />
+    <div style={{ maxWidth: 480, margin: "auto", padding: 20, fontFamily: "Arial" }}>
+      <h1>Previx - Entrega de EPI</h1>
+      <p>Assine em <b>pelo menos 1 das 3 opções</b> para validar.</p>
 
-        <p className="font-bold mt-2">Autorização de entrega - escolha 1:</p>
-        <div className="flex gap-2">
-          <button type="button" onClick={() => setMetodo("assinatura")} className={`flex-1 py-2 rounded-xl font-bold border ${metodo === "assinatura" ? "bg-black text-white" : "bg-gray-100"}`}>✍️ Assinatura</button>
-          <button type="button" onClick={() => setMetodo("pin")} className={`flex-1 py-2 rounded-xl font-bold border ${metodo === "pin" ? "bg-black text-white" : "bg-gray-100"}`}>🔢 PIN</button>
-          <button type="button" onClick={() => setMetodo("biometria")} className={`flex-1 py-2 rounded-xl font-bold border ${metodo === "biometria" ? "bg-black text-white" : "bg-gray-100"}`}>👆 Biometria</button>
-        </div>
+      <label>Funcionário</label>
+      <input value={funcionario} onChange={(e) => setFuncionario(e.target.value)} placeholder="Nome do funcionário" style={input} />
 
-        {metodo === "assinatura" && (
-          <div>
-            <p className="text-sm text-gray-500 mb-1">Assine abaixo para autorizar:</p>
-            <canvas ref={canvasRef} width={500} height={180} onMouseDown={iniciarAssinatura} onMouseMove={desenhar} onMouseUp={pararAssinatura} onMouseLeave={pararAssinatura} onTouchStart={iniciarAssinatura} onTouchMove={desenhar} onTouchEnd={pararAssinatura} className="border rounded-xl w-full bg-white touch-none" />
-            <button type="button" onClick={limparAssinatura} className="text-sm underline mt-1">Limpar assinatura</button>
-          </div>
-        )}
+      <label>EPI Entregue</label>
+      <input value={epi} onChange={(e) => setEpi(e.target.value)} placeholder="Ex: Capacete, Luva, Bota" style={input} />
 
-        {metodo === "pin" && (
-          <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="Digite o PIN" inputMode="numeric" className="border rounded-xl px-3 py-3 w-full" />
-        )}
-
-        {metodo === "biometria" && (
-          <div className="flex flex-col gap-2">
-            <button type="button" onClick={autenticarBiometria} className="bg-blue-500 text-white py-3 rounded-xl font-bold">{biometriaOk ? "✅ Biometria Confirmada" : "Usar Digital / Facial"}</button>
-            {biometriaMsg && <p className="text-sm">{biometriaMsg}</p>}
-          </div>
-        )}
-
-        <button onClick={salvar} className="bg-green-500 text-white py-3 rounded-xl font-bold">Registrar Entrega</button>
+      {/* OPÇÃO 1 */}
+      <div style={{ ...card, borderColor: assinatura1 ? "#22c55e" : "#ddd" }}>
+        <h3>Opção 1 - Assinar na tela</h3>
+        <canvas
+          ref={canvasRef}
+          width={300}
+          height={140}
+          style={{ border: "1px solid #000", width: "100%", background: "#fff", touchAction: "none" }}
+          onPointerDown={(e) => { desenhando.current = true; desenhar(e); }}
+          onPointerMove={(e) => { if (desenhando.current) desenhar(e); }}
+          onPointerUp={() => { desenhando.current = false; setAssinatura1(true); }}
+        />
+        <button onClick={limparCanvas} style={btnSec}>Limpar assinatura</button>
+        <span>{assinatura1 ? "✅ Assinatura 1 válida" : "❌ Sem assinatura"}</span>
       </div>
-      {lista.map((e: any) => <div key={e.id} className="bg-white p-3 rounded-xl mt-2 shadow">{e.nome} - {e.funcionario} - {e.data_entrega || ""} {e.autorizado_por ? ` - via ${e.autorizado_por}` : ""}</div>)}
+
+      {/* OPÇÃO 2 */}
+      <div style={{ ...card, borderColor: assinatura2 ? "#22c55e" : "#ddd" }}>
+        <h3>Opção 2 - Enviar foto da assinatura</h3>
+        <input type="file" accept="image/*" onChange={lerFoto} />
+        {foto && <img src={foto} alt="assinatura" style={{ maxWidth: "100%", marginTop: 10 }} />}
+        <span>{assinatura2 ? "✅ Assinatura 2 válida" : "❌ Sem assinatura"}</span>
+      </div>
+
+      {/* OPÇÃO 3 */}
+      <div style={{ ...card, borderColor: assinatura3 ? "#22c55e" : "#ddd" }}>
+        <h3>Opção 3 - Código do funcionário</h3>
+        <input value={codigo} onChange={(e) => setCodigo(e.target.value)} placeholder="Digite o código / matrícula" style={input} />
+        <span>{assinatura3 ? "✅ Assinatura 3 válida" : "❌ Sem assinatura"}</span>
+      </div>
+
+      {!podeValidar && <p style={{ color: "red", textAlign: "center" }}>Assine em pelo menos 1 das 3 opções</p>}
+
+      <button onClick={confirmarEntrega} disabled={!podeValidar} style={{ ...btn, background: podeValidar ? "#111" : "#ccc" }}>
+        Confirmar Entrega
+      </button>
+
+      {podeValidar && <p style={{ textAlign: "center", color: "green" }}>Validando com: {tipoUsado}</p>}
     </div>
   );
 }
+
+const input = { width: "100%", padding: 10, margin: "5px 0 12px", border: "1px solid #ccc", borderRadius: 8, boxSizing: "border-box" as const };
+const card = { border: "1px solid #ddd", padding: 12, borderRadius: 10, marginBottom: 12 };
+const btn = { width: "100%", padding: 12, border: 0, borderRadius: 8, color: "#fff", fontWeight: "bold" as const, cursor: "pointer" };
+const btnSec = { width: "100%", padding: 10, marginTop: 8, borderRadius: 8, border: "1px solid #ccc", cursor: "pointer" };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";import { supabase } from "@/lib/supabaseClient";
 
 export default function EpisPage() {
   const [funcionario, setFuncionario] = useState("");

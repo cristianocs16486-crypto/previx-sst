@@ -67,41 +67,40 @@ export default function EpisPage() {
     setAssinatura3(codigo.trim().length >= 3);
   }, [codigo]);
 
-  async function confirmarEntrega() {
-    if (!funcionario || !epi) {
-      alert("Preencha funcionário e EPI");
-      return;
-    }
-    if (!podeValidar) {
-      alert("É necessário pelo menos 1 assinatura");
-      return;
-    }
-
-    // Aqui envia pro seu backend / API
-    // Se ainda não tem API, salva local só pra testar
-    const entrega = {
+ async function confirmarEntrega() {
+  if (!funcionario || !epi) {
+    alert("Preencha funcionário e EPI");
+    return;
+  }
+  if (!podeValidar) {
+    alert("É necessário pelo menos 1 assinatura");
+    return;
+  }
+  const { error } = await supabase.from("epis_entregas").insert([
+    {
       funcionario,
       epi,
-      tipoAssinatura: tipoUsado,
-      data: new Date().toISOString(),
+      tipo_assinatura: tipoUsado,
       assinatura1,
       assinatura2,
       assinatura3,
-    };
-
-    console.log("Entrega validada:", entrega);
-    alert(`Entrega validada com: ${tipoUsado}`);
-
-    // Limpa
-    setFuncionario("");
-    setEpi("");
-    setCodigo("");
-    setFoto(null);
-    setAssinatura1(false);
-    setAssinatura2(false);
-    setAssinatura3(false);
-    limparCanvas();
+      codigo_funcionario: assinatura3 ? codigo : null,
+    },
+  ]);
+  if (error) {
+    alert("Erro ao salvar: " + error.message);
+    return;
   }
+  alert(`Entrega salva no Supabase com: ${tipoUsado}`);
+  setFuncionario("");
+  setEpi("");
+  setCodigo("");
+  setFoto(null);
+  setAssinatura1(false);
+  setAssinatura2(false);
+  setAssinatura3(false);
+  limparCanvas();
+}
 
   return (
     <div style={{ maxWidth: 480, margin: "auto", padding: 20, fontFamily: "Arial" }}>
